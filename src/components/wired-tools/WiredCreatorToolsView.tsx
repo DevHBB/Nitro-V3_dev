@@ -63,8 +63,6 @@ import {
     EDITABLE_FURNI_VARIABLES,
     EDITABLE_USER_VARIABLES,
     INSPECTION_ELEMENTS,
-    INTERNAL_FURNI_GRAVITY_VARIABLE_ITEM_ID,
-    INTERNAL_FURNI_OPACITY_VARIABLE_ITEM_ID,
     MONITOR_ERROR_INFO,
     MONITOR_LOG_ORDER,
     MONTH_NAMES,
@@ -2865,7 +2863,7 @@ export const WiredCreatorToolsView: FC<{}> = () => {
             }
 
             selectedRoomObject.model.setValue(RoomObjectVariable.FURNITURE_ALPHA_MULTIPLIER, nextOpacity / 100);
-            updateFurniVariableValue(selectedFurni.objectId, INTERNAL_FURNI_OPACITY_VARIABLE_ITEM_ID, nextOpacity);
+            SendMessageComposer(new WiredFurniRuntimeStateRequestComposer(selectedFurni.objectId, WIRED_FURNI_RUNTIME_ACTION_WRITE, '@opacity', nextOpacity));
             setEditingVariable(null);
             setEditingValue('');
             return;
@@ -2881,7 +2879,7 @@ export const WiredCreatorToolsView: FC<{}> = () => {
 
             selectedRoomObject.model.setValue(WIRED_FURNI_GRAVITY_MODEL_KEY, nextGravity);
             setFurniInternalRevision((previousValue) => previousValue + 1);
-            updateFurniVariableValue(selectedFurni.objectId, INTERNAL_FURNI_GRAVITY_VARIABLE_ITEM_ID, nextGravity);
+            SendMessageComposer(new WiredFurniRuntimeStateRequestComposer(selectedFurni.objectId, WIRED_FURNI_RUNTIME_ACTION_WRITE, '@gravity', nextGravity));
             setEditingVariable(null);
             setEditingValue('');
             return;
