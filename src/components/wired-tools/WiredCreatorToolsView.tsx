@@ -26,7 +26,6 @@ import {
     RoomUnitStatusEvent,
     UpdateFurniturePositionComposer,
     Vector3d,
-    WiredFurniGravityMessageEvent,
     WiredMonitorDataEvent,
     WiredMonitorRequestComposer,
     WiredFurniRuntimeStateEvent,
@@ -64,8 +63,6 @@ import {
     EDITABLE_FURNI_VARIABLES,
     EDITABLE_USER_VARIABLES,
     INSPECTION_ELEMENTS,
-    INTERNAL_FURNI_GRAVITY_VARIABLE_ITEM_ID,
-    INTERNAL_FURNI_OPACITY_VARIABLE_ITEM_ID,
     MONITOR_ERROR_INFO,
     MONITOR_LOG_ORDER,
     MONTH_NAMES,
@@ -690,28 +687,6 @@ export const WiredCreatorToolsView: FC<{}> = () => {
             value: parser.value,
             supported: parser.supported
         });
-    });
-
-    useMessageEvent<WiredFurniGravityMessageEvent>(WiredFurniGravityMessageEvent, (event) => {
-        if (!roomSession) return;
-
-        const data = event.getParser()?.data;
-        if (!data) return;
-
-        const gravity = data.gravity > 0 ? 1 : 0;
-        let selectedChanged = false;
-
-        for (const furniId of data.furniIds) {
-            const floorObject = GetRoomEngine().getRoomObject(roomSession.roomId, furniId, RoomObjectCategory.FLOOR);
-            const wallObject = GetRoomEngine().getRoomObject(roomSession.roomId, furniId, RoomObjectCategory.WALL);
-
-            floorObject?.model?.setValue(WIRED_FURNI_GRAVITY_MODEL_KEY, gravity);
-            wallObject?.model?.setValue(WIRED_FURNI_GRAVITY_MODEL_KEY, gravity);
-
-            if (selectedFurni?.objectId === furniId) selectedChanged = true;
-        }
-
-        if (selectedChanged) setFurniInternalRevision((previousValue) => previousValue + 1);
     });
 
     useMessageEvent<FurnitureFloorUpdateEvent>(FurnitureFloorUpdateEvent, (event) => {
@@ -2888,7 +2863,7 @@ export const WiredCreatorToolsView: FC<{}> = () => {
             }
 
             selectedRoomObject.model.setValue(RoomObjectVariable.FURNITURE_ALPHA_MULTIPLIER, nextOpacity / 100);
-            updateFurniVariableValue(selectedFurni.objectId, INTERNAL_FURNI_OPACITY_VARIABLE_ITEM_ID, nextOpacity);
+            SendMessageComposer(new WiredFurniRuntimeStateRequestComposer(selectedFurni.objectId, WIRED_FURNI_RUNTIME_ACTION_WRITE, '@opacity', nextOpacity));
             setEditingVariable(null);
             setEditingValue('');
             return;
@@ -2904,7 +2879,7 @@ export const WiredCreatorToolsView: FC<{}> = () => {
 
             selectedRoomObject.model.setValue(WIRED_FURNI_GRAVITY_MODEL_KEY, nextGravity);
             setFurniInternalRevision((previousValue) => previousValue + 1);
-            updateFurniVariableValue(selectedFurni.objectId, INTERNAL_FURNI_GRAVITY_VARIABLE_ITEM_ID, nextGravity);
+            SendMessageComposer(new WiredFurniRuntimeStateRequestComposer(selectedFurni.objectId, WIRED_FURNI_RUNTIME_ACTION_WRITE, '@gravity', nextGravity));
             setEditingVariable(null);
             setEditingValue('');
             return;
