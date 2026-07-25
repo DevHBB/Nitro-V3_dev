@@ -29,12 +29,13 @@ import { useMessageEvent } from '../events';
 import { useNotification } from '../notification';
 import { IResolvedTranslation, useTranslation } from '../translation';
 import { useFriends } from './useFriends';
-import { useMessengerActions, useMessengerHistory, useMessengerRealtime } from './messenger';
+import { useMessengerHistory, useMessengerRealtime } from './messenger';
 
 const useMessengerState = () => {
+    // Still load-bearing after FriendsPersistentMessengerView was removed: the realtime
+    // store drives the messenger icon state and history prefetch for the SWF window.
     const persistentState = useMessengerRealtime();
     const persistentHistory = useMessengerHistory();
-    const persistentActions = useMessengerActions();
     const [messageThreads, setMessageThreads] = useState<MessengerThread[]>([]);
     const [activeThreadId, setActiveThreadId] = useState<number>(-1);
     const [hiddenThreadIds, setHiddenThreadIds] = useState<number[]>([]);
@@ -400,8 +401,7 @@ const useMessengerState = () => {
         closeThread,
         sendMessage,
         typingUserIds,
-        sendTypingStatus,
-        persistentMessenger: { state: persistentState, history: persistentHistory, actions: persistentActions }
+        sendTypingStatus
     };
 };
 
