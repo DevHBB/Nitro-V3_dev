@@ -26,7 +26,6 @@ import {
     RoomUnitStatusEvent,
     UpdateFurniturePositionComposer,
     Vector3d,
-    WiredFurniGravityMessageEvent,
     WiredMonitorDataEvent,
     WiredMonitorRequestComposer,
     WiredFurniRuntimeStateEvent,
@@ -690,28 +689,6 @@ export const WiredCreatorToolsView: FC<{}> = () => {
             value: parser.value,
             supported: parser.supported
         });
-    });
-
-    useMessageEvent<WiredFurniGravityMessageEvent>(WiredFurniGravityMessageEvent, (event) => {
-        if (!roomSession) return;
-
-        const data = event.getParser()?.data;
-        if (!data) return;
-
-        const gravity = data.gravity > 0 ? 1 : 0;
-        let selectedChanged = false;
-
-        for (const furniId of data.furniIds) {
-            const floorObject = GetRoomEngine().getRoomObject(roomSession.roomId, furniId, RoomObjectCategory.FLOOR);
-            const wallObject = GetRoomEngine().getRoomObject(roomSession.roomId, furniId, RoomObjectCategory.WALL);
-
-            floorObject?.model?.setValue(WIRED_FURNI_GRAVITY_MODEL_KEY, gravity);
-            wallObject?.model?.setValue(WIRED_FURNI_GRAVITY_MODEL_KEY, gravity);
-
-            if (selectedFurni?.objectId === furniId) selectedChanged = true;
-        }
-
-        if (selectedChanged) setFurniInternalRevision((previousValue) => previousValue + 1);
     });
 
     useMessageEvent<FurnitureFloorUpdateEvent>(FurnitureFloorUpdateEvent, (event) => {
