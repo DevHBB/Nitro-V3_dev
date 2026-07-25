@@ -6,7 +6,6 @@ import { Text } from '../../../../common';
 import { useMessageEvent, useNavigatorData, useNitroEvent, useRoom } from '../../../../hooks';
 import { classNames } from '../../../../layout';
 import { getRegisteredPlugins, INitroPlugin, subscribePlugins } from '../../../plugins/NitroPluginApi';
-import { getRoomZoomLevel, stepRoomZoom } from './roomZoom.helpers';
 
 interface RoomHistoryEntry {
     roomId: number;
@@ -172,6 +171,14 @@ export const RoomToolsWidgetView: FC<{}> = (props) => {
         setHasLikedRoom(false);
         updateZoomScale();
     }, [roomSession?.roomId]);
+
+    // The renderer can be zoomed from outside this toolbar (keyboard shortcuts,
+    // other widgets), so resync the displayed level whenever the engine reports it.
+    useNitroEvent<RoomEngineEvent>(RoomEngineEvent.ROOM_ZOOMED, (event) => {
+        if (!roomSession || event.roomId !== roomSession.roomId) return;
+
+        updateZoomScale();
+    });
 
     const tools = [
         { action: 'settings', icon: 'icon-cog', label: LocalizeText('room.settings.button.text') },

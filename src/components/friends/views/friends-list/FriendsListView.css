@@ -21,7 +21,9 @@
     grid-template-rows: 24px 17px minmax(0, 1fr) 41px 17px 18px;
     width: 240px;
     min-width: 240px;
-    max-width: 240px;
+    /* Fixed 240px SWF frame, but never wider than the viewport — matches the
+       max-height clamp below and the convention the other windows follow. */
+    max-width: min(240px, calc(100vw - 16px));
     height: 350px;
     min-height: 220px;
     max-height: calc(100vh - 16px);
