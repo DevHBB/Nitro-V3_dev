@@ -26,7 +26,7 @@ import { LoadingView } from './components/loading/LoadingView';
 import { LoginView } from './components/login/LoginView';
 import { MainView } from './components/MainView';
 import { ReconnectView } from './components/reconnect/ReconnectView';
-import { getConnectionFailureAction, useConnectionState, useMessageEvent } from './hooks';
+import { ClearStoredChatHistory, getConnectionFailureAction, useConnectionState, useMessageEvent, useNitroEvent } from './hooks';
 
 NitroVersion.UI_VERSION = GetUIVersion();
 
@@ -120,6 +120,7 @@ export const App: FC<{}> = (props) => {
     const previousConnectionPhaseRef = useRef(connectionState.phase);
 
     const clearStoredCredentials = useCallback(() => {
+        ClearStoredChatHistory();
         ClearRememberLogin();
         try {
             delete (window as any).NitroConfig?.['sso.ticket'];
@@ -169,6 +170,7 @@ export const App: FC<{}> = (props) => {
 
     const applySsoTicket = useCallback((ssoTicket: string) => {
         if (!ssoTicket) return;
+        ClearStoredChatHistory();
         window.NitroConfig['sso.ticket'] = ssoTicket;
         GetConfiguration().setValue('sso.ticket', ssoTicket);
     }, []);

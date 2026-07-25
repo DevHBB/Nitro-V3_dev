@@ -1,8 +1,11 @@
-import { CreateLinkEvent } from '@nitrots/nitro-renderer';
+import { CreateLinkEvent, DisconnectMessageComposer, GetCommunication } from '@nitrots/nitro-renderer';
 import { FC, useCallback, useMemo, useState } from 'react';
-import { ClearRememberLogin, FriendlyTime, GetConfigurationValue, GetRememberLogin, LocalizeText, localizeWithFallback } from '../../api';
+import { ClearRememberLogin, FriendlyTime, GetConfigurationValue, GetRememberLogin, LocalizeText, SendMessageComposer, localizeWithFallback } from '../../api';
 import { Column, LayoutCurrencyIcon } from '../../common';
-import { usePurse } from '../../hooks';
+import earningsIcon from '../../assets/images/purse-swf/icons/1747_icon_earnings_png$5e39e03f65fbbb9a85bedd0d577dc12d307477063.png';
+import logoutIcon from '../../assets/images/purse-swf/icons/1936_logout_icon_png$6a29fdff1e5e3cdd3c6290cec5c962b4-234470554.png';
+import settingsIcon from '../../assets/images/purse-swf/icons/2291_settings_icon_png$c9dcf215bb7a7e35a3f128c7c60151bc1008066621.png';
+import { ClearStoredChatHistory, usePurse } from '../../hooks';
 import { CurrencyView } from './views/CurrencyView';
 import { SeasonalView } from './views/SeasonalView';
 
@@ -76,6 +79,13 @@ export const PurseView: FC<{}> = (props) => {
         const rememberToken = GetRememberLogin()?.token || '';
 
         try {
+            SendMessageComposer(new DisconnectMessageComposer());
+            await new Promise((resolve) => setTimeout(resolve, 100));
+        } catch {
+            /* best-effort — the HTTP logout below still performs server cleanup */
+        }
+
+        try {
             await fetch(logoutUrl, {
                 method: 'POST',
                 credentials: 'include',
@@ -91,7 +101,14 @@ export const PurseView: FC<{}> = (props) => {
             /* best-effort — proceed with local logout regardless */
         }
 
+        try {
+            GetCommunication().connection.dispose();
+        } catch {
+            /* best-effort — page reload will drop the transport if it is already closed */
+        }
+
         ClearRememberLogin();
+        ClearStoredChatHistory();
         if (window.NitroConfig) window.NitroConfig['sso.ticket'] = '';
         window.location.reload();
     }, []);
@@ -107,15 +124,15 @@ export const PurseView: FC<{}> = (props) => {
                         <CurrencyView type={-1} amount={purse.credits} short={currencyDisplayNumberShort} />
                         {hasDuckets && <CurrencyView type={0} amount={purse.activityPoints.get(0) || 0} short={currencyDisplayNumberShort} />}
                     </div>
-                    <div className="nitro-purse__col nitro-purse__col--primary">
+                    <div className="nitro-purse__col nitro-purse__col--primary subscription-container">
                         {!hcDisabled && (
-                            <button type="button" className="nitro-purse__btn nitro-purse__btn--join" onClick={openClub} title={clubLabel}>
+                            <button type="button" className="nitro-purse__btn nitro-purse__btn--join nitro-purse-subscription club-text" onClick={openClub} title={clubLabel}>
                                 <LayoutCurrencyIcon type="hc" />
                                 <span>{clubLabel}</span>
                             </button>
                         )}
-                        <button type="button" className="nitro-purse__btn nitro-purse__btn--earnings" onClick={openEarnings} title={earningsLabel}>
-                            <span className="nitro-purse__glyph nitro-purse__glyph--earnings" aria-hidden="true" />
+                        <button type="button" className="nitro-purse__btn nitro-purse__btn--earnings nitro-purse-subscription club-text" onClick={openEarnings} title={earningsLabel}>
+                            <img src={earningsIcon} alt="" className="nitro-purse__btn-img" />
                             <span>{earningsLabel}</span>
                         </button>
                     </div>
@@ -123,15 +140,7 @@ export const PurseView: FC<{}> = (props) => {
                     <div className="nitro-purse__col nitro-purse__col--actions">
                         <button
                             type="button"
-                            className="nitro-purse__btn nitro-purse__btn--icon nitro-purse__btn--translate"
-                            onClick={openTranslate}
-                            title={translateLabel}
-                        >
-                            <span>{translateLabel}</span>
-                        </button>
-                        <button
-                            type="button"
-                            className="nitro-purse__btn nitro-purse__btn--icon nitro-purse__btn--help"
+                            className="nitro-purse__btn nitro-purse__btn--help nitro-purse-right-button help"
                             onClick={(event) => {
                                 event.stopPropagation();
                                 CreateLinkEvent('help/show');
@@ -142,46 +151,43 @@ export const PurseView: FC<{}> = (props) => {
                         </button>
                         <button
                             type="button"
-                            className="nitro-purse__btn nitro-purse__btn--icon nitro-purse__btn--logout"
+                            className="nitro-purse__btn nitro-purse__btn--icon nitro-purse__btn--logout nitro-purse-right-button disconnect"
                             onClick={handleLogout}
                             title="Log out"
                         >
-                            <span className="nitro-purse__glyph nitro-purse__glyph--logout" aria-hidden="true" />
+                            <img src={logoutIcon} alt="" className="nitro-purse__btn-img" />
                         </button>
                         <button
                             type="button"
-                            className="nitro-purse__btn nitro-purse__btn--icon nitro-purse__btn--settings"
+                            className="nitro-purse__btn nitro-purse__btn--icon nitro-purse__btn--settings nitro-purse-right-button settings"
                             onClick={(event) => {
                                 event.stopPropagation();
                                 setSettingsMenuOpen((value) => !value);
                             }}
                             title={LocalizeText('widget.memenu.settings.title')}
                         >
-                            <span className="nitro-purse__glyph nitro-purse__glyph--settings" aria-hidden="true" />
+                            <img src={settingsIcon} alt="" className="nitro-purse__btn-img" />
                         </button>
                     </div>
                 </div>
             </div>
             {settingsMenuOpen && (
                 <div className="nitro-purse-menu">
-                    <button type="button" className="nitro-purse-menu__item" onClick={() => openSettingsSection('audio')}>
-                        {localizeWithFallback('purse.settings.audio', 'Audio Settings')}
+                    <button type="button" className="nitro-purse-menu__item" onClick={() => openSettingsSection('')}>
+                        {localizeWithFallback('widget.memenu.settings.title', 'Settings')}
+                    </button>
+                    <button type="button" className="nitro-purse-menu__item" onClick={() => openSettingsSection('privacy')}>
+                        {localizeWithFallback('purse.settings.game_privacy', 'Game Privacy')}
                     </button>
                     <button
                         type="button"
                         className="nitro-purse-menu__item"
                         onClick={() => {
-                            CreateLinkEvent('discord-settings/show');
+                            CreateLinkEvent('translation-settings/toggle');
                             setSettingsMenuOpen(false);
                         }}
                     >
-                        {localizeWithFallback('purse.settings.discord', 'Discord Settings')}
-                    </button>
-                    <button type="button" className="nitro-purse-menu__item" onClick={() => openSettingsSection('chat')}>
-                        {localizeWithFallback('purse.settings.chat', 'Chat Settings')}
-                    </button>
-                    <button type="button" className="nitro-purse-menu__item" onClick={() => openSettingsSection('other')}>
-                        {localizeWithFallback('purse.settings.other', 'Other Settings')}
+                        {localizeWithFallback('purse.settings.language', 'Language Settings')}
                     </button>
                     <button
                         type="button"

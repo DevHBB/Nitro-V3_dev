@@ -15,6 +15,7 @@ import { WiredExtraFilterUsersByVariableView } from '../extras/WiredExtraFilterU
 import { WiredExtraFilterUserView } from '../extras/WiredExtraFilterUserView';
 import { WiredExtraFurniVariableView } from '../extras/WiredExtraFurniVariableView';
 import { WiredExtraMoveCarryUsersView } from '../extras/WiredExtraMoveCarryUsersView';
+import { WiredExtraMovementAnimationView } from '../extras/WiredExtraMovementAnimationView';
 import { WiredExtraMovementCurveView } from '../extras/WiredExtraMovementCurveView';
 import { WiredExtraMoveNoAnimationView } from '../extras/WiredExtraMoveNoAnimationView';
 import { WiredExtraMovePhysicsView } from '../extras/WiredExtraMovePhysicsView';
@@ -66,6 +67,7 @@ import { WiredActionBotTalkView } from './WiredActionBotTalkView';
 import { WiredActionBotTeleportView } from './WiredActionBotTeleportView';
 import { WiredActionCallAnotherStackView } from './WiredActionCallAnotherStackView';
 import { WiredActionCancelTransactionView } from './WiredActionCancelTransactionView';
+import { WiredActionChangeOpacityView } from './WiredActionChangeOpacityView';
 import { WiredActionChangeVariableValueView } from './WiredActionChangeVariableValueView';
 import { WiredActionChaseView } from './WiredActionChaseView';
 import { WiredActionChatView } from './WiredActionChatView';
@@ -300,6 +302,8 @@ export const WiredActionLayoutView = (code: number) => {
             return <WiredSelectorRemoteView />;
         case WiredActionLayoutCode.MOVEMENT_CURVE_EXTRA:
             return <WiredExtraMovementCurveView />;
+        case WiredActionLayoutCode.MOVEMENT_ANIMATION_EXTRA:
+            return <WiredExtraMovementAnimationView />;
         case WiredActionLayoutCode.TIME_UTILITIES_EXTRA:
             return <WiredExtraTimeUtilitiesView />;
         case WiredActionLayoutCode.GIVE_CURRENCY_FROM_CHEST:
@@ -332,6 +336,8 @@ export const WiredActionLayoutView = (code: number) => {
             return <WiredContractTradeView />;
         case WiredActionLayoutCode.CUSTOM_CONTRACT:
             return <WiredCustomContractView />;
+        case WiredActionLayoutCode.CHANGE_OPACITY:
+            return <WiredActionChangeOpacityView />;
     }
 
     return null;
