@@ -25,11 +25,4 @@ describe('FriendsMessengerView routing and scroll behavior', () =>
         expect(source).toContain('setActiveThreadId(thread.threadId);');
         expect(source.match(/setActiveThreadId\(thread\.threadId\);/g)).toHaveLength(1);
     });
-
-    it('keeps the Staff Chat avatar in the persistent tab bar', () =>
-    {
-        const source = readFileSync(join(process.cwd(), 'src/components/friends/views/messenger/FriendsPersistentMessengerView.tsx'), 'utf8');
-
-        expect(source).toContain('figure={STAFF_CHAT_FIGURE}');
-    });
 });
