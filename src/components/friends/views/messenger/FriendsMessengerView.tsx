@@ -130,15 +130,8 @@ export const FriendsMessengerView: FC<{}> = (props) => {
                     const friend = getFriend(participantId);
                     if(!friend) return;
 
-                    if(participantId === -1)
-                    {
-                        const thread = getMessageThread(participantId);
-                        if(!thread) return;
-                        setActiveThreadId(thread.threadId);
-                        setIsVisible(true);
-                        return;
-                    }
-
+                    // Staff Chat (participantId -1) and direct chats resolve the same
+                    // way — one path, so both open in the same messenger window.
                     const thread = getMessageThread(participantId);
 
                     if (!thread) return;

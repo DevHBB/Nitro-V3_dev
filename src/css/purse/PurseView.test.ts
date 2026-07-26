@@ -12,17 +12,21 @@ describe('PurseView.css', () => {
         expect(purseBlock).toContain('overflow: visible;');
     });
 
-    it('uses the AIR6 purse height without removing the extra action', () => {
+    it('keeps the SWF purse chrome without reintroducing the legacy background hack', () => {
         const css = readFileSync(cssPath, 'utf8');
 
-        expect(css).toMatch(/\.nitro-purse\s*\{[^}]*height:\s*77px;[^}]*min-height:\s*77px;/s);
-        expect(css).toMatch(/\.nitro-purse__body\s*\{[^}]*height:\s*69px;[^}]*min-height:\s*69px;/s);
-        expect(css).toMatch(/\.nitro-purse\s*\{[^}]*border-radius:\s*8px;/s);
-        expect(css).not.toContain('.nitro-purse::before');
-        expect(css).not.toContain('ubuntu_bg_9.png');
-        expect(css).toMatch(/\.nitro-purse__btn--icon\s*\{[^}]*height:\s*15px;/s);
+        // The SWF restyle replaced the fixed AIR6 77px/69px frame with a flex body
+        // that sizes to its content, so assert the column layout rather than heights.
+        expect(css).toMatch(/\.nitro-purse__body\s*\{[^}]*display:\s*flex;/s);
         expect(css).toMatch(/\.nitro-purse__col--primary\s*\{[^}]*gap:\s*7px;/s);
         expect(css).toMatch(/\.nitro-purse__col--actions\s*\{[^}]*gap:\s*2px;/s);
-        expect(css).toMatch(/\.nitro-purse__other\s+\.nitro-purse-seasonal-currency\s*\{[^}]*border-radius:\s*8px;/s);
+
+        // Per-currency amount colours are keyed off .nitro-purse-button__amount,
+        // which CurrencyView must keep emitting alongside .currency-text.
+        expect(css).toContain('.nitro-purse .nitro-purse-button.currency--1 .nitro-purse-button__amount');
+
+        // Regression guards from the AIR6 cleanup — these must not come back.
+        expect(css).not.toContain('.nitro-purse::before');
+        expect(css).not.toContain('ubuntu_bg_9.png');
     });
 });

@@ -63,6 +63,7 @@ describe('UI CSS ownership', () =>
         const wiredBaseView = readSource('src/components/wired/views/WiredBaseView.tsx');
         const friendsCategoryManagerView = readSource('src/components/friends/views/friends-list/FriendsCategoryManagerView.tsx');
         const friendsListView = readSource('src/components/friends/views/friends-list/FriendsListView.tsx');
+        const friendsListCss = readSource('src/components/friends/views/friends-list/FriendsListView.css');
         const friendsListRemoveConfirmationView = readSource('src/components/friends/views/friends-list/FriendsListRemoveConfirmationView.tsx');
         const friendsListRoomInviteView = readSource('src/components/friends/views/friends-list/FriendsListRoomInviteView.tsx');
         const friendsMessengerView = readSource('src/components/friends/views/messenger/FriendsMessengerView.tsx');
@@ -150,8 +151,10 @@ describe('UI CSS ownership', () =>
         expect(navigatorView).toContain('max-w-[calc(100vw-16px)]');
         expect(navigatorRoomSettingsView).toContain('max-w-[calc(100vw-16px)]');
         expect(wiredBaseView).toContain('max-h-[calc(100vh-16px)]');
-        expect(friendsListView).toContain('max-w-[calc(100vw-16px)]');
-        expect(friendsMessengerView).toContain('max-w-[calc(100vw-16px)]');
+        // The friends list and messenger were rebuilt as bespoke SWF windows, so their
+        // viewport clamp lives in CSS rather than in a Tailwind class on the view.
+        expect(friendsListCss).toContain('max-width: min(240px, calc(100vw - 16px));');
+        expect(friendsCss).toMatch(/\.swf-messenger-window\s*\{[^}]*max-width:\s*calc\(100vw - 10px\)/s);
         expect(vaultView).toContain('max-w-[calc(100vw-16px)]');
         expect(helpView).toContain('max-w-[calc(100vw-16px)]');
         expect(userSettingsView).toContain('max-w-[calc(100vw-16px)]');

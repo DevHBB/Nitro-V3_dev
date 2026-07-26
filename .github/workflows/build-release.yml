@@ -14,7 +14,30 @@ env:
   NITRO_JSON_MODE: 'legacy'
 
 jobs:
+  # The renderer lives in a private repo, so this workflow can only run where
+  # DUCKET_REPO_TOKEN is available. Without this gate actions/checkout fails with
+  # an opaque "Input required and not supplied: token" and turns the run red on
+  # every fork and on any repo that has not been given the secret.
+  check-access:
+    runs-on: ubuntu-latest
+    outputs:
+      has-token: ${{ steps.check.outputs.has-token }}
+    steps:
+      - name: Check for renderer access token
+        id: check
+        env:
+          DUCKET_REPO_TOKEN: ${{ secrets.DUCKET_REPO_TOKEN }}
+        run: |
+          if [ -n "$DUCKET_REPO_TOKEN" ]; then
+            echo "has-token=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has-token=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::DUCKET_REPO_TOKEN is not set — skipping the client release build."
+          fi
+
   build-release:
+    needs: check-access
+    if: needs.check-access.outputs.has-token == 'true'
     runs-on: ubuntu-latest
 
     steps:

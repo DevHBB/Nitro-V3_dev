@@ -12,7 +12,9 @@
     width: 100%;
     max-width: 230px;
     margin-left: auto;
-    overflow: hidden;
+    /* visible, not hidden: the shortened-amount tooltips in CurrencyView are
+       positioned outside the purse frame and would otherwise be clipped. */
+    overflow: visible;
     border: 0;
     border-left: 1px solid rgba(15, 15, 15, 0.78);
     border-bottom: 1px solid rgba(15, 15, 15, 0.78);

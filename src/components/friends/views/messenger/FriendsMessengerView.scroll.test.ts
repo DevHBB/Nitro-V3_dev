@@ -17,9 +17,13 @@ describe('FriendsMessengerView routing and scroll behavior', () =>
 
         expect(source).not.toContain('isLegacyStaffChat');
         expect(source).not.toContain('shouldUseLegacyStaffChat');
-        expect(source).toContain('persistentMessenger.actions.openDirectConversation(participantId, friend.name)');
-        expect(source).toContain('if(participantId === -1)');
-        expect(source).toContain('legacyStaffThread={activeThread?.participant?.id === -1 ? activeThread : null}');
+
+        // Staff Chat must not get its own branch: both it and direct chats resolve a
+        // thread and open the same window, so there is a single routing path.
+        expect(source).not.toContain('if(participantId === -1)');
+        expect(source).toContain('const thread = getMessageThread(participantId);');
+        expect(source).toContain('setActiveThreadId(thread.threadId);');
+        expect(source.match(/setActiveThreadId\(thread\.threadId\);/g)).toHaveLength(1);
     });
 
     it('keeps the Staff Chat avatar in the persistent tab bar', () =>
