@@ -1,7 +1,7 @@
 import { GameConfigurationData, JoinQueueMessageComposer } from '@nitrots/nitro-renderer';
 import { FC } from 'react';
 import { ColorUtils, LocalizeText, SendMessageComposer } from '../../../api';
-import { LayoutItemCountView } from '../../../common';
+import snowStormLogo from '../../../assets/images/snowstorm/snowstorm.png';
 import { useGameCenter, useSnowWar } from '../../../hooks';
 
 const localizeWithFallback = (key: string, fallback: string) =>
@@ -48,7 +48,7 @@ export const GameTileView: FC<{ game: GameConfigurationData }> = ({ game }) =>
             <div
                 className="game-tile__banner"
                 style={{ backgroundColor: ColorUtils.uintHexColor(game.bgColor), backgroundImage: `url(${game.assetUrl}${game.gameNameId}_theme.png)` }}>
-                <img alt={game.gameNameId} className="game-tile__logo" src={`${game.assetUrl}${game.gameNameId}_logo.png`} />
+                <img alt={game.gameNameId} className="game-tile__logo" src={isSnowWar ? snowStormLogo : `${game.assetUrl}${game.gameNameId}_logo.png`} />
             </div>
             <div className="game-tile__body">
                 <div className="game-tile__title">{title}</div>
@@ -76,7 +76,6 @@ export const GameTileView: FC<{ game: GameConfigurationData }> = ({ game }) =>
                 {isSnowWar && !inQueue && canPlay && (
                     <button className="snowwar-button game-tile__play" type="button" onClick={onPlay}>
                         {localizeWithFallback('gamecenter.play_now', 'Play now')}
-                        {!accountStatus.hasUnlimitedGames && <LayoutItemCountView count={accountStatus.freeGamesLeft} />}
                     </button>
                 )}
                 {errorEntry && <div className="game-tile__error">{localizeWithFallback(errorEntry[0], errorEntry[1])}</div>}

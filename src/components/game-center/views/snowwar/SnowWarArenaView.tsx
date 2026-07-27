@@ -1,7 +1,6 @@
 import { FC, MouseEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { GetSessionDataManager, LocalizeText } from '../../../../api';
 import {
-    SNOWWAR_STATE_CREATING,
     SNOWWAR_STATE_INVINCIBLE,
     SNOWWAR_STATE_STUNNED,
     THROW_RANGE_LONG,
@@ -27,6 +26,48 @@ const TEAM_COLORS = ['#e64545', '#4577e6', '#3fb550', '#e6c245'];
 // Fixed "normal" zoom - the middle of the old 0/1/2 levels. The selectable
 // zoom was removed; the arena always renders at this scale, in game and edit.
 const ZOOM = 2;
+
+// Vertical screen offset (px) of a snowball above its tile. The ball leaves the
+// avatar's hand at SNOWWAR_THROW_HAND_RISE; above that sits the visible arc =
+// how far the sim height rises ABOVE that trajectory's own baseline. A quick
+// throw (traj 0) has sim baseline 4000, the lob/long throws 3000, so measuring
+// each against its own baseline keeps a flat quick throw pinned at hand level
+// instead of floating over the avatar's head. A long/curved throw (traj 2) arcs
+// twice as high in the sim, so it renders at half scale - it lands near the
+// ground rather than "hitting" in the air. Used for both the ball sprite and
+// its splash so the two never drift apart.
+// How long (ms) an avatar holds the SnowWarThrow arm-out pose after throwing.
+const SNOWWAR_THROW_POSE_MS = 450;
+const SNOWWAR_THROW_HAND_RISE = 34;
+const snowballRise = (height: number, trajectory: number): number =>
+{
+    const baseline = trajectory === 0 ? 4000 : 3000;
+    const arc = Math.min(120, Math.max(0, height - baseline) / 60);
+    return SNOWWAR_THROW_HAND_RISE + (trajectory === 2 ? 0.5 : 1) * arc;
+};
+
+// Screen-space nudge (px) leading the ball along its travel direction, so it
+// appears to leave the avatar's extended hand toward the target for any facing.
+// dH/dV are the ball's per-step world velocity; converted to the iso screen
+// direction and scaled to a fixed reach.
+const SNOWWAR_HAND_REACH = 9;
+const travelOffset = (dH: number, dV: number): { x: number; y: number } =>
+{
+    const sdx = (dH - dV) * TILE_HALF_W;
+    const sdy = (dH + dV) * TILE_HALF_H;
+    const len = Math.hypot(sdx, sdy);
+    if (!len) return { x: 0, y: 0 };
+    return { x: (sdx / len) * SNOWWAR_HAND_REACH, y: (sdy / len) * SNOWWAR_HAND_REACH };
+};
+
+// Snowball-pile layout: each ball's top-left offset (px) from the machine tile
+// anchor, plus stacking order (front/lower balls drawn on top). Rendered as
+// real elements so every ball gets the same shaded, rimmed 3D snowball look.
+const SNOWWAR_PILE: { left: number; top: number; z: number }[] = [
+    { left: -14, top: 3, z: 3 }, { left: -5, top: 3, z: 3 }, { left: 4, top: 3, z: 3 },
+    { left: -10, top: -2, z: 2 }, { left: 0, top: -2, z: 2 },
+    { left: -5, top: -6, z: 1 },
+];
 
 // Design base: the arena is authored for a 1920x1080 stage. Larger screens
 // centre this stage; smaller screens cap the viewport to the screen and follow
@@ -79,7 +120,6 @@ export const SnowWarArenaView: FC = () =>
         walkTo,
         throwAtLocation,
         throwAtPlayer,
-        createSnowball,
         exitGame,
         startEditing,
         saveArena,
@@ -105,6 +145,17 @@ export const SnowWarArenaView: FC = () =>
     // Set when a throw is blocked for being out of range; shows a short hint.
     const [rangeWarningAt, setRangeWarningAt] = useState(0);
     const ownUserId = GetSessionDataManager()?.userId ?? 0;
+
+    // Snow-burst splashes: a short CSS animation spawned wherever a snowball
+    // vanishes (server-authoritative removal = a hit on furni/another player,
+    // or the ball landing). ballScreenRef holds last frame's on-screen ball
+    // positions so we can diff against this frame and splash the ones that went.
+    const [splashes, setSplashes] = useState<{ id: number; x: number; y: number }[]>([]);
+    const ballScreenRef = useRef<Map<number, { x: number; y: number }>>(new Map());
+    const splashIdRef = useRef(0);
+    // avatar objectId -> frameNow timestamp until which that avatar holds the
+    // SnowWarThrow pose. Set when a new snowball appears (that ball's thrower).
+    const throwPoseUntilRef = useRef<Map<number, number>>(new Map());
 
     // In-arena editor state (only meaningful while `editing`).
     const [editItems, setEditItems] = useState<EditItem[]>([]);
@@ -406,7 +457,10 @@ export const SnowWarArenaView: FC = () =>
         if (event.shiftKey || event.type === 'contextmenu')
         {
             event.preventDefault();
-            const trajectory = event.type === 'contextmenu' ? 2 : 1;
+            // Plain right-click = straight throw (trajectory 0, max 10 tiles);
+            // hold Shift = curved lob that flies over obstacles (trajectory 2,
+            // max 20 tiles). Range is a circle around the thrower (isThrowInRange).
+            const trajectory = event.shiftKey ? 2 : 0;
             const own = simulation.getAvatarByUserId(ownUserId);
             if (own && !isThrowInRange(own.tileX, own.tileY, tileX, tileY, trajectory))
             {
@@ -460,6 +514,48 @@ export const SnowWarArenaView: FC = () =>
 
     const ownAvatar = simulation.getAvatarByUserId(ownUserId);
     const alpha = simulation.interpolationAlpha;
+
+    // Detect snowballs that disappeared since the last frame and spawn a splash
+    // at their last on-screen spot. Runs every animation frame (frameNow tick).
+    // A bulk vanish (round end / arena reset) is ignored so we don't spray the
+    // whole map with splashes.
+    useEffect(() =>
+    {
+        const prev = ballScreenRef.current;
+        const next = new Map<number, { x: number; y: number }>();
+        for (const ball of simulation.snowballs.values())
+        {
+            const lx = ball.prevLocH + (ball.locH - ball.prevLocH) * alpha;
+            const ly = ball.prevLocV + (ball.locV - ball.prevLocV) * alpha;
+            const lh = Math.max(0, ball.prevHeight + (ball.height - ball.prevHeight) * alpha);
+            const { x, y } = worldToScreen(lx, ly);
+            // Splash marks the actual hit spot: use the ball's true position
+            // (only lifted by the arc), WITHOUT the travel-lead offset. That
+            // offset makes the ball leave the hand, but on a hit it would push
+            // the burst a few px past the avatar/furni it struck.
+            const rise = snowballRise(lh, ball.trajectory);
+            next.set(ball.objectId, { x, y: y - rise });
+
+            // A newly-appeared ball means its thrower just threw - flash that
+            // avatar into the SnowWarThrow pose for a short window.
+            if (!prev.has(ball.objectId) && ball.throwerObjectId)
+            {
+                throwPoseUntilRef.current.set(ball.throwerObjectId, frameNow + SNOWWAR_THROW_POSE_MS);
+            }
+        }
+
+        const gone: { id: number; x: number; y: number }[] = [];
+        prev.forEach((pos, id) =>
+        {
+            if (!next.has(id)) gone.push({ id: ++splashIdRef.current, x: pos.x, y: pos.y });
+        });
+        ballScreenRef.current = next;
+
+        if (gone.length > 0 && gone.length <= 3)
+        {
+            setSplashes(list => [...list, ...gone]);
+        }
+    }, [frameNow, alpha, worldToScreen, simulation]);
 
     // First room-ad furni's image is the arena backdrop. offsetZ doubles as an
     // overlay flag: 0 = drawn behind the arena (full-screen), 1 = overlaid on
@@ -620,14 +716,6 @@ export const SnowWarArenaView: FC = () =>
                         </>
                     ) : (
                         <>
-                            <button
-                                type="button"
-                                className="snowwar-button"
-                                disabled={!ownAvatar || ownAvatar.activityState === SNOWWAR_STATE_CREATING || ownAvatar.snowballCount >= 5}
-                                onClick={() => createSnowball()}
-                            >
-                                {localizeWithFallback('snowwar.make_snowball', 'Make snowball')}
-                            </button>
                             {levelData.canEditRoom && (
                                 <button type="button" className="snowwar-button" onClick={() => startEditing()}>
                                     {localizeWithFallback('snowwar.edit_room', 'Edit Room')}
@@ -838,7 +926,12 @@ export const SnowWarArenaView: FC = () =>
                         // avatar on the near sides (left/front) draws in front of the
                         // furni and only one standing behind it is covered.
                         const front = toScreen(item.x + effW - 1, item.y + effL - 1);
-                        const originY = toScreen(item.x, item.y).y;
+                        // Depth anchor = origin tile CENTRE (+ TILE_HALF_H), matching how
+                        // avatars anchor (worldToScreen is tile-centre). Without the
+                        // half-tile offset the furni sorted half a tile behind where it
+                        // should, which tipped the overlay the wrong way for an avatar
+                        // standing right at a corner.
+                        const originY = toScreen(item.x, item.y).y + TILE_HALF_H;
 
                         const furniData = GetSessionDataManager()?.getFloorItemDataByName?.(item.name);
                         return (
@@ -864,8 +957,35 @@ export const SnowWarArenaView: FC = () =>
                         const state = simulation.machines.get(machine.objectId);
                         const { x, y } = toScreen(machine.x, machine.y);
                         return (
-                            <div key={machine.objectId} className="snowwar-machine" style={{ left: x, top: y }}>
-                                <div className="snowwar-machine__body" />
+                            <div
+                                key={machine.objectId}
+                                // Depth-sort the pile like a floor furni (origin-tile
+                                // anchor, same formula as avatars/furni) so it draws in
+                                // front of anyone behind it and behind anyone in front,
+                                // and sorts correctly against normal furniture too.
+                                className="snowwar-machine"
+                                // Depth anchor = tile CENTRE (+ TILE_HALF_H) to match the
+                                // avatar reference, so the pile sorts cleanly at corners.
+                                style={{ left: x, top: y, zIndex: 100 + Math.round(y + TILE_HALF_H) }}
+                                title={localizeWithFallback('snowwar.machine.hint', 'Walk here to collect snowballs')}
+                                // Clicking the machine walks you to its pickup tile (the
+                                // tile in front of its left cell), where the server's
+                                // auto-collect tops you up - it isn't an instant click
+                                // grab, so give the player the one-click "go get ammo".
+                                onClick={event =>
+                                {
+                                    event.stopPropagation();
+                                    walkTo(tileToWorld(machine.x), tileToWorld(machine.y + 1));
+                                }}
+                            >
+                                <div className="snowwar-machine__shadow" />
+                                {SNOWWAR_PILE.map((ball, index) => (
+                                    <span
+                                        key={index}
+                                        className="snowwar-machine__ball"
+                                        style={{ left: ball.left, top: ball.top, zIndex: ball.z }}
+                                    />
+                                ))}
                                 <div className="snowwar-machine__count">{state?.snowballCount ?? 0}</div>
                             </div>
                         );
@@ -898,22 +1018,32 @@ export const SnowWarArenaView: FC = () =>
                         const lh = Math.max(0, ball.prevHeight + (ball.height - ball.prevHeight) * alpha);
                         const { x, y } = worldToScreen(lx, ly);
                         // Rendered arc = height above the throwing hand (world
-                        // 3000), amplified so the 10x flatter/steeper parabola
-                        // between normal (traj 1) and long (traj 2) throws is
-                        // actually visible; the ball also grows near its peak.
-                        const rise = 6 + Math.min(120, Math.max(0, lh - 3000) / 60);
+                        // 3000). snowballRise raises the origin to the hand and
+                        // halves the long-throw arc so it lands near the ground;
+                        // the ball also grows near its peak.
+                        const rise = snowballRise(lh, ball.trajectory);
+                        const off = travelOffset(ball.locH - ball.prevLocH, ball.locV - ball.prevLocV);
                         const peakScale = 1 + Math.min(0.8, Math.max(0, lh - 3000) / 8000);
                         return (
                             <div
                                 key={ball.objectId}
                                 className={'snowwar-snowball' + (ball.trajectory === 2 ? ' snowwar-snowball--long' : '')}
-                                style={{ left: x, top: y }}
+                                style={{ left: x + off.x, top: y + off.y }}
                             >
                                 <div className="snowwar-snowball__shadow" />
                                 <div className="snowwar-snowball__ball" style={{ transform: `translateY(${-rise}px) scale(${peakScale})` }} />
                             </div>
                         );
                     })}
+
+                    {splashes.map(splash =>
+                        <div
+                            key={splash.id}
+                            className="snowwar-splash"
+                            style={{ left: splash.x, top: splash.y }}
+                            onAnimationEnd={() => setSplashes(list => list.filter(item => item.id !== splash.id))}
+                        />
+                    )}
 
                     {[...simulation.avatars.values()].map(avatar =>
                     {
@@ -922,8 +1052,12 @@ export const SnowWarArenaView: FC = () =>
                         const { x, y } = worldToScreen(ax, ay);
                         const isOwn = avatar.userId === ownUserId;
                         const walking = (avatar.worldX !== avatar.prevWorldX) || (avatar.worldY !== avatar.prevWorldY);
+                        const throwUntil = throwPoseUntilRef.current.get(avatar.objectId) ?? 0;
+                        const throwing = frameNow < throwUntil;
+                        const throwProgress = throwing ? 1 - (throwUntil - frameNow) / SNOWWAR_THROW_POSE_MS : 0;
                         const stunned = avatar.activityState === SNOWWAR_STATE_STUNNED;
                         const invincible = avatar.activityState === SNOWWAR_STATE_INVINCIBLE;
+                        const hit = simulation.subturnCount < avatar.hitFlashUntilSubturn;
                         const chat = chatMessages.filter(message => message.objectId === avatar.objectId).slice(-1)[0];
                         const showChat = chat && (frameNow - chat.receivedAt) < 5000;
 
@@ -934,14 +1068,15 @@ export const SnowWarArenaView: FC = () =>
                                     'snowwar-avatar' +
                                     (stunned ? ' snowwar-avatar--stunned' : '') +
                                     (invincible ? ' snowwar-avatar--invincible' : '') +
-                                    (simulation.subturnCount < avatar.hitFlashUntilSubturn ? ' snowwar-avatar--hit' : '')
+                                    (hit ? ' snowwar-avatar--hit' : '')
                                 }
                                 style={{ left: x, top: y, zIndex: 100 + Math.round(y) }}
                                 onClick={event =>
                                 {
                                     if (isOwn || !ownAvatar || avatar.teamId === ownAvatar.teamId) return;
                                     event.stopPropagation();
-                                    const trajectory = event.shiftKey ? 2 : 1;
+                                    // Plain click = straight (traj 0, 10 tiles); Shift = curved (traj 2, 20 tiles).
+                                    const trajectory = event.shiftKey ? 2 : 0;
                                     if (!isThrowInRange(ownAvatar.tileX, ownAvatar.tileY, avatar.tileX, avatar.tileY, trajectory))
                                     {
                                         setRangeWarningAt(Date.now());
@@ -957,14 +1092,18 @@ export const SnowWarArenaView: FC = () =>
                                 >
                                     {avatar.name}
                                 </div>
-                                <SnowWarAvatarView
-                                    figure={avatar.figure}
-                                    gender={avatar.gender}
-                                    direction={avatar.rotation}
-                                    walking={walking && !stunned}
-                                    frameNow={frameNow}
-                                    scale={0.5}
-                                />
+                                <span className={'snowwar-avatar__body' + (hit ? ' snowwar-avatar__body--hit' : '')}>
+                                    <SnowWarAvatarView
+                                        figure={avatar.figure}
+                                        gender={avatar.gender}
+                                        direction={avatar.rotation}
+                                        walking={walking && !stunned}
+                                        throwing={throwing && !stunned}
+                                        throwProgress={throwProgress}
+                                        frameNow={frameNow}
+                                        scale={0.5}
+                                    />
+                                </span>
                                 {stunned && <div className="snowwar-avatar__stars">{'⭐⭐⭐'}</div>}
                             </div>
                         );

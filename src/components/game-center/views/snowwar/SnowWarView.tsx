@@ -2,6 +2,7 @@ import { FC } from 'react';
 import { LocalizeText } from '../../../../api';
 import { useGameCenter, useSnowWar } from '../../../../hooks';
 import { SnowWarArenaView } from './SnowWarArenaView';
+import { SnowWarLobbyView } from './SnowWarLobbyView';
 import { SnowWarResultsView } from './SnowWarResultsView';
 
 const localizeWithFallback = (key: string, fallback: string) =>
@@ -24,7 +25,7 @@ const ERROR_TEXTS: Record<number, [string, string]> = {
  */
 export const SnowWarView: FC = () =>
 {
-    const { phase, queuePosition, queueSize, lobbySeconds, errorCode, leaveQueue } = useSnowWar();
+    const { phase, queuePosition, queueSize, errorCode, leaveQueue } = useSnowWar();
     const { isVisible: gameCenterVisible } = useGameCenter();
 
     if (phase === 'idle')
@@ -35,7 +36,7 @@ export const SnowWarView: FC = () =>
         return <div className="snowwar-toast snowwar-toast--error">{localizeWithFallback(key, fallback)}</div>;
     }
 
-    if (phase === 'queued' || phase === 'lobby')
+    if (phase === 'queued')
     {
         // Queue status lives in the game center tile; the floating toast only
         // covers the case where the hub was closed while waiting.
@@ -45,22 +46,24 @@ export const SnowWarView: FC = () =>
                 <div className="snowwar-toast__title">
                     {localizeWithFallback('snowwar.queue.title', 'SnowStorm')}
                 </div>
-                {phase === 'queued' && (
-                    <div>
-                        {localizeWithFallback('snowwar.queue.position', 'In queue: %position% / %size%')
-                            .replace('%position%', queuePosition.toString())
-                            .replace('%size%', queueSize.toString())}
-                    </div>
-                )}
-                {phase === 'lobby' && (
-                    <div>
-                        {localizeWithFallback('snowwar.queue.starting', 'Game starts in %seconds%s...')
-                            .replace('%seconds%', lobbySeconds.toString())}
-                    </div>
-                )}
+                <div>
+                    {localizeWithFallback('snowwar.queue.position', 'In queue: %position% / %size%')
+                        .replace('%position%', queuePosition.toString())
+                        .replace('%size%', queueSize.toString())}
+                </div>
                 <button type="button" className="snowwar-button snowwar-button--danger" onClick={() => leaveQueue()}>
                     {localizeWithFallback('snowwar.queue.leave', 'Leave queue')}
                 </button>
+            </div>
+        );
+    }
+
+    // Match found: full-screen "Get ready!" splash until the arena takes over.
+    if (phase === 'lobby' || phase === 'loading' || phase === 'preparing')
+    {
+        return (
+            <div className="snowwar-overlay">
+                <SnowWarLobbyView />
             </div>
         );
     }

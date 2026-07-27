@@ -158,6 +158,123 @@
   font-size: 15px;
 }
 
+/* "Get ready!" pre-match splash. Light, icy look (overrides the dark overlay). */
+.snowwar-lobby {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 24px 16px;
+  color: #2f6d95;
+  background:
+    radial-gradient(120% 80% at 50% 0%, #eaf6ff 0%, #cfe9f9 55%, #bfe0f4 100%);
+  overflow: auto;
+}
+.snowwar-lobby__logo {
+  width: 230px;
+  max-width: 60%;
+  image-rendering: auto;
+  filter: drop-shadow(0 3px 6px rgba(40, 90, 130, 0.3));
+}
+.snowwar-lobby__ready {
+  font-size: 24px;
+  font-weight: 800;
+  color: #5aa6d8;
+  text-shadow: 0 2px 0 rgba(255, 255, 255, 0.7);
+  margin-top: -4px;
+}
+.snowwar-lobby__stage {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 20px;
+  width: 100%;
+  max-width: 900px;
+  margin-top: 6px;
+}
+.snowwar-lobby__column {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  max-width: 260px;
+}
+.snowwar-lobby__column--right {
+  align-items: flex-end;
+}
+.snowwar-lobby__player {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.7);
+  border: 2px solid #4577e6;
+  border-radius: 10px;
+  padding: 4px 10px 4px 4px;
+  min-width: 160px;
+  box-shadow: 0 2px 6px rgba(40, 90, 130, 0.18);
+}
+.snowwar-lobby__column--right .snowwar-lobby__player {
+  flex-direction: row-reverse;
+  padding: 4px 4px 4px 10px;
+}
+.snowwar-lobby__avatar {
+  position: relative;
+  width: 44px;
+  height: 56px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+/* The imager sets an inline transform: scale(0.5) but no origin, so pair it
+   with a top-left origin here and offset to crop head + torso into the box. */
+.snowwar-lobby__avatar .avatar-image {
+  position: absolute;
+  left: -14px;
+  top: -8px;
+  transform-origin: top left;
+}
+.snowwar-lobby__name {
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.snowwar-lobby__center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  min-width: 240px;
+}
+.snowwar-lobby__status {
+  font-size: 16px;
+  font-weight: 700;
+  color: #5aa6d8;
+}
+.snowwar-lobby__preview {
+  background: linear-gradient(180deg, #5aa6e0 0%, #7cc0ee 100%);
+  border-radius: 10px;
+  box-shadow: 0 3px 10px rgba(40, 90, 130, 0.28);
+}
+.snowwar-lobby__arena-name {
+  font-size: 15px;
+  font-weight: 800;
+  color: #2f6d95;
+}
+.snowwar-lobby__spinner {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 4px solid rgba(90, 166, 216, 0.3);
+  border-top-color: #5aa6d8;
+  animation: snowwar-spin 0.9s linear infinite;
+  margin-top: 4px;
+}
+@keyframes snowwar-spin {
+  to { transform: rotate(360deg); }
+}
+
 .snowwar-arena {
   position: relative;
   flex: 1;
@@ -315,24 +432,42 @@
   height: 0;
   z-index: 90;
 }
-.snowwar-machine__body {
+/* Snowball machine: a pile of snowballs sitting on its tile. Drawn purely in
+   CSS - the __body is the top snowball and box-shadows stack the rest into a
+   pyramid; ::before is a soft iso (2:1) ground shadow so the pile reads as
+   resting on the diamond floor rather than floating. The count badge shows how
+   many are loaded (max 5). The whole thing is clickable (walk over to refill). */
+/* Each snowball in the pile: bright top-left highlight -> shaded bottom for a
+   round 3D look, with a blue-grey rim so it stands out against the white tile.
+   Positioned per-ball from SNOWWAR_PILE in the view. */
+.snowwar-machine__ball {
   position: absolute;
-  left: -14px;
-  top: -18px;
-  width: 28px;
-  height: 22px;
-  background: linear-gradient(180deg, #8fd0f0 0%, #4a90b8 100%);
-  border: 2px solid #2c5a75;
-  border-radius: 6px 6px 3px 3px;
+  width: 10px;
+  height: 10px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 28%, #ffffff 0%, #dceaf7 62%, #b6d1e7 100%);
+  border: 1px solid #6f9cbd;
+  cursor: pointer;
+}
+/* Soft iso (2:1) ground shadow so the pile sits on the tile. */
+.snowwar-machine__shadow {
+  position: absolute;
+  left: -15px;
+  top: 7px;
+  width: 30px;
+  height: 14px;
+  background: radial-gradient(ellipse at 50% 50%, rgba(20, 50, 66, 0.32) 0%, rgba(20, 50, 66, 0) 70%);
+  border-radius: 50%;
 }
 .snowwar-machine__count {
   position: absolute;
-  left: -8px;
-  top: -30px;
-  width: 16px;
-  height: 16px;
+  left: -9px;
+  top: -22px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
-  background: #fff;
+  background: radial-gradient(circle at 35% 30%, #ffffff 0%, #eaf6ff 70%, #cfe6f4 100%);
   color: #1c323f;
   font-size: 10px;
   font-weight: 700;
@@ -340,6 +475,7 @@
   align-items: center;
   justify-content: center;
   border: 1px solid #9db4c4;
+  box-shadow: 0 1px 2px rgba(20, 50, 66, 0.3);
 }
 
 .snowwar-snowball {
@@ -375,6 +511,59 @@
   background: rgba(40, 90, 140, 0.35);
 }
 
+/* Snow-burst splash: a fast three-stage puff (core flash + spraying flakes)
+   that plays once where a snowball hits, then clears. Both pseudo-elements
+   share the same 300ms duration so the whole thing lands and fades together. */
+.snowwar-splash {
+  position: absolute;
+  width: 0;
+  height: 0;
+  z-index: 450;
+  pointer-events: none;
+}
+.snowwar-splash::before,
+.snowwar-splash::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  border-radius: 50%;
+  transform: translate(-50%, -50%) scale(0);
+}
+.snowwar-splash::before {
+  width: 20px;
+  height: 20px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.95) 0%, rgba(224, 240, 252, 0.6) 45%, rgba(224, 240, 252, 0) 72%);
+  animation: snowwar-splash-core 300ms ease-out forwards;
+}
+.snowwar-splash::after {
+  width: 4px;
+  height: 4px;
+  background: #ffffff;
+  box-shadow:
+    0 -9px 0 0 #ffffff,
+    0 9px 0 0 #e6f2fc,
+    -9px 0 0 0 #e6f2fc,
+    9px 0 0 0 #ffffff,
+    -6px -6px 0 0 #ffffff,
+    6px -6px 0 0 #e6f2fc,
+    -6px 6px 0 0 #e6f2fc,
+    6px 6px 0 0 #ffffff;
+  animation: snowwar-splash-flakes 300ms ease-out forwards;
+}
+@keyframes snowwar-splash-core {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.3); }
+  30% { opacity: 1; transform: translate(-50%, -50%) scale(0.85); }
+  60% { opacity: 0.75; transform: translate(-50%, -50%) scale(1.2); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.45); }
+}
+@keyframes snowwar-splash-flakes {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.2); }
+  25% { opacity: 1; transform: translate(-50%, -50%) scale(0.6); }
+  60% { opacity: 0.9; transform: translate(-50%, -50%) scale(1.15); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.6); }
+}
+
 .snowwar-avatar {
   position: absolute;
   width: 0;
@@ -388,13 +577,34 @@
   transform: scale(0.75);
   transform-origin: bottom center;
 }
+/* Zero-size positioned box at the avatar's feet: keeps the absolutely-placed
+   avatar image in the same spot while letting us pivot it for the throw. */
+.snowwar-avatar__body {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+/* Hit reaction: a quick side-to-side recoil shake on the struck avatar
+   (paired with the --hit colour flash). Only the target that gets hit shakes;
+   the thrower's motion is the arm animation, not a body shake. */
+.snowwar-avatar__body--hit {
+  transform-origin: bottom center;
+  animation: snowwar-hit-shake 300ms ease-out;
+}
+@keyframes snowwar-hit-shake {
+  0%, 100% { transform: none; }
+  20% { transform: translateX(-3px) rotate(-4deg); }
+  40% { transform: translateX(3px) rotate(4deg); }
+  60% { transform: translateX(-2px) rotate(-2deg); }
+  80% { transform: translateX(2px) rotate(2deg); }
+}
 .snowwar-avatar__name {
   position: absolute;
   left: 50%;
-  top: -122px;
+  top: -55px;
   transform: translateX(-50%);
   white-space: nowrap;
-  font-size: 11px;
+  font-size: 5.5px;
   font-weight: 700;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
   pointer-events: none;
