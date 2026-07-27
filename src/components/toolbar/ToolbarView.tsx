@@ -44,6 +44,7 @@ export const ToolbarView: FC<{ isInRoom: boolean }> = props =>
     const { unreadCount: mentionsUnread = 0 } = useMentionsSnapshot();
     const mentionsEnabled = useMemo(() => GetConfigurationValue<boolean>('mentions_ui.enabled', true), []);
     const buildersClubEnabled = useMemo(() => GetConfigurationValue<boolean>('buildersclub.enabled', GetConfigurationValue<boolean>('toolbar.buildersclub.enabled', true)), []);
+    const fortuneWheelEnabled = useMemo(() => GetConfigurationValue<boolean>('toolbar.fortunewheel.enabled', true), []);
     const { openMonitor, showToolbarButton } = useWiredTools();
     const { enabled: soundboardEnabled, reset: resetSoundboard } = useSoundboard();
     const isMod = useHasPermission('acc_supporttool');
@@ -263,6 +264,10 @@ export const ToolbarView: FC<{ isInRoom: boolean }> = props =>
                             <LayoutItemCountView count={ getFullCount } className="absolute -right-1 top-0" /> }
                     </motion.div>
                     { !leftCollapsed && (<>
+                    { fortuneWheelEnabled &&
+                        <motion.div variants={ itemVariants }>
+                            <ToolbarItemView icon="fortune-wheel" onClick={ () => CreateLinkEvent('fortune-wheel/toggle') } className="tb-icon" />
+                        </motion.div> }
                     { (isInRoom && showToolbarButton) &&
                         <motion.div variants={ itemVariants }>
                             <ToolbarItemView icon="wired-tools" onClick={ openMonitor } className="tb-icon" />
@@ -392,6 +397,10 @@ export const ToolbarView: FC<{ isInRoom: boolean }> = props =>
                         { (getFullCount > 0) &&
                             <LayoutItemCountView count={ getFullCount } className="absolute -right-1 top-0" /> }
                     </motion.div>
+                    { fortuneWheelEnabled &&
+                        <motion.div variants={ itemVariants }>
+                            <ToolbarItemView icon="fortune-wheel" onClick={ () => CreateLinkEvent('fortune-wheel/toggle') } className="tb-icon" />
+                        </motion.div> }
                 </motion.div>
                 <motion.div
                     variants={ containerVariants }
