@@ -12,6 +12,11 @@ const localizeWithFallback = (key: string, fallback: string) =>
     return text && text !== key ? text : fallback;
 };
 
+/**
+ * "Get ready!" pre-match splash: the SnowStorm logo, both teams' players, a
+ * mini arena preview showing where everyone spawns, and a spinner. Shown from
+ * the lobby countdown until the arena takes over (phase 'playing').
+ */
 export const SnowWarLobbyView: FC = () =>
 {
     const { phase, levelData, lobbySeconds, simulation } = useSnowWar();
@@ -19,7 +24,8 @@ export const SnowWarLobbyView: FC = () =>
 
     const players = levelData?.players ?? [];
     const teamCount = Math.max(levelData?.teamCount ?? 2, 2);
-.
+    // Players grouped by team; team 0 sits on the left column, 1 on the right,
+    // extra teams alternate sides.
     const teams: { players: typeof players; side: 'left' | 'right' }[] = [];
     for (let t = 0; t < teamCount; t++)
     {
@@ -28,6 +34,8 @@ export const SnowWarLobbyView: FC = () =>
     const leftTeams = teams.filter(team => team.side === 'left');
     const rightTeams = teams.filter(team => team.side === 'right');
 
+    // Mini top-down arena preview: draw the heightmap tiles, then a coloured dot
+    // per avatar at its spawn tile so players see where they'll start.
     useEffect(() =>
     {
         const canvas = previewRef.current;
@@ -39,7 +47,9 @@ export const SnowWarLobbyView: FC = () =>
 
         const rows = levelData.heightmapRows;
         const height = rows.length;
-.
+        // Base iso projection (unit tile). We then auto-fit everything - all
+        // tiles AND every spawn dot - into the canvas, so a spawn near the edge
+        // (or on a tile we don't draw) can never fall outside the preview.
         const BW = 12;
         const BH = 6;
         const iso = (tx: number, ty: number) => ({ x: (tx - ty) * BW, y: (tx + ty) * BH });

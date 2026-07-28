@@ -926,6 +926,44 @@
   gap: 6px;
 }
 
+/* Function controls (mode toggles + Clear all) - wrap and sit above the furni
+   palette, visually separated so they don't read as placeable furni. */
+.snowwar-editor__tools--modes {
+  flex-wrap: wrap;
+  align-items: center;
+  padding-bottom: 6px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid #33475b;
+}
+
+.snowwar-editor__tools--modes .snowwar-button--danger {
+  margin-left: auto;
+}
+
+.snowwar-editor__state {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.snowwar-editor__state-value {
+  min-width: 18px;
+  text-align: center;
+  font-weight: 600;
+}
+
+.snowwar-button--icon {
+  min-width: 22px;
+  padding: 2px 6px;
+  line-height: 1;
+}
+
+.snowwar-button--icon:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 .snowwar-editor__preview {
   display: flex;
   align-items: center;
@@ -995,12 +1033,15 @@
 
 .snowwar-edit-selection {
   position: absolute;
-  width: 26px;
-  height: 14px;
-  transform: translate(-50%, -50%);
-  border: 2px solid #7fd0ff;
-  border-radius: 3px;
-  box-shadow: 0 0 8px rgba(127, 208, 255, 0.7);
+  overflow: visible;
   pointer-events: none;
   z-index: 95;
+  filter: drop-shadow(0 0 5px rgba(127, 208, 255, 0.7));
+}
+
+.snowwar-edit-selection polygon {
+  fill: rgba(127, 208, 255, 0.15);
+  stroke: #7fd0ff;
+  stroke-width: 2;
+  stroke-linejoin: round;
 }

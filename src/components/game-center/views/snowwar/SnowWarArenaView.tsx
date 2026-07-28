@@ -21,6 +21,13 @@ const localizeWithFallback = (key: string, fallback: string) =>
 const TILE_HALF_W = 12;
 const TILE_HALF_H = 6;
 
+// Furni images come from getFurnitureFloorImage at geometry scale 64, i.e.
+// authored for a 64px-wide tile (half-width 32). The SnowWar tile is only
+// TILE_HALF_W*2 wide, so this scale makes one furni tile exactly cover one
+// arena tile - a 2x2 grid furni then lines up with the 2x2 floor tiles instead
+// of overhanging them.
+const SNOWWAR_FURNI_SCALE = TILE_HALF_W / 32;
+
 const TEAM_COLORS = ['#e64545', '#4577e6', '#3fb550', '#e6c245'];
 
 // Fixed "normal" zoom - the middle of the old 0/1/2 levels. The selectable
@@ -39,10 +46,13 @@ const ZOOM = 2;
 // How long (ms) an avatar holds the SnowWarThrow arm-out pose after throwing.
 const SNOWWAR_THROW_POSE_MS = 450;
 const SNOWWAR_THROW_HAND_RISE = 34;
+// A normal (straight, non-shift) throw skims flat, ~0.5 tile above the ground,
+// rather than arcing up. Lob/long throws keep their arc.
+const SNOWWAR_FLAT_RISE = 10;
 const snowballRise = (height: number, trajectory: number): number =>
 {
-    const baseline = trajectory === 0 ? 4000 : 3000;
-    const arc = Math.min(120, Math.max(0, height - baseline) / 60);
+    if (trajectory === 0) return SNOWWAR_FLAT_RISE;
+    const arc = Math.min(120, Math.max(0, height - 3000) / 60);
     return SNOWWAR_THROW_HAND_RISE + (trajectory === 2 ? 0.5 : 1) * arc;
 };
 
@@ -83,7 +93,84 @@ const DESIGN_H = 1080;
 const CAMERA_DEADZONE = 0.2;
 const CAMERA_EASE = 0.15;
 
-interface EditItem { name: string; x: number; y: number; rotation: number; imageUrl: string; offsetZ: number; width?: number; length?: number }
+interface EditItem { name: string; x: number; y: number; rotation: number; imageUrl: string; offsetZ: number; width?: number; length?: number; state: number; stateCount?: number; walkableHeight?: number }
+
+// Editor preview walker: a purely client-side avatar you can stroll around the
+// arena while editing (no server / game simulation involved), to test the
+// layout. It steps one tile every SNOWWAR_EDITOR_STEP_MS.
+const SNOWWAR_EDITOR_STEP_MS = 260;
+
+interface EditorWalk { path: { x: number; y: number }[]; startMs: number; endDir: number }
+
+// Tile delta -> Habbo 8-direction (0 N .. 7 NW; +x = E, +y = S on the grid).
+const tileDirection = (dx: number, dy: number): number =>
+{
+    const sx = Math.sign(dx);
+    const sy = Math.sign(dy);
+    if (sx === 0 && sy > 0) return 4;
+    if (sx > 0 && sy > 0) return 3;
+    if (sx > 0 && sy === 0) return 2;
+    if (sx > 0 && sy < 0) return 1;
+    if (sx === 0 && sy < 0) return 0;
+    if (sx < 0 && sy < 0) return 7;
+    if (sx < 0 && sy === 0) return 6;
+    if (sx < 0 && sy > 0) return 5;
+    return 4;
+};
+
+// Breadth-first shortest walk over the '0' (walkable) heightmap tiles, 8-way but
+// never cutting a diagonal through a void corner. Returns the tile path
+// (including the start) or null when the target is void / unreachable.
+const findEditorPath = (rows: string[], from: { x: number; y: number }, to: { x: number; y: number }, width: number, height: number): { x: number; y: number }[] | null =>
+{
+    const walkable = (x: number, y: number) => x >= 0 && y >= 0 && x < width && y < height && rows[y]?.charAt(x) === '0';
+    if (!walkable(from.x, from.y) || !walkable(to.x, to.y)) return null;
+    if (from.x === to.x && from.y === to.y) return [from];
+
+    const key = (x: number, y: number) => (y * width) + x;
+    const prev = new Map<number, number>();
+    const seen = new Set<number>([key(from.x, from.y)]);
+    const queue: { x: number; y: number }[] = [from];
+    const steps = [
+        { dx: 1, dy: 0 }, { dx: -1, dy: 0 }, { dx: 0, dy: 1 }, { dx: 0, dy: -1 },
+        { dx: 1, dy: 1 }, { dx: 1, dy: -1 }, { dx: -1, dy: 1 }, { dx: -1, dy: -1 },
+    ];
+
+    while (queue.length)
+    {
+        const cur = queue.shift();
+        if (cur.x === to.x && cur.y === to.y)
+        {
+            const path: { x: number; y: number }[] = [];
+            let cx = cur.x;
+            let cy = cur.y;
+            let k = key(cx, cy);
+            for (;;)
+            {
+                path.unshift({ x: cx, y: cy });
+                if (cx === from.x && cy === from.y) break;
+                k = prev.get(k);
+                cx = k % width;
+                cy = Math.floor(k / width);
+            }
+            return path;
+        }
+        for (const s of steps)
+        {
+            const nx = cur.x + s.dx;
+            const ny = cur.y + s.dy;
+            if (!walkable(nx, ny)) continue;
+            // No diagonal corner-cutting: both orthogonal neighbours must be open.
+            if (s.dx !== 0 && s.dy !== 0 && (!walkable(cur.x + s.dx, cur.y) || !walkable(cur.x, cur.y + s.dy))) continue;
+            const nk = key(nx, ny);
+            if (seen.has(nk)) continue;
+            seen.add(nk);
+            prev.set(nk, key(cur.x, cur.y));
+            queue.push({ x: nx, y: ny });
+        }
+    }
+    return null;
+};
 
 // Placeable classnames for the in-arena editor, mirroring the server's
 // SnowWarItemProperties registry. 'spawn' is the special player-spawn marker.
@@ -138,10 +225,6 @@ export const SnowWarArenaView: FC = () =>
     const [chatInput, setChatInput] = useState('');
     const zoom = ZOOM;
     const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
-    // Bumped a few seconds after level load: remounts the furni images so
-    // any that rendered the "still downloading" placeholder retry against
-    // the now-cached assets.
-    const [furniRetryTick, setFurniRetryTick] = useState(0);
     // Set when a throw is blocked for being out of range; shows a short hint.
     const [rangeWarningAt, setRangeWarningAt] = useState(0);
     const ownUserId = GetSessionDataManager()?.userId ?? 0;
@@ -153,6 +236,11 @@ export const SnowWarArenaView: FC = () =>
     const [splashes, setSplashes] = useState<{ id: number; x: number; y: number }[]>([]);
     const ballScreenRef = useRef<Map<number, { x: number; y: number }>>(new Map());
     const splashIdRef = useRef(0);
+    // Ball objectIds that have already produced a splash. A ball can vanish,
+    // get re-added by a full-status resync, then vanish again - this makes sure
+    // each ball splashes at most once (object ids are unique per game, and the
+    // arena remounts between games, so the set never needs manual pruning).
+    const splashedBallsRef = useRef<Set<number>>(new Set());
     // avatar objectId -> frameNow timestamp until which that avatar holds the
     // SnowWarThrow pose. Set when a new snowball appears (that ball's thrower).
     const throwPoseUntilRef = useRef<Map<number, number>>(new Map());
@@ -167,6 +255,14 @@ export const SnowWarArenaView: FC = () =>
     const [paletteSel, setPaletteSel] = useState<string | null>(null);
     const [furniSearch, setFurniSearch] = useState('');
     const [savedAt, setSavedAt] = useState(0);
+    // Tile under the cursor while editing - drives the 80%-opacity placement
+    // ghost. Only updated when it changes, so it doesn't churn renders.
+    const [hoverTile, setHoverTile] = useState<{ x: number; y: number } | null>(null);
+
+    // Editor preview walker (client-side only). Held in a ref and animated off
+    // the RAF frameNow clock; the current interpolated position is computed in
+    // render, so moving it never triggers extra state churn.
+    const editorWalkRef = useRef<EditorWalk | null>(null);
 
     // Hotel furni matching the current search - lets the editor place any
     // real furniture (like decorating a room), not just the classic SnowWar
@@ -189,23 +285,86 @@ export const SnowWarArenaView: FC = () =>
         if (!editing) return;
         setEditItems((levelData?.items ?? []).map(item => ({
             name: item.name, x: item.x, y: item.y, rotation: item.rotation, imageUrl: item.imageUrl, offsetZ: item.offsetZ ?? 0,
-            width: item.width, length: item.length,
+            width: item.width, length: item.length, state: item.state ?? 0, stateCount: item.stateCount, walkableHeight: item.walkableHeight,
         })));
         setEditSpawns([]);
         setEditHeightmap([...(levelData?.heightmapRows ?? [])]);
         setSelectedIndex(-1);
         setPaletteSel(null);
         setFurniSearch('');
+
+        // Drop the preview walker on the walkable tile nearest the arena centre.
+        const rows = levelData?.heightmapRows ?? [];
+        const rowH = rows.length;
+        const rowW = rows.reduce((max, row) => Math.max(max, row.length), 0);
+        let start: { x: number; y: number } | null = null;
+        let best = Infinity;
+        for (let y = 0; y < rowH; y++)
+        {
+            for (let x = 0; x < rows[y].length; x++)
+            {
+                if (rows[y].charAt(x) !== '0') continue;
+                const dist = ((x - (rowW / 2)) ** 2) + ((y - (rowH / 2)) ** 2);
+                if (dist < best) { best = dist; start = { x, y }; }
+            }
+        }
+        editorWalkRef.current = start ? { path: [start], startMs: 0, endDir: 4 } : null;
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [editing]);
+
+    // Current walker tile (rounded) at call time - used to path from where it
+    // stands right now, whether idle or mid-step.
+    const walkerTileNow = useCallback((): { x: number; y: number } | null =>
+    {
+        const plan = editorWalkRef.current;
+        if (!plan || !plan.path.length) return null;
+        if (plan.path.length === 1) return plan.path[0];
+        const total = plan.path.length - 1;
+        const stepFloat = Math.max(0, Date.now() - plan.startMs) / SNOWWAR_EDITOR_STEP_MS;
+        if (stepFloat >= total) return plan.path[total];
+        const seg = Math.floor(stepFloat);
+        const t = stepFloat - seg;
+        const a = plan.path[seg];
+        const b = plan.path[seg + 1];
+        return { x: Math.round(a.x + ((b.x - a.x) * t)), y: Math.round(a.y + ((b.y - a.y) * t)) };
+    }, []);
+
 
     // The arena renders the editor's working copy while editing, the live
     // level items otherwise. Both references are stable across renders.
     const displayItems = editing ? editItems : (levelData?.items ?? []);
 
+    // classname -> interaction_modes_count, learned from the server's level data.
+    // Lets the editor cap a freshly-placed furni's state stepper when that furni
+    // type already appears in the arena (the palette/furnidata carries no state
+    // count). Unknown types stay uncapped until the arena is saved and reloaded.
+    const stateCountByName = useMemo(() =>
+    {
+        const map = new Map<string, number>();
+        for (const item of (levelData?.items ?? []))
+        {
+            if (item.stateCount && item.stateCount > 0) map.set(item.name, item.stateCount);
+        }
+        return map;
+    }, [levelData]);
+
     const mapRows = editing ? editHeightmap : (levelData?.heightmapRows ?? []);
     const mapHeight = mapRows.length;
     const mapWidth = mapHeight > 0 ? mapRows[0].length : 0;
+
+    // Path the preview walker to a tile (client-side only). Returns true if a
+    // walk was started, so callers can tell a walk from a no-op empty click.
+    const walkPreviewTo = useCallback((tileX: number, tileY: number): boolean =>
+    {
+        const from = walkerTileNow();
+        if (!from) return false;
+        const path = findEditorPath(mapRows, from, { x: tileX, y: tileY }, mapWidth, mapHeight);
+        if (!path || path.length < 2) return false;
+        const last = path[path.length - 1];
+        const prevTile = path[path.length - 2];
+        editorWalkRef.current = { path, startMs: Date.now(), endDir: tileDirection(last.x - prevTile.x, last.y - prevTile.y) };
+        return true;
+    }, [mapRows, mapWidth, mapHeight, walkerTileNow]);
 
     const originX = mapHeight * TILE_HALF_W;
     const canvasWidth = (mapWidth + mapHeight) * TILE_HALF_W;
@@ -353,17 +512,6 @@ export const SnowWarArenaView: FC = () =>
         return () => observer.disconnect();
     }, [levelData]);
 
-    // Furni image retry passes (see furniRetryTick).
-    useEffect(() =>
-    {
-        if (!levelData) return;
-        setFurniRetryTick(0);
-        const timers = [
-            setTimeout(() => setFurniRetryTick(1), 4000),
-            setTimeout(() => setFurniRetryTick(2), 10000),
-        ];
-        return () => timers.forEach(timer => clearTimeout(timer));
-    }, [levelData]);
 
     // Periodic authoritative resync.
     useEffect(() =>
@@ -394,6 +542,13 @@ export const SnowWarArenaView: FC = () =>
 
     const applyEditClick = useCallback((tileX: number, tileY: number) =>
     {
+        if (paletteSel === 'walk')
+        {
+            // Stroll the client-side preview avatar to the clicked tile.
+            walkPreviewTo(tileX, tileY);
+            return;
+        }
+
         if (paletteSel === 'floor')
         {
             // Toggle the tile between walkable ('0') and void ('x').
@@ -417,30 +572,63 @@ export const SnowWarArenaView: FC = () =>
             return;
         }
 
-        if (paletteSel)
+        if (paletteSel && paletteSel !== 'edit')
         {
-            setEditItems(items => [...items, { name: paletteSel, x: tileX, y: tileY, rotation: 0, imageUrl: '', offsetZ: 0 }]);
+            // Carry the real footprint (and walkable flag) from furnidata so the
+            // placed furni anchors exactly like the placement ghost - otherwise it
+            // defaults to 1x1 and jumps position the moment it's dropped.
+            const fd = GetSessionDataManager()?.getFloorItemDataByName?.(paletteSel);
+            const walkable = !!(fd?.canStandOn || fd?.canLayOn);
+            setEditItems(items => [...items, {
+                name: paletteSel, x: tileX, y: tileY, rotation: 0, imageUrl: '', offsetZ: 0, state: 0,
+                stateCount: stateCountByName.get(paletteSel),
+                width: fd?.tileSizeX, length: fd?.tileSizeY,
+                walkableHeight: walkable ? 0 : undefined,
+            }]);
+            // Placed - clear the palette selection and the ghost so it isn't
+            // still armed to drop another copy on the next click.
+            setPaletteSel(null);
+            setHoverTile(null);
             return;
         }
 
-        // Select/move mode: click an item to select it, click an empty tile
-        // with something selected to move it there.
+        // Selection modes: 'edit' (paletteSel === 'edit') just picks a piece to
+        // tweak in place (rotate / state / delete); Select/Move (paletteSel ===
+        // null) additionally drops the selected piece on an empty tile. Both
+        // select the piece under the click.
         let hitIndex = -1;
         for (let i = editItems.length - 1; i >= 0; i--)
         {
-            if (editItems[i].x === tileX && editItems[i].y === tileY) { hitIndex = i; break; }
+            const it = editItems[i];
+            // Hit-test the whole footprint (rotation swaps width/length), not
+            // just the origin tile, so clicking any tile of a 3x3 / 2x1 / ...
+            // furni selects it.
+            const swap = it.rotation === 2 || it.rotation === 6;
+            const effW = Math.max(1, (swap ? it.length : it.width) ?? 1);
+            const effL = Math.max(1, (swap ? it.width : it.length) ?? 1);
+            if (tileX >= it.x && tileX < it.x + effW && tileY >= it.y && tileY < it.y + effL) { hitIndex = i; break; }
         }
 
         if (hitIndex >= 0) { setSelectedIndex(hitIndex); return; }
 
-        if (selectedIndex >= 0)
+        // Only Select/Move relocates on an empty-tile click; Edit leaves the
+        // piece where it is so you can't nudge it by accident while editing.
+        if (paletteSel === null && selectedIndex >= 0)
         {
             setEditItems(items => items.map((item, i) => (i === selectedIndex ? { ...item, x: tileX, y: tileY } : item)));
+            // Dropped at the new tile - deselect so the moved furni shows at its
+            // new spot and stops following the cursor.
+            setSelectedIndex(-1);
+            setHoverTile(null);
             return;
         }
 
+        // Empty tile clicked in a selection mode with nothing to move: stroll the
+        // preview avatar there too, so walking works without switching to the
+        // dedicated Walk mode.
+        if (paletteSel === null || paletteSel === 'edit') walkPreviewTo(tileX, tileY);
         setSelectedIndex(-1);
-    }, [paletteSel, editItems, selectedIndex]);
+    }, [paletteSel, editItems, selectedIndex, stateCountByName, walkPreviewTo]);
 
     const onArenaClick = useCallback((event: MouseEvent<HTMLDivElement>) =>
     {
@@ -478,6 +666,20 @@ export const SnowWarArenaView: FC = () =>
         setEditItems(items => items.map((item, i) => (i === selectedIndex ? { ...item, rotation: (item.rotation + 2) % 8 } : item))),
     [selectedIndex]);
 
+    // Multistate furni: step the state index up/down, clamped to the furni's
+    // real range - [0, interaction_modes_count - 1] from items_base, sent by the
+    // server. When the count is unknown (a freshly-placed furni type not yet in
+    // the arena), leave the high end open until the arena is saved and reloaded.
+    const cycleState = useCallback((delta: number) =>
+        setEditItems(items => items.map((item, i) =>
+        {
+            if (i !== selectedIndex) return item;
+            const count = item.stateCount ?? stateCountByName.get(item.name);
+            const max = count && count > 0 ? count - 1 : Number.MAX_SAFE_INTEGER;
+            return { ...item, state: Math.min(max, Math.max(0, (item.state ?? 0) + delta)) };
+        })),
+    [selectedIndex, stateCountByName]);
+
     const deleteSelected = useCallback(() =>
     {
         setEditItems(items => items.filter((_, i) => i !== selectedIndex));
@@ -493,7 +695,7 @@ export const SnowWarArenaView: FC = () =>
             const index = items.findIndex(item => item.imageUrl);
             if (!trimmed) return items.filter(item => !item.imageUrl);
             if (index >= 0) return items.map((item, i) => (i === index ? { ...item, imageUrl: trimmed } : item));
-            return [...items, { name: 'ads_background', x: 0, y: 0, rotation: 0, imageUrl: trimmed, offsetZ: 0 }];
+            return [...items, { name: 'ads_background', x: 0, y: 0, rotation: 0, imageUrl: trimmed, offsetZ: 0, state: 0 }];
         }), []);
 
     const setBackdropOffsetZ = useCallback((offsetZ: number) =>
@@ -544,16 +746,24 @@ export const SnowWarArenaView: FC = () =>
             }
         }
 
-        const gone: { id: number; x: number; y: number }[] = [];
+        // A ball is "gone" only the first time its objectId disappears; a
+        // resync that clears then re-adds the same ball must not splash twice.
+        const gone: { ballId: number; x: number; y: number }[] = [];
         prev.forEach((pos, id) =>
         {
-            if (!next.has(id)) gone.push({ id: ++splashIdRef.current, x: pos.x, y: pos.y });
+            if (!next.has(id) && !splashedBallsRef.current.has(id))
+            {
+                gone.push({ ballId: id, x: pos.x, y: pos.y });
+            }
         });
         ballScreenRef.current = next;
 
+        // A bulk vanish (round end / arena reset) is ignored so we don't spray
+        // the whole map with splashes.
         if (gone.length > 0 && gone.length <= 3)
         {
-            setSplashes(list => [...list, ...gone]);
+            gone.forEach(g => splashedBallsRef.current.add(g.ballId));
+            setSplashes(list => [...list, ...gone.map(g => ({ id: ++splashIdRef.current, x: g.x, y: g.y }))]);
         }
     }, [frameNow, alpha, worldToScreen, simulation]);
 
@@ -564,10 +774,54 @@ export const SnowWarArenaView: FC = () =>
     const arenaBackdrop = displayItems.find(item => item.imageUrl) ?? null;
     const backdropOverlay = !!(arenaBackdrop && (arenaBackdrop.offsetZ ?? 0) > 0);
     const selectedItem = (editing && selectedIndex >= 0 && editItems[selectedIndex]) ? editItems[selectedIndex] : null;
-    const placingFurni = (editing && paletteSel && paletteSel !== 'spawn' && paletteSel !== 'floor')
+    const placingFurni = (editing && paletteSel && paletteSel !== 'spawn' && paletteSel !== 'floor' && paletteSel !== 'edit')
         ? GetSessionDataManager()?.getFloorItemDataByName?.(paletteSel) : null;
     const selectedFurni = selectedItem ? GetSessionDataManager()?.getFloorItemDataByName?.(selectedItem.name) : null;
     const backdropItem = editing ? (editItems.find(item => item.imageUrl) ?? null) : null;
+
+    // Interaction-mode count for the selected furni (items_base value from the
+    // server). Known => the stepper caps at count-1 and single-state furni hide
+    // it entirely; unknown => leave the stepper open (freshly-placed new type).
+    const selectedStateCount = selectedItem ? (selectedItem.stateCount ?? stateCountByName.get(selectedItem.name)) : undefined;
+    const selectedStateMax = (selectedStateCount && selectedStateCount > 0) ? selectedStateCount - 1 : Number.MAX_SAFE_INTEGER;
+
+    // Placement ghost: the furni being placed (palette pick) or the selected
+    // furni being moved, previewed at the hovered tile at 80% opacity.
+    const ghostFurni = placingFurni ?? (selectedItem ? selectedFurni : null);
+    const ghostRotation = placingFurni ? 0 : (selectedItem?.rotation ?? 0);
+    // A freshly-placed furni starts at state 0; a moving furni keeps its state.
+    const ghostState = placingFurni ? 0 : (selectedItem?.state ?? 0);
+
+    // "Actively moving": Select/Move mode (paletteSel === null) with a piece
+    // selected and the cursor over a tile. Only then do we hide the piece at its
+    // old spot, float the move ghost, and suppress the selection box. Edit mode
+    // (paletteSel === 'edit') never moves, so it keeps the piece + selection box.
+    const movingSelected = editing && paletteSel === null && !!selectedItem && !!hoverTile;
+
+    // Editor preview walker: current interpolated tile position + facing, derived
+    // purely from the walk plan + the RAF frameNow clock (recomputed each frame).
+    const editorWalker = (() =>
+    {
+        if (!editing) return null;
+        const plan = editorWalkRef.current;
+        if (!plan || !plan.path.length) return null;
+        if (plan.path.length === 1) return { x: plan.path[0].x, y: plan.path[0].y, dir: plan.endDir, walking: false };
+        const total = plan.path.length - 1;
+        const stepFloat = Math.max(0, frameNow - plan.startMs) / SNOWWAR_EDITOR_STEP_MS;
+        if (stepFloat >= total)
+        {
+            const last = plan.path[total];
+            return { x: last.x, y: last.y, dir: plan.endDir, walking: false };
+        }
+        const seg = Math.floor(stepFloat);
+        const t = stepFloat - seg;
+        const a = plan.path[seg];
+        const b = plan.path[seg + 1];
+        return { x: a.x + ((b.x - a.x) * t), y: a.y + ((b.y - a.y) * t), dir: tileDirection(b.x - a.x, b.y - a.y), walking: true };
+    })();
+    const ownPlayer = levelData?.players?.find(player => player.userId === ownUserId) ?? null;
+    const editorWalkerFigure = ownPlayer?.figure ?? GetSessionDataManager()?.figure ?? '';
+    const editorWalkerGender = ownPlayer?.gender ?? 'M';
 
     // Fixed 1920x1080 design stage: the background fills it and the floor sits
     // centred on it. On screens >= the stage the whole stage is centred in the
@@ -732,14 +986,11 @@ export const SnowWarArenaView: FC = () =>
             {editing && (
                 <div className="snowwar-editor">
                     <div className="snowwar-editor__hint">
-                        {localizeWithFallback('snowwar.editor.hint', 'Pick a piece (or search furniture) then click a tile to place it. Floor tile paints/erases the arena floor. Select/Move: click a piece then an empty tile to move it.')}
+                        {localizeWithFallback('snowwar.editor.hint', 'Pick a piece (or search furniture) then click a tile to place it. Floor tile paints/erases the arena floor. Select/Move: click a piece then an empty tile to move it. Edit: click a piece to rotate / change its state / delete it without moving it. Walk: stroll a preview avatar around to test the layout.')}
                     </div>
-                    <div className="snowwar-editor__tools">
-                        <button type="button" className="snowwar-button snowwar-button--danger" onClick={() => clearAllItems()}>
-                            {localizeWithFallback('snowwar.editor.clear', 'Clear all furni')}
-                        </button>
-                    </div>
-                    <div className="snowwar-editor__palette">
+                    {/* Function controls (modes + tools), grouped and separated
+                        from the furni palette below - these are actions, not furni. */}
+                    <div className="snowwar-editor__tools snowwar-editor__tools--modes">
                         <button
                             type="button"
                             className={'snowwar-editor__chip' + (paletteSel === null ? ' snowwar-editor__chip--active' : '')}
@@ -747,16 +998,20 @@ export const SnowWarArenaView: FC = () =>
                         >
                             {localizeWithFallback('snowwar.editor.select', 'Select / Move')}
                         </button>
-                        {EDITOR_PALETTE.map(name => (
-                            <button
-                                key={name}
-                                type="button"
-                                className={'snowwar-editor__chip' + (paletteSel === name ? ' snowwar-editor__chip--active' : '')}
-                                onClick={() => { setPaletteSel(name); setSelectedIndex(-1); }}
-                            >
-                                {name.replace('block_', '').replace('obst_', '').replace('sw_', '')}
-                            </button>
-                        ))}
+                        <button
+                            type="button"
+                            className={'snowwar-editor__chip' + (paletteSel === 'edit' ? ' snowwar-editor__chip--active' : '')}
+                            onClick={() => setPaletteSel('edit')}
+                        >
+                            {localizeWithFallback('snowwar.editor.edit', 'Edit')}
+                        </button>
+                        <button
+                            type="button"
+                            className={'snowwar-editor__chip' + (paletteSel === 'walk' ? ' snowwar-editor__chip--active' : '')}
+                            onClick={() => { setPaletteSel('walk'); setSelectedIndex(-1); }}
+                        >
+                            {localizeWithFallback('snowwar.editor.walk', 'Walk')}
+                        </button>
                         <button
                             type="button"
                             className={'snowwar-editor__chip snowwar-editor__chip--spawn' + (paletteSel === 'spawn' ? ' snowwar-editor__chip--active' : '')}
@@ -771,7 +1026,24 @@ export const SnowWarArenaView: FC = () =>
                         >
                             {localizeWithFallback('snowwar.editor.floor', 'Floor tile')}
                         </button>
+                        <button type="button" className="snowwar-button snowwar-button--danger" onClick={() => clearAllItems()}>
+                            {localizeWithFallback('snowwar.editor.clear', 'Clear all furni')}
+                        </button>
                     </div>
+                    {EDITOR_PALETTE.length > 0 && (
+                        <div className="snowwar-editor__palette">
+                            {EDITOR_PALETTE.map(name => (
+                                <button
+                                    key={name}
+                                    type="button"
+                                    className={'snowwar-editor__chip' + (paletteSel === name ? ' snowwar-editor__chip--active' : '')}
+                                    onClick={() => { setPaletteSel(name); setSelectedIndex(-1); }}
+                                >
+                                    {name.replace('block_', '').replace('obst_', '').replace('sw_', '')}
+                                </button>
+                            ))}
+                        </div>
+                    )}
                     <input
                         type="text"
                         className="snowwar-editor__search"
@@ -805,7 +1077,7 @@ export const SnowWarArenaView: FC = () =>
                         <div className="snowwar-editor__selected">
                             <div className="snowwar-editor__preview">
                                 {selectedFurni
-                                    ? <LayoutFurniImageView direction={selectedItem.rotation} productClassId={selectedFurni.id} productType="s" style={{ transform: 'scale(0.5)' }} />
+                                    ? <LayoutFurniImageView direction={selectedItem.rotation} productClassId={selectedFurni.id} productType="s" state={selectedItem.state ?? 0} style={{ transform: 'scale(0.5)' }} />
                                     : <div className="snowwar-furni__fallback" />}
                                 <span>{(selectedFurni?.name && selectedFurni.name.trim()) || selectedItem.name}</span>
                             </div>
@@ -817,6 +1089,28 @@ export const SnowWarArenaView: FC = () =>
                                     {localizeWithFallback('snowwar.editor.delete', 'Delete')}
                                 </button>
                             </div>
+                            {!selectedItem.imageUrl && selectedStateMax > 0 && (
+                                <div className="snowwar-editor__state">
+                                    <span>{localizeWithFallback('snowwar.editor.state', 'State')}</span>
+                                    <button
+                                        type="button"
+                                        className="snowwar-button snowwar-button--icon"
+                                        disabled={(selectedItem.state ?? 0) <= 0}
+                                        onClick={() => cycleState(-1)}>
+                                        &#8722;
+                                    </button>
+                                    <span className="snowwar-editor__state-value">
+                                        {(selectedItem.state ?? 0)}{selectedStateCount ? ` / ${selectedStateMax}` : ''}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        className="snowwar-button snowwar-button--icon"
+                                        disabled={(selectedItem.state ?? 0) >= selectedStateMax}
+                                        onClick={() => cycleState(1)}>
+                                        +
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -872,6 +1166,16 @@ export const SnowWarArenaView: FC = () =>
                 className="snowwar-viewport"
                 onClick={onArenaClick}
                 onContextMenu={onArenaClick}
+                onMouseMove={editing ? (event) =>
+                {
+                    const { tileX, tileY } = screenToTile(event);
+                    const inBounds = tileX >= 0 && tileY >= 0 && tileX < mapWidth && tileY < mapHeight;
+                    setHoverTile(prev =>
+                        (prev && prev.x === tileX && prev.y === tileY) || (!prev && !inBounds)
+                            ? prev
+                            : (inBounds ? { x: tileX, y: tileY } : null));
+                } : undefined}
+                onMouseLeave={editing ? () => setHoverTile(null) : undefined}
             >
                 <div
                     className="snowwar-world"
@@ -906,7 +1210,13 @@ export const SnowWarArenaView: FC = () =>
                         />
                     )}
 
-                    {displayItems.filter(item => !isClassicItem(item.name) && !item.imageUrl).map((item, index) =>
+                    {displayItems
+                        .filter(item => !isClassicItem(item.name) && !item.imageUrl)
+                        // While a selected furni is being moved (its ghost is
+                        // following the cursor), hide its copy at the old tile so
+                        // it isn't shown twice.
+                        .filter(item => !(movingSelected && item === selectedItem))
+                        .map((item, index) =>
                     {
                         // A multi-tile furni occupies width x length tiles from its
                         // origin (+x/+y, swapped for the 90/270 rotations) - the same
@@ -933,24 +1243,67 @@ export const SnowWarArenaView: FC = () =>
                         // standing right at a corner.
                         const originY = toScreen(item.x, item.y).y + TILE_HALF_H;
 
+                        // A walkable furni (walkableHeight 0 - a rug/floor tile you
+                        // stand ON) is flat on the ground and must NEVER occlude an
+                        // avatar. Depth-sorting the whole sprite by one tile lets its
+                        // front edge out-sort an avatar standing on it, so put flat
+                        // furni in a low band (above the floor + overlay, below the
+                        // machines at 90 and the avatars/solid furni at 100+). Solid
+                        // furni keep the shared depth band so they occlude correctly.
                         const furniData = GetSessionDataManager()?.getFloorItemDataByName?.(item.name);
+                        // Flat = a walkable floor furni (rug / water / tile you stand
+                        // ON). Prefer the server's walkableHeight; for a freshly-placed
+                        // editor furni that doesn't carry it yet, fall back to the
+                        // furnidata "can stand on" flag so it's still drawn below the
+                        // avatar.
+                        const flat = item.walkableHeight != null
+                            ? item.walkableHeight === 0
+                            : !!(furniData?.canStandOn || furniData?.canLayOn);
+                        const zIndex = flat
+                            ? 2 + Math.min(80, Math.max(0, Math.round(originY / 8)))
+                            : 100 + Math.round(originY);
+
                         return (
                             <div
-                                key={`furni-${index}-${furniRetryTick}`}
+                                key={`furni-${index}`}
                                 className="snowwar-furni"
-                                style={{ left: front.x, top: front.y + (TILE_HALF_H * 2), zIndex: 100 + Math.round(originY) }}
+                                style={{ left: front.x, top: front.y + (TILE_HALF_H * 2), zIndex }}
                             >
                                 {furniData
                                     ? <LayoutFurniImageView
                                         direction={item.rotation}
                                         productClassId={furniData.id}
                                         productType="s"
-                                        style={{ position: 'absolute', transformOrigin: 'center bottom', transform: 'translate(-50%, -100%) scale(0.5)' }}
+                                        state={item.state ?? 0}
+                                        style={{ position: 'absolute', transformOrigin: 'center bottom', transform: `translate(-50%, -100%) scale(${SNOWWAR_FURNI_SCALE})` }}
                                     />
                                     : <div className="snowwar-furni__fallback" />}
                             </div>
                         );
                     })}
+
+                    {editing && ghostFurni && hoverTile && (placingFurni || movingSelected) && (() =>
+                    {
+                        const swap = ghostRotation === 2 || ghostRotation === 6;
+                        const effW = Math.max(1, (swap ? ghostFurni.tileSizeY : ghostFurni.tileSizeX) || 1);
+                        const effL = Math.max(1, (swap ? ghostFurni.tileSizeX : ghostFurni.tileSizeY) || 1);
+                        const front = toScreen(hoverTile.x + effW - 1, hoverTile.y + effL - 1);
+                        const originY = toScreen(hoverTile.x, hoverTile.y).y + TILE_HALF_H;
+                        return (
+                            <div
+                                className="snowwar-furni snowwar-furni--ghost"
+                                style={{ left: front.x, top: front.y + (TILE_HALF_H * 2), zIndex: 100 + Math.round(originY), opacity: 0.8, pointerEvents: 'none' }}
+                            >
+                                <LayoutFurniImageView
+                                    direction={ghostRotation}
+                                    productClassId={ghostFurni.id}
+                                    productType="s"
+                                    state={ghostState}
+                                    style={{ position: 'absolute', transformOrigin: 'center bottom', transform: `translate(-50%, -100%) scale(${SNOWWAR_FURNI_SCALE})` }}
+                                />
+                            </div>
+                        );
+                    })()}
 
                     {!editing && levelData.machines.map(machine =>
                     {
@@ -1005,10 +1358,39 @@ export const SnowWarArenaView: FC = () =>
                         })()
                         : null)}
 
-                    {editing && selectedIndex >= 0 && editItems[selectedIndex] && (() =>
+                    {editing && selectedIndex >= 0 && editItems[selectedIndex] && !movingSelected && (() =>
                     {
-                        const { x, y } = toScreen(editItems[selectedIndex].x, editItems[selectedIndex].y);
-                        return <div className="snowwar-edit-selection" style={{ left: x, top: y + TILE_HALF_H }} />;
+                        // Hidden while the ghost is following the cursor (a move in
+                        // progress) - the ghost is the indicator then, so the box
+                        // isn't left floating at the old/empty tile.
+                        // Outline the WHOLE footprint as one isometric parallelogram
+                        // (rotation swaps width/length) so the selection follows the
+                        // tile angle instead of a grid of axis-aligned boxes.
+                        const sel = editItems[selectedIndex];
+                        const swap = sel.rotation === 2 || sel.rotation === 6;
+                        const effW = Math.max(1, (swap ? sel.length : sel.width) ?? 1);
+                        const effL = Math.max(1, (swap ? sel.width : sel.length) ?? 1);
+                        // The four extreme tile-diamond vertices of the footprint.
+                        const topV = toScreen(sel.x, sel.y);
+                        const rightV = toScreen(sel.x + effW - 1, sel.y);
+                        const bottomV = toScreen(sel.x + effW - 1, sel.y + effL - 1);
+                        const leftV = toScreen(sel.x, sel.y + effL - 1);
+                        const corners = [
+                            { x: topV.x, y: topV.y },
+                            { x: rightV.x + TILE_HALF_W, y: rightV.y + TILE_HALF_H },
+                            { x: bottomV.x, y: bottomV.y + (TILE_HALF_H * 2) },
+                            { x: leftV.x - TILE_HALF_W, y: leftV.y + TILE_HALF_H },
+                        ];
+                        const minX = Math.min(...corners.map(c => c.x));
+                        const minY = Math.min(...corners.map(c => c.y));
+                        const boxW = Math.max(...corners.map(c => c.x)) - minX;
+                        const boxH = Math.max(...corners.map(c => c.y)) - minY;
+                        const points = corners.map(c => `${c.x - minX},${c.y - minY}`).join(' ');
+                        return (
+                            <svg className="snowwar-edit-selection" width={boxW} height={boxH} style={{ left: minX, top: minY }}>
+                                <polygon points={points} />
+                            </svg>
+                        );
                     })()}
 
                     {[...simulation.snowballs.values()].map(ball =>
@@ -1045,7 +1427,7 @@ export const SnowWarArenaView: FC = () =>
                         />
                     )}
 
-                    {[...simulation.avatars.values()].map(avatar =>
+                    {!editing && [...simulation.avatars.values()].map(avatar =>
                     {
                         const ax = avatar.prevWorldX + (avatar.worldX - avatar.prevWorldX) * alpha;
                         const ay = avatar.prevWorldY + (avatar.worldY - avatar.prevWorldY) * alpha;
@@ -1108,6 +1490,33 @@ export const SnowWarArenaView: FC = () =>
                             </div>
                         );
                     })}
+
+                    {editorWalker && (() =>
+                    {
+                        // Client-side preview avatar shown only in the editor (the
+                        // game simulation is empty here). Anchored the same way as an
+                        // in-game avatar so it lines up with the tiles it walks.
+                        const { x, y } = toScreen(editorWalker.x, editorWalker.y);
+                        return (
+                            <div
+                                className="snowwar-avatar snowwar-avatar--preview"
+                                style={{ left: x, top: y, zIndex: 100 + Math.round(y) }}
+                            >
+                                <span className="snowwar-avatar__body">
+                                    <SnowWarAvatarView
+                                        figure={editorWalkerFigure}
+                                        gender={editorWalkerGender}
+                                        direction={editorWalker.dir}
+                                        walking={editorWalker.walking}
+                                        throwing={false}
+                                        throwProgress={0}
+                                        frameNow={frameNow}
+                                        scale={0.5}
+                                    />
+                                </span>
+                            </div>
+                        );
+                    })()}
                     </div>
                 </div>
             </div>
