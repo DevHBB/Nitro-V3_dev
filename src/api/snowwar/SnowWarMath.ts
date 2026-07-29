@@ -17,8 +17,8 @@ export const tileToWorld = (tile: number): number => (tile * TILE_SIZE_WORLD) | 
 
 // Throw ranges in tiles (circle around the thrower) - mirrors
 // SnowWarConstants on the emulator, which validates every throw.
-export const THROW_RANGE_NORMAL = 5;
-export const THROW_RANGE_LONG = 15;
+export const THROW_RANGE_NORMAL = 10;
+export const THROW_RANGE_LONG = 20;
 
 export const worldToTile = (world: number): number => (((world + 1600) / 3200) | 0);
 

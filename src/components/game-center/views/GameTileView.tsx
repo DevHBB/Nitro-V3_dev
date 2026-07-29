@@ -1,7 +1,7 @@
 import { GameConfigurationData, JoinQueueMessageComposer } from '@nitrots/nitro-renderer';
 import { FC } from 'react';
 import { ColorUtils, LocalizeText, SendMessageComposer } from '../../../api';
-import { LayoutItemCountView } from '../../../common';
+import snowStormLogo from '../../../assets/images/snowstorm/snowstorm.png';
 import { useGameCenter, useSnowWar } from '../../../hooks';
 
 const localizeWithFallback = (key: string, fallback: string) =>
@@ -26,10 +26,14 @@ const ERROR_TEXTS: Record<number, [string, string]> = {
 export const GameTileView: FC<{ game: GameConfigurationData }> = ({ game }) =>
 {
     const { accountStatus, setSelectedGame } = useGameCenter();
-    const { phase, queuePosition, queueSize, lobbySeconds, errorCode, leaveQueue } = useSnowWar();
+    const { phase, queuePosition, queueSize, lobbySeconds, queueInfo, errorCode, leaveQueue } = useSnowWar();
 
     const isSnowWar = (game.gameNameId === 'snowwar');
     const inQueue = isSnowWar && ((phase === 'queued') || (phase === 'lobby'));
+    // Not enough players yet to start the countdown - show "awaiting players"
+    // (X/min) instead of a bare "1/1" queue position.
+    const minPlayers = queueInfo?.minPlayers ?? 0;
+    const awaitingPlayers = (phase === 'queued') && (minPlayers > 1) && (queueSize < minPlayers);
 
     const canPlay = accountStatus && (accountStatus.hasUnlimitedGames || (accountStatus.freeGamesLeft > 0));
 
@@ -48,7 +52,7 @@ export const GameTileView: FC<{ game: GameConfigurationData }> = ({ game }) =>
             <div
                 className="game-tile__banner"
                 style={{ backgroundColor: ColorUtils.uintHexColor(game.bgColor), backgroundImage: `url(${game.assetUrl}${game.gameNameId}_theme.png)` }}>
-                <img alt={game.gameNameId} className="game-tile__logo" src={`${game.assetUrl}${game.gameNameId}_logo.png`} />
+                <img alt={game.gameNameId} className="game-tile__logo" src={isSnowWar ? snowStormLogo : `${game.assetUrl}${game.gameNameId}_logo.png`} />
             </div>
             <div className="game-tile__body">
                 <div className="game-tile__title">{title}</div>
@@ -56,12 +60,16 @@ export const GameTileView: FC<{ game: GameConfigurationData }> = ({ game }) =>
                 {inQueue && (
                     <div className="game-tile__queue">
                         <div>
-                            {(phase === 'queued')
-                                ? localizeWithFallback('snowwar.queue.position', 'In queue: %position% / %size%')
-                                    .replace('%position%', queuePosition.toString())
-                                    .replace('%size%', queueSize.toString())
-                                : localizeWithFallback('snowwar.queue.starting', 'Game starts in %seconds%s...')
-                                    .replace('%seconds%', lobbySeconds.toString())}
+                            {(phase !== 'queued')
+                                ? localizeWithFallback('snowwar.queue.starting', 'Game starts in %seconds%s...')
+                                    .replace('%seconds%', lobbySeconds.toString())
+                                : awaitingPlayers
+                                    ? localizeWithFallback('snowwar.queue.awaiting', 'Waiting for players: %count%/%min%')
+                                        .replace('%count%', queueSize.toString())
+                                        .replace('%min%', minPlayers.toString())
+                                    : localizeWithFallback('snowwar.queue.position', 'In queue: %position% / %size%')
+                                        .replace('%position%', queuePosition.toString())
+                                        .replace('%size%', queueSize.toString())}
                         </div>
                         <button className="snowwar-button snowwar-button--danger" type="button" onClick={() => leaveQueue()}>
                             {localizeWithFallback('snowwar.queue.leave', 'Leave queue')}
@@ -76,7 +84,6 @@ export const GameTileView: FC<{ game: GameConfigurationData }> = ({ game }) =>
                 {isSnowWar && !inQueue && canPlay && (
                     <button className="snowwar-button game-tile__play" type="button" onClick={onPlay}>
                         {localizeWithFallback('gamecenter.play_now', 'Play now')}
-                        {!accountStatus.hasUnlimitedGames && <LayoutItemCountView count={accountStatus.freeGamesLeft} />}
                     </button>
                 )}
                 {errorEntry && <div className="game-tile__error">{localizeWithFallback(errorEntry[0], errorEntry[1])}</div>}
