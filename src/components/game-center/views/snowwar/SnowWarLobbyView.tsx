@@ -1,5 +1,6 @@
+import { GetRoomEngine, Vector3d } from '@nitrots/nitro-renderer';
 import { FC, useEffect, useRef } from 'react';
-import { LocalizeText } from '../../../../api';
+import { GetSessionDataManager, LocalizeText } from '../../../../api';
 import snowStormLogo from '../../../../assets/images/snowstorm/snowstorm.png';
 import { LayoutAvatarImageView } from '../../../../common';
 import { useSnowWar } from '../../../../hooks';
@@ -123,6 +124,37 @@ export const SnowWarLobbyView: FC = () =>
             ctx.stroke();
         }
     }, [levelData, phase, simulation]);
+
+    // Warm the renderer's furni cache during the splash: every hotel-furni type
+    // in the arena is loaded now so it renders instantly the moment the arena
+    // takes over, instead of popping in blank on the first game frame. Classic
+    // props (canvas-drawn) and the ad backdrop have no furnidata, so they're
+    // skipped naturally.
+    useEffect(() =>
+    {
+        const items = levelData?.items;
+        if (!items?.length) return;
+        const engine = GetRoomEngine?.();
+        const session = GetSessionDataManager?.();
+        if (!engine || !session) return;
+
+        const listener = { imageReady: () => {}, imageFailed: () => {} };
+        const warmed = new Set<number>();
+        for (const item of items)
+        {
+            const furniData = session.getFloorItemDataByName?.(item.name);
+            if (!furniData || warmed.has(furniData.id)) continue;
+            warmed.add(furniData.id);
+            try
+            {
+                engine.getFurnitureFloorImage(furniData.id, new Vector3d(item.rotation ?? 2), 64, listener, 0, '', item.state ?? -1);
+            }
+            catch
+            {
+                // Renderer not ready for this type yet - the arena will load it.
+            }
+        }
+    }, [levelData]);
 
     const arenaName = levelData
         ? localizeWithFallback(`gamecenter.snowwar.map.name.${levelData.mapId}`, `Arena ${levelData.mapId}`)

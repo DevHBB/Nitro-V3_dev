@@ -1,6 +1,7 @@
 import {
     SnowWarCreateSnowballComposer,
     SnowWarEditRoomComposer,
+    SnowWarExitEditorComposer,
     SnowWarExitGameComposer,
     SnowWarFullGameStatusEvent,
     SnowWarGameChatComposer,
@@ -14,6 +15,7 @@ import {
     SnowWarLeaveQueueComposer,
     SnowWarLevelDataEvent,
     SnowWarLoadStageReadyComposer,
+    SnowWarLobbyTeamsEvent,
     SnowWarOnGameEndingEvent,
     SnowWarOnStageEndingEvent,
     SnowWarOnStageRunningEvent,
@@ -58,6 +60,11 @@ export interface SnowWarLevelState {
     players: { objectId: number; userId: number; teamId: number; name: string; figure: string; gender: string }[];
 }
 
+export interface SnowWarLobbyTeamsState {
+    teamCount: number;
+    players: { userId: number; teamId: number; name: string; figure: string; gender: string }[];
+}
+
 export interface SnowWarResultsState {
     secondsToResults: number;
     teams: {
@@ -77,6 +84,11 @@ export interface SnowWarChatMessage {
 
 // One shared world per session — the arena view reads it every animation frame.
 const SNOWWAR_SIMULATION = new SnowWarSimulation();
+
+// Hard cap on how long a player may sit in the queue waiting for enough
+// players before we bail them back to the game center with a "time has passed"
+// popup. Only applies while queued (waiting) - never once the match is forming.
+const SNOWWAR_QUEUE_MAX_WAIT_MS = 120000;
 
 let CHAT_MESSAGE_ID = 0;
 
@@ -126,12 +138,14 @@ const useSnowWarState = () =>
     const [preparingSeconds, setPreparingSeconds] = useState(0);
     const [secondsLeft, setSecondsLeft] = useState(0);
     const [levelData, setLevelData] = useState<SnowWarLevelState>(null);
+    const [lobbyTeams, setLobbyTeams] = useState<SnowWarLobbyTeamsState>(null);
     const [results, setResults] = useState<SnowWarResultsState>(null);
     const [chatMessages, setChatMessages] = useState<SnowWarChatMessage[]>([]);
     const [rematchedUserIds, setRematchedUserIds] = useState<number[]>([]);
     const [errorCode, setErrorCode] = useState<number>(null);
+    const [queueExpired, setQueueExpired] = useState(false);
     const [gamesLeft, setGamesLeft] = useState(-1);
-    const [queueInfo, setQueueInfo] = useState<{ playersInQueue: number; gamesPlayed: number }>(null);
+    const [queueInfo, setQueueInfo] = useState<{ playersInQueue: number; gamesPlayed: number; minPlayers: number; canEdit: boolean }>(null);
     // In-arena WYSIWYG editor: the client edits the current level snapshot and
     // publishes it with the save packet. editingRef mirrors it for the stable
     // packet callbacks (which capture [] deps).
@@ -150,6 +164,7 @@ const useSnowWarState = () =>
         setPreparingSeconds(0);
         setSecondsLeft(0);
         setLevelData(null);
+        setLobbyTeams(null);
         setResults(null);
         setChatMessages([]);
         setRematchedUserIds([]);
@@ -190,6 +205,31 @@ const useSnowWarState = () =>
         return () => clearTimeout(timeout);
     }, [errorCode]);
 
+    // Queue wait cap: once queued (waiting for players), give the match at most
+    // SNOWWAR_QUEUE_MAX_WAIT_MS to form. If it doesn't, leave the queue and flag
+    // the timeout so the UI shows a "time has passed" popup and drops back to
+    // the game center. The timer runs from queue entry and is cancelled the
+    // moment the phase changes (match forming, manual leave, etc.).
+    useEffect(() =>
+    {
+        if (phase !== 'queued') return;
+        const timeout = setTimeout(() =>
+        {
+            SendMessageComposer(new SnowWarLeaveQueueComposer());
+            resetToIdle();
+            setQueueExpired(true);
+        }, SNOWWAR_QUEUE_MAX_WAIT_MS);
+        return () => clearTimeout(timeout);
+    }, [phase, resetToIdle]);
+
+    // Auto-dismiss the timeout popup after a few seconds.
+    useEffect(() =>
+    {
+        if (!queueExpired) return;
+        const timeout = setTimeout(() => setQueueExpired(false), 6000);
+        return () => clearTimeout(timeout);
+    }, [queueExpired]);
+
     // All packet handlers are useCallback-stable and read the parser into a
     // local BEFORE any setState. Both rules are load-bearing: this hook lives
     // inside a use-between scope whose useEffect implementation flushes
@@ -202,6 +242,9 @@ const useSnowWarState = () =>
     {
         const parser = event.getParser();
         if (!parser) return;
+        // A fresh queue position means we're actively queued again - clear any
+        // stale "time has passed" popup from a previous wait.
+        setQueueExpired(false);
         setPhase(current => (current === 'idle' || current === 'queued' || current === 'lobby') ? 'queued' : current);
         setQueuePosition(parser.position);
         setQueueSize(parser.queueSize);
@@ -214,6 +257,22 @@ const useSnowWarState = () =>
         const seconds = parser.secondsUntilStart;
         setPhase('lobby');
         setLobbySeconds(seconds);
+    }, []);
+
+    const onLobbyTeams = useCallback((event: SnowWarLobbyTeamsEvent) =>
+    {
+        const parser = event.getParser();
+        if (!parser) return;
+        setLobbyTeams({
+            teamCount: parser.teamCount,
+            players: parser.players.map(player => ({
+                userId: player.userId,
+                teamId: player.teamId,
+                name: player.name,
+                figure: player.figure,
+                gender: player.gender,
+            })),
+        });
     }, []);
 
     const onInitArena = useCallback(() =>
@@ -244,6 +303,9 @@ const useSnowWarState = () =>
             players: parser.players,
         });
         setSecondsLeft(parser.gameLengthSeconds);
+        // Editor opened from the queue: the server sends the arena map straight
+        // to us (no game). Render the arena so the WYSIWYG editor takes over.
+        if (editingRef.current) setPhase('playing');
     }, []);
 
     const onFullGameStatus = useCallback((event: SnowWarFullGameStatusEvent) =>
@@ -360,11 +422,12 @@ const useSnowWarState = () =>
     {
         const parser = event.getParser();
         if (!parser) return;
-        setQueueInfo({ playersInQueue: parser.playersInQueue, gamesPlayed: parser.gamesPlayed });
+        setQueueInfo({ playersInQueue: parser.playersInQueue, gamesPlayed: parser.gamesPlayed, minPlayers: parser.minPlayers, canEdit: parser.canEdit });
     }, []);
 
     useMessageEvent<SnowWarQueuePositionEvent>(SnowWarQueuePositionEvent, onQueuePosition);
     useMessageEvent<SnowWarStartLobbyCounterEvent>(SnowWarStartLobbyCounterEvent, onStartLobbyCounter);
+    useMessageEvent<SnowWarLobbyTeamsEvent>(SnowWarLobbyTeamsEvent, onLobbyTeams);
     useMessageEvent<SnowWarInitArenaEvent>(SnowWarInitArenaEvent, onInitArena);
     useMessageEvent<SnowWarLevelDataEvent>(SnowWarLevelDataEvent, onLevelData);
     useMessageEvent<SnowWarFullGameStatusEvent>(SnowWarFullGameStatusEvent, onFullGameStatus);
@@ -412,6 +475,9 @@ const useSnowWarState = () =>
     {
         editingRef.current = false;
         setEditing(false);
+        // Tell the server we left the editor so matchmaking can resume once all
+        // editors are out.
+        SendMessageComposer(new SnowWarExitEditorComposer());
         resetToIdle();
         // The rejoin-previous-room echo was swallowed on edit entry, so restore
         // the room we came from here instead (no-op if we were never in one).
@@ -456,12 +522,14 @@ const useSnowWarState = () =>
         preparingSeconds,
         secondsLeft,
         levelData,
+        lobbyTeams,
         results,
         chatMessages,
         rematchedUserIds,
         errorCode,
         gamesLeft,
         queueInfo,
+        queueExpired,
         editing,
         simulation: SNOWWAR_SIMULATION,
         joinQueue,

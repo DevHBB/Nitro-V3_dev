@@ -26,10 +26,14 @@ const ERROR_TEXTS: Record<number, [string, string]> = {
 export const GameTileView: FC<{ game: GameConfigurationData }> = ({ game }) =>
 {
     const { accountStatus, setSelectedGame } = useGameCenter();
-    const { phase, queuePosition, queueSize, lobbySeconds, errorCode, leaveQueue } = useSnowWar();
+    const { phase, queuePosition, queueSize, lobbySeconds, queueInfo, errorCode, leaveQueue } = useSnowWar();
 
     const isSnowWar = (game.gameNameId === 'snowwar');
     const inQueue = isSnowWar && ((phase === 'queued') || (phase === 'lobby'));
+    // Not enough players yet to start the countdown - show "awaiting players"
+    // (X/min) instead of a bare "1/1" queue position.
+    const minPlayers = queueInfo?.minPlayers ?? 0;
+    const awaitingPlayers = (phase === 'queued') && (minPlayers > 1) && (queueSize < minPlayers);
 
     const canPlay = accountStatus && (accountStatus.hasUnlimitedGames || (accountStatus.freeGamesLeft > 0));
 
@@ -56,12 +60,16 @@ export const GameTileView: FC<{ game: GameConfigurationData }> = ({ game }) =>
                 {inQueue && (
                     <div className="game-tile__queue">
                         <div>
-                            {(phase === 'queued')
-                                ? localizeWithFallback('snowwar.queue.position', 'In queue: %position% / %size%')
-                                    .replace('%position%', queuePosition.toString())
-                                    .replace('%size%', queueSize.toString())
-                                : localizeWithFallback('snowwar.queue.starting', 'Game starts in %seconds%s...')
-                                    .replace('%seconds%', lobbySeconds.toString())}
+                            {(phase !== 'queued')
+                                ? localizeWithFallback('snowwar.queue.starting', 'Game starts in %seconds%s...')
+                                    .replace('%seconds%', lobbySeconds.toString())
+                                : awaitingPlayers
+                                    ? localizeWithFallback('snowwar.queue.awaiting', 'Waiting for players: %count%/%min%')
+                                        .replace('%count%', queueSize.toString())
+                                        .replace('%min%', minPlayers.toString())
+                                    : localizeWithFallback('snowwar.queue.position', 'In queue: %position% / %size%')
+                                        .replace('%position%', queuePosition.toString())
+                                        .replace('%size%', queueSize.toString())}
                         </div>
                         <button className="snowwar-button snowwar-button--danger" type="button" onClick={() => leaveQueue()}>
                             {localizeWithFallback('snowwar.queue.leave', 'Leave queue')}

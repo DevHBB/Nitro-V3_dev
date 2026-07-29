@@ -275,6 +275,121 @@
   to { transform: rotate(360deg); }
 }
 
+/* Pre-match "assembling teams" screen (lobby countdown). Same icy theme as
+   the splash, with a Red vs Blue face-off board. */
+.snowwar-teams {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 24px 16px;
+  color: #2f6d95;
+  background: radial-gradient(120% 80% at 50% 0%, #eaf6ff 0%, #cfe9f9 55%, #bfe0f4 100%);
+  overflow: auto;
+}
+.snowwar-teams__title {
+  font-size: 24px;
+  font-weight: 800;
+  color: #5aa6d8;
+  text-shadow: 0 2px 0 rgba(255, 255, 255, 0.7);
+  margin-top: -4px;
+}
+.snowwar-teams__countdown {
+  font-size: 16px;
+  font-weight: 700;
+  color: #2f6d95;
+}
+.snowwar-teams__board {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  gap: 24px;
+  width: 100%;
+  max-width: 820px;
+  margin-top: 8px;
+}
+.snowwar-teams__panel {
+  flex: 1;
+  max-width: 360px;
+  min-width: 200px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 3px solid #4577e6;
+  border-radius: 14px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.snowwar-teams__panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 800;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+.snowwar-teams__count {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 10px;
+  padding: 0 9px;
+  font-size: 14px;
+}
+.snowwar-teams__roster {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+}
+.snowwar-teams__empty {
+  font-size: 13px;
+  font-style: italic;
+  color: #6b93ac;
+  padding: 10px 4px;
+  text-align: center;
+}
+.snowwar-teams__player {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 10px;
+  padding: 4px 10px 4px 4px;
+  box-shadow: 0 2px 5px rgba(40, 90, 130, 0.16);
+}
+.snowwar-teams__avatar {
+  position: relative;
+  width: 44px;
+  height: 56px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.snowwar-teams__avatar .avatar-image {
+  position: absolute;
+  left: -14px;
+  top: -8px;
+  transform-origin: top left;
+}
+.snowwar-teams__name {
+  font-size: 13px;
+  font-weight: 700;
+  color: #2f6d95;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.snowwar-teams__leave {
+  margin-top: 10px;
+}
+.snowwar-teams__topbar {
+  width: 100%;
+  max-width: 820px;
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: -6px;
+}
+
 .snowwar-arena {
   position: relative;
   flex: 1;
@@ -358,6 +473,10 @@
   background: linear-gradient(180deg, #c8564d 0%, #92251d 100%);
   border-color: #6d1a14;
 }
+.snowwar-button--edit {
+  background: linear-gradient(180deg, #6fb56a 0%, #3f8a3c 100%);
+  border-color: #2c6b2a;
+}
 
 .snowwar-banner {
   position: absolute;
@@ -424,6 +543,74 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
+}
+
+/* Classic floor-tile canvas: just above the ad backdrop overlay (z-index 1) but
+   below every hotel furni (walkable furni start at z 3), so the overlay hides
+   only the floor grid while the flat floor tiles stay visible - and any furni
+   placed on top of a floor tile always renders above it. */
+.snowwar-floor--props {
+  z-index: 2;
+}
+
+/* Tall classic props (trees/snowman/fences/blocks) as per-tile sprites - their
+   inline z-index depth-sorts them with the avatars. */
+.snowwar-classic-prop {
+  position: absolute;
+  pointer-events: none;
+}
+
+.snowwar-classic-prop-canvas {
+  display: block;
+}
+
+/* Tree hit: the canopy sways, pivoting at the trunk base (~87% down the box) so
+   the trunk barely moves. */
+.snowwar-classic-prop--shake .snowwar-classic-prop-canvas {
+  transform-origin: 50% 87%;
+  animation: snowwar-tree-shake 0.5s ease-out;
+}
+
+@keyframes snowwar-tree-shake {
+  0% { transform: rotate(0deg); }
+  18% { transform: rotate(-4.5deg); }
+  42% { transform: rotate(3deg); }
+  66% { transform: rotate(-1.5deg); }
+  84% { transform: rotate(0.7deg); }
+  100% { transform: rotate(0deg); }
+}
+
+/* Snowman got bonked - a quick squash-and-settle bounce on its base. */
+.snowwar-classic-prop--bonk .snowwar-classic-prop-canvas {
+  transform-origin: 50% 92%;
+  animation: snowwar-snowman-bonk 0.45s ease-out;
+}
+
+@keyframes snowwar-snowman-bonk {
+  0% { transform: scale(1, 1); }
+  25% { transform: scale(1.12, 0.86); }
+  55% { transform: scale(0.95, 1.06); }
+  78% { transform: scale(1.03, 0.98); }
+  100% { transform: scale(1, 1); }
+}
+
+/* Snowflakes shaken loose from a hit tree - drift down and fade. */
+.snowwar-treesnow {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 0 2px rgba(255, 255, 255, 0.85);
+  pointer-events: none;
+  z-index: 250;
+  animation: snowwar-treesnow-fall 0.9s ease-in forwards;
+}
+
+@keyframes snowwar-treesnow-fall {
+  0% { transform: translateY(0); opacity: 0; }
+  15% { opacity: 0.95; }
+  100% { transform: translateY(24px); opacity: 0; }
 }
 
 .snowwar-machine {
@@ -892,11 +1079,6 @@
   color: #ffffff;
 }
 
-.snowwar-editor__chip--spawn {
-  border-color: #e6c245;
-  color: #ffe9a8;
-}
-
 .snowwar-editor__chip--floor {
   border-color: #6fbf73;
   color: #c8f0cb;
@@ -1018,17 +1200,6 @@
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
   pointer-events: none;
   z-index: 92;
-}
-
-.snowwar-edit-spawn {
-  position: absolute;
-  width: 24px;
-  height: 12px;
-  transform: translate(-50%, -50%) rotate(45deg);
-  background: rgba(230, 194, 69, 0.55);
-  border: 1px solid #e6c245;
-  pointer-events: none;
-  z-index: 90;
 }
 
 .snowwar-edit-selection {
