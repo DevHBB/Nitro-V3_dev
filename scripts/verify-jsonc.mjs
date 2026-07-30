@@ -69,7 +69,7 @@ for(const path of activeFiles)
 
     if(new RegExp(`${ removedFormat }|\\.${ removedFormat }|application\\/${ removedFormat }|x-${ removedFormat }`, 'i').test(source))
     {
-        failures.push(`${ relative(PROJECT_ROOT, path) }: contains an active JSON5 reference`);
+        failures.push(`${ relative(PROJECT_ROOT, path) }: contains a reference to the removed format`);
     }
 }
 
@@ -79,4 +79,4 @@ if(failures.length)
     process.exit(1);
 }
 
-process.stdout.write(`Validated ${ parseCandidates.length } JSON/JSONC configuration files with no active JSON5 references.\n`);
+process.stdout.write(`Validated ${ parseCandidates.length } JSON/JSONC configuration files with no references to the removed format.\n`);
