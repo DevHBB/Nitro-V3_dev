@@ -23,7 +23,7 @@ export const CameraWidgetEffectListItemView: FC<CameraWidgetEffectListItemViewPr
             onClick={(event) => !isActive && selectEffect()}
         >
             {isActive && (
-                <Button className="rounded-circle remove-effect" variant="danger" onClick={removeEffect}>
+                <Button className="rounded-circle remove-effect absolute right-0 top-0 z-10 opacity-20 hover:opacity-100" variant="danger" onClick={removeEffect}>
                     <FaTimes className="fa-icon" />
                 </Button>
             )}

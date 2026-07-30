@@ -189,6 +189,16 @@ export const CameraWidgetEditorView: FC<CameraWidgetEditorViewProps> = (props) =
         debounceTimerRef.current = setTimeout(() => {
             const id = ++requestIdRef.current;
 
+            // No effects: show the original capture untouched. Re-rendering it
+            // through PixiJS resamples the pixel-art photo and adds dithering /
+            // moire ("line dots"), so the editor no longer matched the crisp
+            // room capture. Only composite through the renderer once an effect
+            // is actually applied.
+            if (!selectedEffects.length) {
+                if (id === requestIdRef.current) setCurrentPictureUrl(picture.imageUrl);
+                return;
+            }
+
             GetRoomCameraWidgetManager()
                 .applyEffects(stableTexture, selectedEffects, false)
                 .then((imageElement) => {
@@ -201,10 +211,10 @@ export const CameraWidgetEditorView: FC<CameraWidgetEditorViewProps> = (props) =
         return () => {
             if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
         };
-    }, [stableTexture, selectedEffects]);
+    }, [stableTexture, selectedEffects, picture]);
 
     return (
-        <NitroCardView className="w-[600px] h-[500px]" isResizable={false} style={{ resize: 'none' }}>
+        <NitroCardView className="w-[600px] max-w-[95vw] h-[500px] max-h-[90vh]">
             <NitroCardHeaderView headerText={LocalizeText('camera.editor.button.text')} onCloseClick={(event) => processAction('close')} />
             <NitroCardTabsView>
                 {TABS.map((tab) => (
@@ -215,7 +225,7 @@ export const CameraWidgetEditorView: FC<CameraWidgetEditorViewProps> = (props) =
             </NitroCardTabsView>
             <NitroCardContentView>
                 <Grid>
-                    <Column className="overflow-x-auto" size={5}>
+                    <Column className="min-h-0 overflow-y-auto has-classic-scrollbar" size={5}>
                         <CameraWidgetEffectListView
                             myLevel={myLevel}
                             selectedEffects={selectedEffects}
@@ -225,13 +235,13 @@ export const CameraWidgetEditorView: FC<CameraWidgetEditorViewProps> = (props) =
                         />
                     </Column>
                     <Column justifyContent="between" className="overflow-x-auto" size={7}>
-                        <Column center>
-                            <div className="w-[325px] h-[325px] overflow-hidden">
+                        <Column center fullWidth>
+                            <div className="flex aspect-square w-full max-w-[325px] items-center justify-center overflow-hidden">
                                 {currentPictureUrl && (
                                     <img
                                         alt=""
                                         src={currentPictureUrl}
-                                        className="w-[325px] h-[325px] [image-rendering:pixelated]"
+                                        className="h-full w-full object-cover [image-rendering:pixelated]"
                                         style={isZoomed ? { transform: 'scale(2)', transformOrigin: 'center' } : undefined}
                                     />
                                 )}
