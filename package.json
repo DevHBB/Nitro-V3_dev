@@ -20,7 +20,8 @@
         "lint:hooks": "eslint --config eslint.hooks.config.mjs ./src",
         "typecheck": "tsgo --noEmit",
         "test": "vitest run",
-        "test:watch": "vitest"
+        "test:watch": "vitest",
+        "verify:jsonc": "node scripts/verify-jsonc.mjs"
     },
     "dependencies": {
         "@babel/runtime": "^7.29.7",

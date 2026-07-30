@@ -11,7 +11,7 @@ import { useBetween } from 'use-between';
 import { GetConfigurationValue, SendMessageComposer, setSoundboardRoomEnabled } from '../../api';
 import { useMessageEvent } from '../events';
 
-// A pad as the client uses it. `local` marks pads that came from the JSON5 file
+// A pad as the client uses it. `local` marks pads that came from the JSONC file
 // fallback rather than the server (DB) — those play locally on click because the
 // server can't resolve their id to broadcast them.
 export type ClientSoundboardSound = ISoundboardSound & { local?: boolean };
@@ -58,8 +58,8 @@ const useSoundboardState = () => {
     });
 
     // Fallback: when the soundboard is on but the server (DB) provided no pads,
-    // load them from the JSON5 file once. loadGamedata accepts plain JSON and
-    // JSON5 (// comments) — same loader used for the avatar effect map.
+    // load them from the JSONC file once. loadGamedata accepts plain JSON and
+    // JSONC comments — the same loader used for the avatar effect map.
     useEffect(() => {
         if (!enabled || serverSounds.length || fileLoadStartedRef.current) return;
         fileLoadStartedRef.current = true;
@@ -67,7 +67,7 @@ const useSoundboardState = () => {
         const url =
             GetConfigurationValue<string>('soundboard.url') ||
             GetConfigurationValue<string>('soundboard.sounds.url') ||
-            'configuration/soundboard-sounds.json5';
+            'configuration/soundboard-sounds.jsonc';
 
         (async () => {
             try {
