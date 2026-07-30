@@ -112,14 +112,14 @@
     'catalog.admin.edit':                       'Modifica:',
     'catalog.admin.edit.page':                  'Modifica pagina',
     'catalog.admin.hidden':                     'nascosto',
-    'catalog.admin.edit.title':                 'Modifica "%name%"',
+    'catalog.admin.edit.title':                 'Modifica %name%',
     'catalog.admin.show':                       'Mostra',
     'catalog.admin.hide':                       'Nascondi',
     'catalog.admin.delete':                     'Elimina',
-    'catalog.admin.delete.title':               'Elimina "%name%"',
-    'catalog.admin.delete.category.confirm':    'Eliminare la categoria "%name%" e tutto il suo contenuto?',
+    'catalog.admin.delete.title':               'Elimina %name%',
+    'catalog.admin.delete.category.confirm':    'Eliminare la categoria %name% e tutto il suo contenuto?',
     'catalog.admin.delete.page':                'Elimina pagina',
-    'catalog.admin.delete.page.confirm':        'Eliminare la pagina "%name%"?',
+    'catalog.admin.delete.page.confirm':        'Eliminare la pagina %name%?',
     'catalog.admin.delete.offer.confirm':       'Sei sicuro di voler eliminare questa offerta?',
     'catalog.admin.create':                     'Crea',
     'catalog.admin.save':                       'Salva',
@@ -707,6 +707,9 @@
     'radio.empty':  'Nessuna stazione',
     'radio.error':  'Impossibile caricare le stazioni',
     'radio.stop':   'Ferma',
+    'radio.live':   'Live',
+    'radio.hide':   'Nascondi',
+    'radio.show':   'Mostra',
 
     // ------------------------------------------------------------------------
     // Rare Values
