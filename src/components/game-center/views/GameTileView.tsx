@@ -1,6 +1,6 @@
 import { GameConfigurationData, JoinQueueMessageComposer } from '@nitrots/nitro-renderer';
 import { FC } from 'react';
-import { ColorUtils, LocalizeText, SendMessageComposer } from '../../../api';
+import { ColorUtils, GetConfigurationValue, LocalizeText, SendMessageComposer } from '../../../api';
 import snowStormLogo from '../../../assets/images/snowstorm/snowstorm.png';
 import { useGameCenter, useSnowWar } from '../../../hooks';
 
@@ -26,7 +26,7 @@ const ERROR_TEXTS: Record<number, [string, string]> = {
 export const GameTileView: FC<{ game: GameConfigurationData }> = ({ game }) =>
 {
     const { accountStatus, setSelectedGame } = useGameCenter();
-    const { phase, queuePosition, queueSize, lobbySeconds, queueInfo, errorCode, leaveQueue } = useSnowWar();
+    const { phase, queuePosition, queueSize, lobbySeconds, queueInfo, errorCode, leaveQueue, requestLeaderboard, startEditing } = useSnowWar();
 
     const isSnowWar = (game.gameNameId === 'snowwar');
     const inQueue = isSnowWar && ((phase === 'queued') || (phase === 'lobby'));
@@ -36,6 +36,7 @@ export const GameTileView: FC<{ game: GameConfigurationData }> = ({ game }) =>
     const awaitingPlayers = (phase === 'queued') && (minPlayers > 1) && (queueSize < minPlayers);
 
     const canPlay = accountStatus && (accountStatus.hasUnlimitedGames || (accountStatus.freeGamesLeft > 0));
+    const showLeaderboard = GetConfigurationValue<boolean>('games.highscores.enabled', true);
 
     const onPlay = () =>
     {
@@ -81,10 +82,24 @@ export const GameTileView: FC<{ game: GameConfigurationData }> = ({ game }) =>
                         {localizeWithFallback('gamecenter.coming_soon', 'Coming soon!')}
                     </button>
                 )}
-                {isSnowWar && !inQueue && canPlay && (
-                    <button className="snowwar-button game-tile__play" type="button" onClick={onPlay}>
-                        {localizeWithFallback('gamecenter.play_now', 'Play now')}
-                    </button>
+                {isSnowWar && !inQueue && (
+                    <div className="game-tile__actions">
+                        {canPlay && (
+                            <button className="snowwar-button game-tile__play" type="button" onClick={onPlay}>
+                                {localizeWithFallback('gamecenter.play_now', 'Play now')}
+                            </button>
+                        )}
+                        {queueInfo?.canEdit && (
+                            <button className="snowwar-button snowwar-button--edit" type="button" onClick={() => startEditing()}>
+                                {localizeWithFallback('snowwar.editor.build_custom', 'Build Custom Arena')}
+                            </button>
+                        )}
+                        {showLeaderboard && (
+                            <button className="game-tile__leaderboard" type="button" onClick={() => requestLeaderboard(true, false, 0)}>
+                                {localizeWithFallback('gamecenter.leaderboard_link', 'Leaderboard')}
+                            </button>
+                        )}
+                    </div>
                 )}
                 {errorEntry && <div className="game-tile__error">{localizeWithFallback(errorEntry[0], errorEntry[1])}</div>}
             </div>

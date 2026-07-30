@@ -187,4 +187,34 @@ describe('FloorplanEditorView container', () => {
         unmount();
         expect(RemoveLinkEventTracker).toHaveBeenCalledTimes(1);
     });
+
+    it('reuses the editor for an external arena floor plan without room messages', () => {
+        const onClose = vi.fn();
+        const onSave = vi.fn();
+
+        const { queryByTestId } = render(
+            <FloorplanEditorView
+                externalSession={{
+                    tilemap: '00\r0x',
+                    occupiedTiles: [[false, true], [false, false]],
+                    title: 'SnowStorm Floor Plan Editor',
+                    onClose,
+                    onSave
+                }}
+            />
+        );
+
+        expect(document.body.textContent).toContain('SnowStorm Floor Plan Editor');
+        expect(queryByTestId('tool-door')).toBeNull();
+        expect(AddLinkEventTracker).not.toHaveBeenCalled();
+        expect(sendMessageComposer).not.toHaveBeenCalled();
+
+        const saveBtn = findByExactText('floor.plan.editor.save');
+        expect(saveBtn).toBeTruthy();
+        fireEvent.click(saveBtn!);
+
+        expect(onSave).toHaveBeenCalledWith('00\r0x');
+        expect(onClose).toHaveBeenCalledTimes(1);
+        expect(sendMessageComposer).not.toHaveBeenCalled();
+    });
 });

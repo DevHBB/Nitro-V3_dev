@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
     calculateFlightPath,
+    calculateFlightPathWorld,
     direction360To8,
     fastSqrt,
     getAngleFromComponents,
@@ -8,11 +9,24 @@ import {
     getBaseVelY,
     iterateSeed,
     moveTowards,
+    SERVER_TICK_MS,
+    SUBTURN_MS,
+    SUBTURNS_PER_TICK,
     tileToWorld,
     validateDirection360,
     worldToTile,
 } from './SnowWarMath';
 import { ANGLE_COMPONENT, BASE_VEL_X, BASE_VEL_Y, SQRT_TABLE } from './SnowWarTables';
+
+describe('AIR timing', () =>
+{
+    it('uses three 50 ms subturns per server turn', () =>
+    {
+        expect(SUBTURNS_PER_TICK).toBe(3);
+        expect(SUBTURN_MS).toBe(50);
+        expect(SERVER_TICK_MS).toBe(150);
+    });
+});
 
 describe('SnowWarTables', () =>
 {
@@ -143,26 +157,66 @@ describe('moveTowards', () =>
 {
     it('clamps to the target', () =>
     {
-        expect(moveTowards(0, 500, 640)).toBe(500);
-        expect(moveTowards(0, 5000, 640)).toBe(640);
-        expect(moveTowards(5000, 0, 640)).toBe(4360);
-        expect(moveTowards(7, 7, 640)).toBe(7);
+        expect(moveTowards(0, 500, 534)).toBe(500);
+        expect(moveTowards(0, 5000, 534)).toBe(534);
+        expect(moveTowards(5000, 0, 534)).toBe(4466);
+        expect(moveTowards(7, 7, 534)).toBe(7);
     });
 });
 
 describe('calculateFlightPath', () =>
 {
-    it('uses fixed TTL for the lob trajectory', () =>
+    it('uses AIR quick-throw timing and velocity', () =>
     {
-        const flight = calculateFlightPath(5, 5, 10, 10, 1);
-        expect(flight.timeToLive).toBe(13);
-        expect(flight.parabolaOffset).toBe(6);
+        expect(calculateFlightPath(0, 0, 10, 0, 0)).toEqual({
+            direction: 90,
+            timeToLive: 10,
+            parabolaOffset: 5,
+            planarVelocity: 2000,
+            trajectory: 0,
+        });
     });
 
-    it('scales TTL with distance for the long trajectory', () =>
+    it('uses AIR short and long lob coefficients', () =>
     {
-        const near = calculateFlightPath(5, 5, 8, 5, 2);
-        const far = calculateFlightPath(5, 5, 20, 5, 2);
-        expect(far.timeToLive).toBeGreaterThan(near.timeToLive);
+        expect(calculateFlightPath(0, 0, 10, 0, 1)).toMatchObject({
+            timeToLive: 17,
+            parabolaOffset: 8,
+            planarVelocity: 1882,
+            trajectory: 1,
+        });
+        expect(calculateFlightPath(0, 0, 10, 0, 2)).toMatchObject({
+            timeToLive: 22,
+            parabolaOffset: 11,
+            planarVelocity: 1454,
+            trajectory: 2,
+        });
+    });
+
+    it('resolves AIR adaptive throws by distance', () =>
+    {
+        expect(calculateFlightPath(0, 0, 10, 0, 3).trajectory).toBe(0);
+        expect(calculateFlightPath(0, 0, 15, 0, 3).trajectory).toBe(1);
+        expect(calculateFlightPath(0, 0, 25, 0, 3).trajectory).toBe(2);
+    });
+
+    it('caps AIR lob distance before deriving TTL and velocity', () =>
+    {
+        expect(calculateFlightPath(0, 0, 30, 0, 1)).toMatchObject({
+            timeToLive: 33,
+            parabolaOffset: 16,
+            planarVelocity: 1818,
+        });
+        expect(calculateFlightPath(0, 0, 40, 0, 2)).toMatchObject({
+            timeToLive: 70,
+            parabolaOffset: 35,
+            planarVelocity: 1428,
+        });
+    });
+
+    it('preserves mid-tile world coordinates when resolving a live throw', () =>
+    {
+        expect(calculateFlightPathWorld(500, 700, 42500, 700, 3).trajectory).toBe(0);
+        expect(calculateFlightPathWorld(500, 700, 48500, 700, 3).trajectory).toBe(1);
     });
 });

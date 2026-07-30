@@ -13,6 +13,7 @@ type Props = {
     onRedo?: () => void;
     panMode?: boolean;
     setPanMode?: (next: boolean) => void;
+    includeDoor?: boolean;
 };
 
 const BRUSH_BUTTONS: { id: string; mode: FloorActionMode; iconClass: string }[] = [
@@ -23,7 +24,7 @@ const BRUSH_BUTTONS: { id: string; mode: FloorActionMode; iconClass: string }[] 
     { id: 'tool-door', mode: 'DOOR', iconClass: 'icon-set-door' }
 ];
 
-export const FloorplanToolbar: FC<Props> = ({ state, dispatch, canUndo, canRedo, onUndo, onRedo, panMode, setPanMode }) => {
+export const FloorplanToolbar: FC<Props> = ({ state, dispatch, canUndo, canRedo, onUndo, onRedo, panMode, setPanMode, includeDoor = true }) => {
     const exitPan = () => {
         if (panMode && setPanMode) setPanMode(false);
     };
@@ -45,7 +46,7 @@ export const FloorplanToolbar: FC<Props> = ({ state, dispatch, canUndo, canRedo,
                     <FaHandPaper size={12} />
                 </Base>
             )}
-            {BRUSH_BUTTONS.map((b) => {
+            {BRUSH_BUTTONS.filter((button) => includeDoor || button.mode !== 'DOOR').map((b) => {
                 const active = state.brush.action === b.mode && !panMode;
 
                 return (
