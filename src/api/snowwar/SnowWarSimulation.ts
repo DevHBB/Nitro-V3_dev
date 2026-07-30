@@ -154,18 +154,13 @@ export class SnowWarSimulation
     private _subturnCount = 0; // total subturns processed (monotonic)
     private _lastAdvanceAt: number | null = null;
 
-    // The server delivers one whole tick (SUBTURNS_PER_TICK subturns) every
-    // SERVER_TICK_MS, and the client plays them back at exactly that rate, so
-    // there is no buffer to hide network jitter: a packet that lands a few ms
-    // late leaves the interpolation with nothing to advance toward and motion
-    // freezes for a frame or two. It is barely visible with a static camera,
-    // but a clear stutter once the camera follows the avatar. Rather than add a
-    // playout buffer (which would read as input lag), we let the interpolation
-    // extrapolate a little past the last known subturn - continuing existing
-    // motion through the gap. A stopped avatar has prev == cur, so it never
-    // drifts; only genuinely-moving entities coast, and they correct on the
-    // next packet. Capped so a longer stall settles instead of sliding away.
     private static readonly MAX_EXTRAPOLATION_ALPHA = 2;
+
+    private static readonly TARGET_BUFFER_SUBTURNS = 2;
+
+    private static readonly CATCHUP_BUFFER_SUBTURNS = 12;
+    private static readonly CATCHUP_RATE = 1.5;
+    private static readonly MAX_BUFFERED_SUBTURNS = 60;
 
     public get subturnCount(): number
     {
@@ -225,12 +220,6 @@ export class SnowWarSimulation
             if (x >= 0 && y >= 0 && x < this._mapWidth && y < this._mapHeight) this._blockedTiles[y][x] = true;
         };
 
-        // Only solid furni block a tile; walkable props (walkableHeight 0, e.g.
-        // rugs/ice) stay walkable, matching the server's SnowWarTile. Default to
-        // blocking if the height is missing (older packet) to stay safe. A furni
-        // blocks its WHOLE footprint (width x length, extending +x/+y from its
-        // origin, swapped for the 90/270 rotations) - the same rectangle the
-        // server's SnowWarMap blocks - so a 3x3 prop blocks all nine tiles.
         for (const item of items)
         {
             if ((item.walkableHeight ?? 3) <= 0) continue;
@@ -322,9 +311,7 @@ export class SnowWarSimulation
     {
         for (const subturn of subturns) this._pendingSubturns.push(subturn);
 
-        // Never let a laggy tab build an unbounded backlog: when more than 2
-        // ticks (10 subturns) are queued, fast-forward the oldest ones.
-        while (this._pendingSubturns.length > 10) this.advanceSubturn();
+        while (this._pendingSubturns.length > SnowWarSimulation.MAX_BUFFERED_SUBTURNS) this.advanceSubturn();
     }
 
     /** Advance real time; processes queued subturns at 60ms cadence. */
@@ -336,8 +323,15 @@ export class SnowWarSimulation
             return;
         }
 
-        this._subturnClock += Math.min(500, Math.max(0, nowMs - this._lastAdvanceAt));
+        const delta = Math.min(500, Math.max(0, nowMs - this._lastAdvanceAt));
         this._lastAdvanceAt = nowMs;
+
+        const buffered = this._pendingSubturns.length;
+        let rate = 1;
+        if (buffered < SnowWarSimulation.TARGET_BUFFER_SUBTURNS) rate = 0.92;
+        else if (buffered > SnowWarSimulation.CATCHUP_BUFFER_SUBTURNS) rate = SnowWarSimulation.CATCHUP_RATE;
+        else if (buffered > SnowWarSimulation.TARGET_BUFFER_SUBTURNS + 3) rate = 1.08;
+        this._subturnClock += delta * rate;
 
         while (this._subturnClock >= SUBTURN_MS && this._pendingSubturns.length > 0)
         {
@@ -345,10 +339,6 @@ export class SnowWarSimulation
             this.advanceSubturn();
         }
 
-        // Starved (no pending data): let the clock run a little past one subturn
-        // so interpolationAlpha extrapolates the current motion through short
-        // network jitter instead of hard-freezing, then cap it so a longer
-        // stall settles at a bounded lead rather than sliding away.
         const maxClock = SUBTURN_MS * SnowWarSimulation.MAX_EXTRAPOLATION_ALPHA;
         if (this._pendingSubturns.length === 0 && this._subturnClock > maxClock)
         {
@@ -500,10 +490,6 @@ export class SnowWarSimulation
         if (avatar.walkGoalX === null || avatar.walkGoalY === null) return;
         if (avatar.activityState === SNOWWAR_STATE_STUNNED) return;
 
-        // Mirror of the server's SnowWarAvatarObject.moveOneFrame: walk the
-        // tile grid via the same greedy pathfinder instead of sliding in a
-        // straight line, so avatars never cross blocked tiles ("walk in air")
-        // and the client position matches the server's path exactly.
         const targetWorldX = tileToWorld(avatar.walkGoalX);
         const targetWorldY = tileToWorld(avatar.walkGoalY);
 
@@ -585,11 +571,8 @@ export class SnowWarSimulation
         const distanceSquared = (p: { x: number; y: number }) =>
             ((p.x - goalX) * (p.x - goalX)) + ((p.y - goalY) * (p.y - goalY));
 
-        // Stable sort keeps the server's neighbour-order tie-breaking.
         positions.sort((a, b) => distanceSquared(a) - distanceSquared(b));
 
-        // Only step if it brings us strictly closer to the goal; otherwise
-        // stop where we are (mirrors the server's oscillation guard).
         if (distanceSquared(positions[0]) >= distanceSquared({ x: avatar.tileX, y: avatar.tileY })) return null;
 
         return positions[0];
@@ -619,8 +602,6 @@ export class SnowWarSimulation
 
     private isTileWalkable(x: number, y: number): boolean
     {
-        // Without level data (tests, pre-LevelData packets) fall back to the
-        // pre-map behaviour of unrestricted movement.
         if (!this._mapHeight) return true;
         if (x < 0 || y < 0 || x >= this._mapWidth || y >= this._mapHeight) return false;
         return !this._blockedTiles[y][x];

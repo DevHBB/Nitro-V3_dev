@@ -44,12 +44,16 @@ describe('SnowWarSimulation', () =>
     let sim: SnowWarSimulation;
     let clock: number;
 
-    /** Queue one server tick (5 subturns, events in the first) and play it out. */
+    /** Queue one server tick (5 subturns, events in the first) and play it out.
+     * The jitter buffer varies playback rate, so a fixed 5x60ms no longer maps
+     * 1:1 to 5 subturns; pump real time until exactly these 5 have played. */
     const applyTick = (events: SnowWarSimEvent[] = []) =>
     {
         const lists: SnowWarSimEvent[][] = [events, [], [], [], []];
         sim.queueGameStatus(lists);
-        for (let i = 0; i < 5; i++)
+        const target = sim.subturnCount + 5;
+        let guard = 0;
+        while (sim.subturnCount < target && guard++ < 100)
         {
             clock += 60;
             sim.update(clock);
@@ -219,13 +223,25 @@ describe('SnowWarSimulation', () =>
         expect(sim.machines.get(50).snowballCount).toBe(2);
     });
 
-    it('fast-forwards when the backlog exceeds two server ticks', () =>
+    it('does not instantly fast-forward a normal jitter backlog (no teleport)', () =>
     {
+        // Four 5-subturn batches bunched together by arrival jitter = 20 queued.
+        // Below the memory backstop, so none are processed instantly - update()
+        // drains them smoothly instead of teleporting a walking avatar.
         for (let i = 0; i < 4; i++)
         {
             sim.queueGameStatus([[], [], [], [], []]);
         }
-        // 20 subturns queued; cap is 10 => 10 were fast-forwarded already.
-        expect(sim.subturnCount).toBe(10);
+        expect(sim.subturnCount).toBe(0);
+    });
+
+    it('hard fast-forwards only a runaway backlog, to bound memory', () =>
+    {
+        // 13 batches = 65 subturns; backstop is 60, so just the 5 oldest drain.
+        for (let i = 0; i < 13; i++)
+        {
+            sim.queueGameStatus([[], [], [], [], []]);
+        }
+        expect(sim.subturnCount).toBe(5);
     });
 });

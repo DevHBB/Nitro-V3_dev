@@ -39,6 +39,8 @@ import { SendMessageComposer, TryVisitRoom } from '../../api';
 import { consumeSnowWarReturnRoom, SnowWarSimEvent, SnowWarSimulation } from '../../api/snowwar';
 import { useMessageEvent } from '../events';
 
+const remainingSeconds = (deadline: number): number => Math.max(0, Math.round((deadline - Date.now()) / 1000));
+
 export type SnowWarPhase =
     | 'idle'
     | 'queued'
@@ -82,12 +84,8 @@ export interface SnowWarChatMessage {
     receivedAt: number;
 }
 
-// One shared world per session — the arena view reads it every animation frame.
 const SNOWWAR_SIMULATION = new SnowWarSimulation();
 
-// Hard cap on how long a player may sit in the queue waiting for enough
-// players before we bail them back to the game center with a "time has passed"
-// popup. Only applies while queued (waiting) - never once the match is forming.
 const SNOWWAR_QUEUE_MAX_WAIT_MS = 120000;
 
 let CHAT_MESSAGE_ID = 0;
@@ -146,11 +144,13 @@ const useSnowWarState = () =>
     const [queueExpired, setQueueExpired] = useState(false);
     const [gamesLeft, setGamesLeft] = useState(-1);
     const [queueInfo, setQueueInfo] = useState<{ playersInQueue: number; gamesPlayed: number; minPlayers: number; canEdit: boolean }>(null);
-    // In-arena WYSIWYG editor: the client edits the current level snapshot and
-    // publishes it with the save packet. editingRef mirrors it for the stable
-    // packet callbacks (which capture [] deps).
+
     const [editing, setEditing] = useState(false);
     const editingRef = useRef(false);
+
+    const lobbyDeadlineRef = useRef(0);
+    const preparingDeadlineRef = useRef(0);
+    const clockDeadlineRef = useRef(0);
 
     const resetToIdle = useCallback(() =>
     {
@@ -170,9 +170,6 @@ const useSnowWarState = () =>
         setRematchedUserIds([]);
     }, []);
 
-    // Lobby / preparing / game-clock countdowns tick locally between server
-    // packets; the server value (lobby broadcasts, 5024 stage-running, 5016
-    // full status) overwrites the local tick whenever it arrives.
     const lobbyTicking = (phase === 'lobby') && (lobbySeconds > 0);
     const preparingTicking = (phase === 'preparing') && (preparingSeconds > 0);
     const clockTicking = (phase === 'playing') && (secondsLeft > 0);
@@ -180,23 +177,39 @@ const useSnowWarState = () =>
     useEffect(() =>
     {
         if (!lobbyTicking) return;
-        const interval = setInterval(() => setLobbySeconds(seconds => Math.max(0, seconds - 1)), 1000);
+        const tick = () => setLobbySeconds(remainingSeconds(lobbyDeadlineRef.current));
+        const interval = setInterval(tick, 1000);
         return () => clearInterval(interval);
     }, [lobbyTicking]);
 
     useEffect(() =>
     {
         if (!preparingTicking) return;
-        const interval = setInterval(() => setPreparingSeconds(seconds => Math.max(0, seconds - 1)), 1000);
+        const tick = () => setPreparingSeconds(remainingSeconds(preparingDeadlineRef.current));
+        const interval = setInterval(tick, 1000);
         return () => clearInterval(interval);
     }, [preparingTicking]);
 
     useEffect(() =>
     {
         if (!clockTicking) return;
-        const interval = setInterval(() => setSecondsLeft(seconds => Math.max(0, seconds - 1)), 1000);
+        const tick = () => setSecondsLeft(remainingSeconds(clockDeadlineRef.current));
+        const interval = setInterval(tick, 1000);
         return () => clearInterval(interval);
     }, [clockTicking]);
+
+    useEffect(() =>
+    {
+        const onVisible = () =>
+        {
+            if (document.visibilityState !== 'visible') return;
+            if (lobbyTicking) setLobbySeconds(remainingSeconds(lobbyDeadlineRef.current));
+            if (preparingTicking) setPreparingSeconds(remainingSeconds(preparingDeadlineRef.current));
+            if (clockTicking) setSecondsLeft(remainingSeconds(clockDeadlineRef.current));
+        };
+        document.addEventListener('visibilitychange', onVisible);
+        return () => document.removeEventListener('visibilitychange', onVisible);
+    }, [lobbyTicking, preparingTicking, clockTicking]);
 
     useEffect(() =>
     {
@@ -205,11 +218,6 @@ const useSnowWarState = () =>
         return () => clearTimeout(timeout);
     }, [errorCode]);
 
-    // Queue wait cap: once queued (waiting for players), give the match at most
-    // SNOWWAR_QUEUE_MAX_WAIT_MS to form. If it doesn't, leave the queue and flag
-    // the timeout so the UI shows a "time has passed" popup and drops back to
-    // the game center. The timer runs from queue entry and is cancelled the
-    // moment the phase changes (match forming, manual leave, etc.).
     useEffect(() =>
     {
         if (phase !== 'queued') return;
@@ -222,7 +230,6 @@ const useSnowWarState = () =>
         return () => clearTimeout(timeout);
     }, [phase, resetToIdle]);
 
-    // Auto-dismiss the timeout popup after a few seconds.
     useEffect(() =>
     {
         if (!queueExpired) return;
@@ -230,20 +237,10 @@ const useSnowWarState = () =>
         return () => clearTimeout(timeout);
     }, [queueExpired]);
 
-    // All packet handlers are useCallback-stable and read the parser into a
-    // local BEFORE any setState. Both rules are load-bearing: this hook lives
-    // inside a use-between scope whose useEffect implementation flushes
-    // synchronously on state updates, so an unstable handler identity makes
-    // useMessageEvent unregister+dispose its event (nulling the parser)
-    // mid-callback — and briefly leaves the header without a listener, which
-    // can drop packets from the 300ms GameStatus stream.
-
     const onQueuePosition = useCallback((event: SnowWarQueuePositionEvent) =>
     {
         const parser = event.getParser();
         if (!parser) return;
-        // A fresh queue position means we're actively queued again - clear any
-        // stale "time has passed" popup from a previous wait.
         setQueueExpired(false);
         setPhase(current => (current === 'idle' || current === 'queued' || current === 'lobby') ? 'queued' : current);
         setQueuePosition(parser.position);
@@ -255,6 +252,7 @@ const useSnowWarState = () =>
         const parser = event.getParser();
         if (!parser) return;
         const seconds = parser.secondsUntilStart;
+        lobbyDeadlineRef.current = Date.now() + (seconds * 1000);
         setPhase('lobby');
         setLobbySeconds(seconds);
     }, []);
@@ -289,8 +287,6 @@ const useSnowWarState = () =>
     {
         const parser = event.getParser();
         if (!parser) return;
-        // The simulation needs the walkability grid to replay the server's
-        // tile pathfinding for avatar movement.
         SNOWWAR_SIMULATION.setLevel(parser.heightmapRows, parser.items, parser.machines);
         setLevelData({
             gameLengthSeconds: parser.gameLengthSeconds,
@@ -303,8 +299,6 @@ const useSnowWarState = () =>
             players: parser.players,
         });
         setSecondsLeft(parser.gameLengthSeconds);
-        // Editor opened from the queue: the server sends the arena map straight
-        // to us (no game). Render the arena so the WYSIWYG editor takes over.
         if (editingRef.current) setPhase('playing');
     }, []);
 
@@ -313,6 +307,7 @@ const useSnowWarState = () =>
         const parser = event.getParser();
         if (!parser) return;
         SNOWWAR_SIMULATION.applyFullStatus(parser.objects);
+        clockDeadlineRef.current = Date.now() + (parser.totalSecondsLeft * 1000);
         setSecondsLeft(parser.totalSecondsLeft);
     }, []);
 
@@ -321,6 +316,7 @@ const useSnowWarState = () =>
         const parser = event.getParser();
         if (!parser) return;
         const seconds = parser.preparingSeconds;
+        preparingDeadlineRef.current = Date.now() + (seconds * 1000);
         setPhase('preparing');
         setPreparingSeconds(seconds);
     }, []);
@@ -337,6 +333,7 @@ const useSnowWarState = () =>
     {
         const parser = event.getParser();
         if (!parser) return;
+        clockDeadlineRef.current = Date.now() + (parser.totalSecondsLeft * 1000);
         setSecondsLeft(parser.totalSecondsLeft);
         setPhase(current => ((current === 'preparing') || (current === 'loading')) ? 'playing' : current);
     }, []);
@@ -359,13 +356,8 @@ const useSnowWarState = () =>
 
     const onRejoinPreviousRoom = useCallback(() =>
     {
-        // Entering the editor makes the server take us out of the game, which
-        // echoes a rejoin-previous-room. Swallow it while editing so the level
-        // snapshot the editor works on is kept intact.
         if (editingRef.current) return;
         resetToIdle();
-        // The game center dropped our room when the hub opened; the rejoin
-        // packet carries no room id, so re-enter the one we remembered.
         const roomId = consumeSnowWarReturnRoom();
         if (roomId) TryVisitRoom(roomId);
     }, [resetToIdle]);
@@ -455,8 +447,6 @@ const useSnowWarState = () =>
 
     const startEditing = useCallback(() =>
     {
-        // Server verifies acc_snowwar_edit and removes us from the running
-        // game/queue; we keep the level snapshot and edit it in place.
         editingRef.current = true;
         setEditing(true);
         SendMessageComposer(new SnowWarEditRoomComposer());
@@ -475,12 +465,8 @@ const useSnowWarState = () =>
     {
         editingRef.current = false;
         setEditing(false);
-        // Tell the server we left the editor so matchmaking can resume once all
-        // editors are out.
         SendMessageComposer(new SnowWarExitEditorComposer());
         resetToIdle();
-        // The rejoin-previous-room echo was swallowed on edit entry, so restore
-        // the room we came from here instead (no-op if we were never in one).
         const roomId = consumeSnowWarReturnRoom();
         if (roomId) TryVisitRoom(roomId);
     }, [resetToIdle]);
