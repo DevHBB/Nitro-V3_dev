@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'fs';
 import { resolve } from 'path';
 import { defineConfig } from 'vite';
 import sirv from 'sirv';
+import { isValidJsonMode } from './scripts/json-mode.mjs';
 
 const legacyRendererRoot = resolve(__dirname, '..', 'renderer');
 const currentRendererRoot = resolve(__dirname, '..', 'Nitro_Render_V3');
@@ -76,7 +77,7 @@ const ReactCompilerConfig = {
 const resolveJsonMode = () =>
 {
     const envOverride = process.env.NITRO_JSON_MODE;
-    if(envOverride === 'legacy' || envOverride === 'json5' || envOverride === 'auto') return envOverride;
+    if(isValidJsonMode(envOverride)) return envOverride;
 
     const configFile = resolve(__dirname, '.nitro-build.json');
     if(existsSync(configFile))
@@ -84,7 +85,7 @@ const resolveJsonMode = () =>
         try
         {
             const parsed = JSON.parse(readFileSync(configFile, 'utf8'));
-            if(parsed?.jsonMode === 'legacy' || parsed?.jsonMode === 'json5' || parsed?.jsonMode === 'auto') return parsed.jsonMode;
+            if(isValidJsonMode(parsed?.jsonMode)) return parsed.jsonMode;
         }
         catch {}
     }
@@ -212,7 +213,7 @@ export default defineConfig({
                         if(id.includes('@tanstack')) return 'vendor-query';
                         if(id.includes('zustand') || id.includes('use-between')) return 'vendor-state';
                         if(id.includes('react-icons')) return 'vendor-icons';
-                        if(id.includes('json5')) return 'vendor-json5';
+                        if(id.includes('strip-json-comments')) return 'vendor-jsonc';
                         return 'vendor';
                     }
                 }
