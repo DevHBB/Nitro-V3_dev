@@ -1,0 +1,15 @@
+{
+    // This file controls presentation only. Sound IDs, names, URLs, rank
+    // access, enabled state, ordering, and cooldown remain server-authoritative.
+    "categories": [
+        { "id": "reactions", "label": "Reactions" },
+        { "id": "effects", "label": "Effects" },
+    ],
+
+    // Supported tones: blue, green, gold, purple.
+    // Unknown sound IDs are ignored and server sounds missing here still appear.
+    "sounds": [
+        { "id": 1, "category": "effects", "tone": "gold", "keywords": ["bell", "ding"] },
+        { "id": 2, "category": "reactions", "tone": "green", "keywords": ["clap", "cheer"] },
+    ],
+}
