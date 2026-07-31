@@ -697,8 +697,12 @@
     // ------------------------------------------------------------------------
     "soundboard.title": "Soundboard",
     "soundboard.empty": "Nessun suono disponibile",
-    "soundboard.lastplayed": "Riprodotto da %user%",
-    "soundboard.cooldown": "Attendi %seconds%s prima di riprodurre un altro suono",
+    "soundboard.search": "Cerca suoni",
+    "soundboard.categories": "Categorie suoni",
+    "soundboard.category.all": "Tutti",
+    "soundboard.category.recent": "Recenti",
+    "soundboard.pagination.previous": "Pagina precedente",
+    "soundboard.pagination.next": "Pagina successiva",
     "soundboard.room.played": "%user% ha riprodotto %sound%",
     "soundboard.room.setting.desc": "Permetti alle persone in questa stanza di riprodurre effetti sonori",
 
