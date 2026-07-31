@@ -40,7 +40,7 @@ baseline.
 Default `yarn build` ships:
 
 - `vendor` ~1 MB (react + tanstack-query + framer-motion + jodit +
-  emoji-mart + react-icons + howler + zustand + jsonc — everything
+  emoji-mart + react-icons + howler + zustand + json5 — everything
   merged)
 - `nitro-renderer` ~2.5 MB (renderer source + pixi.js inlined)
 - `src` ~1.7 MB (app code)
@@ -78,7 +78,7 @@ manualChunks: id => {
         if(id.includes('@tanstack'))     return 'vendor-query';
         if(id.includes('zustand') || id.includes('use-between')) return 'vendor-state';
         if(id.includes('react-icons'))   return 'vendor-icons';
-        if(id.includes('jsonc'))         return 'vendor-jsonc';
+        if(id.includes('json5'))         return 'vendor-json5';
         return 'vendor';
     }
 }
@@ -269,7 +269,6 @@ gzip_types
     application/javascript
     application/x-javascript
     application/json
-    application/jsonc
     application/xml
     application/rss+xml
     application/atom+xml
@@ -288,7 +287,7 @@ nginx -t                # validate syntax first
 systemctl reload nginx
 ```
 
-The impact is *enormous* — `palettes.jsonc` drops from 330 KB to 18 KB
+The impact is *enormous* — `palettes.json5` drops from 330 KB to 18 KB
 on the wire (~17×), and the renderer JS bundle from 2.5 MB to 765 KB
 (~3.3×). Verify:
 
@@ -299,32 +298,26 @@ curl -sI -H 'Accept-Encoding: gzip' \
 # expected: content-encoding: gzip
 ```
 
-If you forget `application/json` and `application/jsonc` from `gzip_types` you lose the
+If you forget `application/json` from `gzip_types` you lose the
 gamedata compression — that's the one that matters the most because
 the gamedata files are by far the heaviest payload.
 
 ### 5.2 Long Cache-Control on gamedata
 
 Inside the `/nitro-assets/` or `/nitro-assets/` location
-block, the gamedata `.jsonc` files deserve a 30-day cache because
+block, the gamedata `.json5` files deserve a 30-day cache because
 they only change on deploy:
 
 ```nginx
 location /nitro-assets/ {
     alias /var/www/cmsjs/public/nitro-assets/;
-    try_files $uri ${uri}manifest.jsonc ${uri}manifest.json =404;
+    try_files $uri ${uri}manifest.json5 ${uri}manifest.json =404;
     autoindex off;
     default_type application/json;
     expires 7d;
     add_header Cache-Control "public, max-age=604800, immutable";
 
-    location ~ \.jsonc$ {
-        types {} default_type application/jsonc;
-        expires 30d;
-        add_header Cache-Control "public, max-age=2592000";
-    }
-
-    location ~ \.json$ {
+    location ~ \.json5?$ {
         types {} default_type application/json;
         expires 30d;
         add_header Cache-Control "public, max-age=2592000";
@@ -333,7 +326,7 @@ location /nitro-assets/ {
 ```
 
 The outer 7-day cache covers PNG / nitro / mp3 files. The inner
-location block raises the JSONC lifetime to 30 days because the
+location block raises the JSON5 lifetime to 30 days because the
 content is effectively immutable per deploy. Cloudflare honours
 `Last-Modified` so revalidation still works — you don't need to
 cache-bust by filename.
@@ -342,17 +335,17 @@ For the JS / CSS chunks the filenames are content-hashed by Vite, so
 a long cache is safe — apply the same `Cache-Control: max-age=2592000`
 to the `/nitro/assets/` location.
 
-### 5.3 The `try_files → manifest.jsonc` fallback
+### 5.3 The `try_files → manifest.json5` fallback
 
 `loadGamedata(url)` in the renderer SDK can be pointed at either a
-single JSON file or a directory containing `manifest.jsonc` + tier
+single JSON file or a directory containing `manifest.json5` + tier
 sub-directories. The directory pattern is what we use in production,
 so requests like `/nitro-assets/gamedata/figuremap/` (note the
 trailing slash) need to resolve to the directory's manifest.
 
-The `try_files $uri ${uri}manifest.jsonc ${uri}manifest.json =404;`
+The `try_files $uri ${uri}manifest.json5 ${uri}manifest.json =404;`
 above does exactly that — try the URI as-is, fall back to the
-`manifest.jsonc` inside the directory, fall back to `.json` for
+`manifest.json5` inside the directory, fall back to `.json` for
 legacy deploys, then 404. Without it nginx returns 403 (autoindex
 off) on directory URLs and the loader cascades into the manifest 404
 path.
@@ -362,7 +355,7 @@ path.
 ## 6. Server-side: Windows + IIS deployment
 
 You can reach the same 4 s cold load on Windows Server with IIS. The
-same three wins (gzip, long cache, JSONC fallback) are replicable —
+same three wins (gzip, long cache, JSON5 fallback) are replicable —
 syntax changes, performance ceiling doesn't.
 
 ### 6.1 Don't host Node inside IIS
@@ -400,7 +393,7 @@ compression". Equivalent of nginx's `gzip on;`.
 
 Without ticking both you ship raw bytes. Static covers JS / CSS /
 JSON files, Dynamic covers Node responses (HTML from the Inertia
-render). Add `application/json` to the compressor (and `.jsonc` to
+render). Add `application/json` to the compressor (and `.json5` to
 its MIME map) in `applicationHost.config` or the site's `web.config`:
 
 ```xml
@@ -433,7 +426,7 @@ its MIME map) in `applicationHost.config` or the site's `web.config`:
 Verify with PowerShell:
 
 ```powershell
-Invoke-WebRequest -Uri 'https://<your-domain>/nitro-assets/gamedata/figuredata/core/palettes.jsonc' `
+Invoke-WebRequest -Uri 'https://<your-domain>/nitro-assets/gamedata/figuredata/core/palettes.json5' `
                   -Headers @{ 'Accept-Encoding' = 'gzip' } `
                   -MaximumRedirection 0 | Select-Object -ExpandProperty Headers
 # expected: Content-Encoding = gzip
@@ -449,7 +442,7 @@ directory (or nest under `<location>`):
   <system.webServer>
     <staticContent>
       <clientCache cacheControlMode="UseMaxAge" cacheControlMaxAge="30.00:00:00" />
-      <mimeMap fileExtension=".jsonc" mimeType="application/jsonc" />
+      <mimeMap fileExtension=".json5" mimeType="application/json" />
       <mimeMap fileExtension=".nitro" mimeType="application/octet-stream" />
     </staticContent>
   </system.webServer>
@@ -462,9 +455,9 @@ directory (or nest under `<location>`):
 Set a separate, shorter cache (e.g. 5 minutes) on `index.html` so
 deploys propagate without forcing visitors to clear their cache.
 
-### 6.4 Directory → manifest.jsonc fallback
+### 6.4 Directory → manifest.json5 fallback
 
-nginx's `try_files $uri ${uri}manifest.jsonc ${uri}manifest.json =404;`
+nginx's `try_files $uri ${uri}manifest.json5 ${uri}manifest.json =404;`
 has no native IIS equivalent. Use **URL Rewrite** to chain two rules
 inside the same `<location>`:
 
@@ -472,12 +465,12 @@ inside the same `<location>`:
 <system.webServer>
   <rewrite>
     <rules>
-      <rule name="gamedata-dir-to-manifest-jsonc" stopProcessing="true">
+      <rule name="gamedata-dir-to-manifest-json5" stopProcessing="true">
         <match url="^(nitro-assets/gamedata/[^?]+)/$" />
         <conditions>
-          <add input="{REQUEST_FILENAME}/manifest.jsonc" matchType="IsFile" />
+          <add input="{REQUEST_FILENAME}/manifest.json5" matchType="IsFile" />
         </conditions>
-        <action type="Rewrite" url="{R:1}/manifest.jsonc" />
+        <action type="Rewrite" url="{R:1}/manifest.json5" />
       </rule>
       <rule name="gamedata-dir-to-manifest-json" stopProcessing="true">
         <match url="^(nitro-assets/gamedata/[^?]+)/$" />
@@ -563,15 +556,15 @@ yarn build
 ls dist/assets/ | grep -E '^(vendor|nitro-renderer)-' | wc -l
 # expected: ~12-14 chunks
 
-# 2. Server is compressing JSONC (or JS — pick either)
+# 2. Server is compressing JSON5 (or JS — pick either)
 curl -sI -H 'Accept-Encoding: gzip' \
-  'https://<your-domain>/nitro-assets/gamedata/figuredata/core/palettes.jsonc' \
+  'https://<your-domain>/nitro-assets/gamedata/figuredata/core/palettes.json5' \
   | grep -iE 'content-encoding|cache-control'
 # expected:
 # content-encoding: gzip
 # cache-control: public, max-age=2592000
 
-# 3. Directory → manifest.jsonc fallback
+# 3. Directory → manifest.json5 fallback
 curl -sI 'https://<your-domain>/nitro-assets/gamedata/figuremap/' \
   | head -1
 # expected: HTTP/2 200 (not 403 or 404)

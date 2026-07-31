@@ -12,8 +12,8 @@ export type RadioStation = {
 };
 
 // Hotel radio: a list of streaming URLs played client-side with HTML5 Audio.
-// The station list comes from a JSONC config file (loadGamedata accepts plain
-// JSON and JSONC). Shared via useBetween so playback is a single instance no
+// The station list comes from a JSON5 config file (loadGamedata accepts plain
+// JSON and JSON5). Shared via useBetween so playback is a single instance no
 // matter how many components read it.
 const useRadioState = () => {
     const [stations, setStations] = useState<RadioStation[]>([]);
@@ -29,7 +29,7 @@ const useRadioState = () => {
         if (loadStartedRef.current) return;
         loadStartedRef.current = true;
 
-        const url = GetConfigurationValue<string>('radio.url') || GetConfigurationValue<string>('radio.stations.url') || 'configuration/radio-stations.jsonc';
+        const url = GetConfigurationValue<string>('radio.url') || GetConfigurationValue<string>('radio.stations.url') || 'configuration/radio-stations.json5';
 
         (async () => {
             try {

@@ -1,8 +1,8 @@
 import { GetConfiguration, GetLocalizationManager, GetSessionDataManager, TranslationLanguagesEvent, TranslationLanguagesRequestComposer, TranslationResultEvent, TranslationTextRequestComposer } from '@nitrots/nitro-renderer';
+import JSON5 from 'json5';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useBetween } from 'use-between';
 import { LocalStorageKeys, SendMessageComposer } from '../../api';
-import { parseJsonDocument } from '../../json/JsonDocumentParser';
 import { useMessageEvent } from '../events';
 import { useLocalStorage } from '../useLocalStorage';
 
@@ -124,7 +124,7 @@ const getTextTranslationUrl = (file: string) =>
 
 const getBundledTextTranslationUrl = (file: string) =>
 {
-    const relativeUrl = `configuration/UITexts_${ file }.jsonc.example`;
+    const relativeUrl = `configuration/UITexts_${ file }.json5.example`;
 
     if(typeof document === 'undefined') return `/${ relativeUrl }`;
 
@@ -144,7 +144,7 @@ const loadTextTranslationData = async (file: string, configuredUrl: string): Pro
 
             if(!response.ok) throw new Error(`Unable to load ${ url }`);
 
-            const data = parseJsonDocument<Record<string, unknown>>(await response.text(), 'jsonc', url);
+            const data = JSON5.parse(await response.text());
 
             if(!data || (typeof data !== 'object') || Array.isArray(data)) throw new Error(`Invalid translation data from ${ url }`);
 

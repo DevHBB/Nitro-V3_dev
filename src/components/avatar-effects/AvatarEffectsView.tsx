@@ -73,7 +73,7 @@ export const AvatarEffectsView: FC<{}> = () => {
             try {
                 // The effectmap is served either as a single JSON file or as a
                 // tiered directory with core/custom/seasonal manifests using
-                // JSONC syntax (comments and trailing commas allowed). loadGamedata picks the
+                // JSON5 syntax (// comments allowed). loadGamedata picks the
                 // right mode for us and merges tiers.
                 const json = await loadGamedata<{ effects?: EffectMapEntry[] }>(url);
                 if (cancelled) return;
