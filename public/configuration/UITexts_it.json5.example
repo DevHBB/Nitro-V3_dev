@@ -1037,5 +1037,14 @@
     'snowwar.error.already_in_game': "Sei già in una partita.",
     'snowwar.error.not_enough_players': "Non ci sono abbastanza giocatori.",
     'snowwar.error.no_tickets': "Non hai più partite disponibili.",
-    'snowwar.error.internal': "Qualcosa è andato storto, riprova."
+    'snowwar.error.internal': "Qualcosa è andato storto, riprova.",
+    'image.position.editor.title': 'Posizione immagine',
+    'image.position.editor.button': 'Modifica posizione',
+    'image.position.editor.hint': 'Trascina il punto per spostare la foto.',
+    'image.position.editor.scale': 'Scala',
+    'image.position.editor.opacity': 'Opacità',
+    'image.position.editor.offsetx': 'Scostamento X',
+    'image.position.editor.offsety': 'Scostamento Y',
+    'image.position.editor.offsetz': 'Profondità',
+    'image.position.editor.cancel': 'Annulla',
 }

@@ -732,5 +732,14 @@
     'snowwar.error.already_in_game': "أنت بالفعل في لعبة.",
     'snowwar.error.not_enough_players': "لا يوجد لاعبون كافون للبدء.",
     'snowwar.error.no_tickets': "لم تعد لديك ألعاب متبقية.",
-    'snowwar.error.internal': "حدث خطأ ما، حاول مجدداً."
+    'snowwar.error.internal': "حدث خطأ ما، حاول مجدداً.",
+    'image.position.editor.title': "موضع الصورة",
+    'image.position.editor.button': "تعديل الموضع",
+    'image.position.editor.hint': "اسحب النقطة لتحريك الصورة.",
+    'image.position.editor.scale': "الحجم",
+    'image.position.editor.opacity': "الشفافية",
+    'image.position.editor.offsetx': "الإزاحة X",
+    'image.position.editor.offsety': "الإزاحة Y",
+    'image.position.editor.offsetz': "العمق",
+    'image.position.editor.cancel': "إلغاء",
 }

@@ -776,5 +776,14 @@
     'snowwar.error.already_in_game': "Je zit al in een spel.",
     'snowwar.error.not_enough_players': "Niet genoeg spelers om te starten.",
     'snowwar.error.no_tickets': "Je hebt geen spellen meer over.",
-    'snowwar.error.internal': "Er ging iets mis, probeer het opnieuw."
+    'snowwar.error.internal': "Er ging iets mis, probeer het opnieuw.",
+    'image.position.editor.title': "Afbeeldingspositie",
+    'image.position.editor.button': "Positie bewerken",
+    'image.position.editor.hint': "Sleep de stip om de afbeelding te verplaatsen.",
+    'image.position.editor.scale': "Schaal",
+    'image.position.editor.opacity': "Dekking",
+    'image.position.editor.offsetx': "Verschuiving X",
+    'image.position.editor.offsety': "Verschuiving Y",
+    'image.position.editor.offsetz': "Diepte",
+    'image.position.editor.cancel': "Annuleren",
 }

@@ -840,5 +840,14 @@
     'snowwar.error.already_in_game': "You are already in a game.",
     'snowwar.error.not_enough_players': "Not enough players to start.",
     'snowwar.error.no_tickets': "You have no games left.",
-    'snowwar.error.internal': "Something went wrong, try again."
+    'snowwar.error.internal': "Something went wrong, try again.",
+    'image.position.editor.title': "Image position",
+    'image.position.editor.button': "Edit position",
+    'image.position.editor.hint': "Drag the dot to move the image.",
+    'image.position.editor.scale': "Scale",
+    'image.position.editor.opacity': "Opacity",
+    'image.position.editor.offsetx': "Offset X",
+    'image.position.editor.offsety': "Offset Y",
+    'image.position.editor.offsetz': "Depth",
+    'image.position.editor.cancel': "Cancel",
 }

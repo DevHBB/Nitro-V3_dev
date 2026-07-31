@@ -840,5 +840,14 @@
     'snowwar.error.already_in_game': "Du bist bereits in einem Spiel.",
     'snowwar.error.not_enough_players': "Nicht genügend Spieler zum Starten.",
     'snowwar.error.no_tickets': "Du hast keine Spiele mehr übrig.",
-    'snowwar.error.internal': "Etwas ist schiefgelaufen, versuch es erneut."
+    'snowwar.error.internal': "Etwas ist schiefgelaufen, versuch es erneut.",
+    'image.position.editor.title': "Bildposition",
+    'image.position.editor.button': "Position bearbeiten",
+    'image.position.editor.hint': "Ziehe den Punkt, um das Bild zu verschieben.",
+    'image.position.editor.scale': "Skalierung",
+    'image.position.editor.opacity': "Deckkraft",
+    'image.position.editor.offsetx': "Versatz X",
+    'image.position.editor.offsety': "Versatz Y",
+    'image.position.editor.offsetz': "Tiefe",
+    'image.position.editor.cancel': "Abbrechen",
 }
