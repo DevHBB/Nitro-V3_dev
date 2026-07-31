@@ -1,7 +1,7 @@
 {
-    // Hotel radio stations. Copy this file to `radio-stations.json5` (without the
+    // Hotel radio stations. Copy this file to `radio-stations.jsonc` (without the
     // .example suffix) and add your own stations — each entry is just a streaming
-    // URL the client plays with the HTML5 Audio API. JSON5: // comments and
+    // URL the client plays with the HTML5 Audio API. JSONC: // comments and
     // trailing commas are allowed. Add / remove / reorder freely, no rebuild needed.
     //
     // Fields:
@@ -13,7 +13,7 @@
     //
     // The first station autostarts (quietly) on client load. The list can later
     // be moved to the CMS (website_settings) so it's editable from the admin.
-    stations: [
-        // { id: 'mystation', name: 'My Station', genre: 'Hotel Radio', url: 'https://your-stream-host/stream' },
+    "stations": [
+    // { "id": "mystation", "name": "My Station", "genre": "Hotel Radio", "url": "https://your-stream-host/stream" },
     ],
 }

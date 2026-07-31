@@ -20,7 +20,8 @@
         "lint:hooks": "eslint --config eslint.hooks.config.mjs ./src",
         "typecheck": "tsgo --noEmit",
         "test": "vitest run",
-        "test:watch": "vitest"
+        "test:watch": "vitest",
+        "verify:jsonc": "node scripts/verify-jsonc.mjs"
     },
     "dependencies": {
         "@babel/runtime": "^7.29.7",
@@ -35,13 +36,13 @@
         "emoji-mart": "^5.6.0",
         "emoji-toolkit": "10.0.0",
         "framer-motion": "^12.40.0",
-        "json5": "^2.2.3",
         "react": "^19.2.7",
         "react-colorful": "^5.7.0",
         "react-dom": "^19.2.7",
         "react-error-boundary": "^6.1.2",
         "react-icons": "^5.6.0",
         "react-player": "^3.4.0",
+        "strip-json-comments": "^5.0.3",
         "use-between": "^1.4.0",
         "zustand": "^5.0.14"
     },

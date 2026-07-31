@@ -38,7 +38,7 @@ The installer walks through these steps:
 [3/9] Setup renderer (yarn install + yarn link)
 [4/9] Setup client (yarn install + yarn link "@nitrots/nitro-renderer")
 [5/9] Copy public/configuration/*.example -> *.json
-[6/9] Choose JSON parsing mode (json5 recommended) -> writes .nitro-build.json
+[6/9] Choose JSON parsing mode (jsonc recommended) -> writes .nitro-build.json
 [7/9] Configure URLs (interactive, validated)
 [8/9] Build (yarn build)
 [9/9] Summary
@@ -50,7 +50,7 @@ Every step can be driven from flags so the installer can be used in pipelines:
 
 ```
 node install.mjs --non-interactive \
-    --json-mode=json5 \
+    --json-mode=jsonc \
     --socket-url=wss://example.com/ws \
     --api-url=https://example.com \
     --asset-url=https://example.com/nitro-assets/ \
@@ -68,7 +68,7 @@ node install.mjs --non-interactive \
 Useful workflow flags:
 
 -   `--non-interactive` / `--skip-prompts` — keep example defaults unless a URL override is passed
--   `--json-mode=<json5\|legacy\|auto>` — pick the parser without the JSON mode prompt
+-   `--json-mode=<jsonc\|legacy\|auto>` — pick the parser without the JSON mode prompt
 -   `--skip-build`, `--skip-clone`, `--skip-link` — re-runs without redoing those steps
 -   `--help` — full flag reference and per-key URL flags
 
@@ -79,7 +79,7 @@ that already exist and only patches the URL keys you pass on the CLI.
 
 The renderer can load gamedata files (FigureData, FurnitureData, FigureMap,
 EffectMap, ProductData, HabboAvatarActions, ExternalTexts, UITexts) either as
-a single legacy JSON/JSON5 file or as a **directory of small files** organised
+a single legacy JSON/JSONC file or as a **directory of small files** organised
 in three tiers: `core/` (vendor baseline), `custom/` (your additions / overrides),
 `seasonal/` (date-bound content such as Christmas or Easter).
 
@@ -91,22 +91,22 @@ content cleanly separated.
 
 ```
 nitro-assets/gamedata/furnidata/
-  manifest.json5           # { "tiers": ["core", "custom", "seasonal"] }
+  manifest.jsonc           # { "tiers": ["core", "custom", "seasonal"] }
   core/
-    manifest.json5         # { "files": ["floor-001.json5", ..., "wall-001.json5"] }
-    floor-001.json5
-    floor-002.json5
-    wall-001.json5
+    manifest.jsonc         # { "files": ["floor-001.jsonc", ..., "wall-001.jsonc"] }
+    floor-001.jsonc
+    floor-002.jsonc
+    wall-001.jsonc
   custom/                  # OPTIONAL — created by you
-    manifest.json5         # { "files": ["my-rares.json5"] }
-    my-rares.json5
+    manifest.jsonc         # { "files": ["my-rares.jsonc"] }
+    my-rares.jsonc
   seasonal/                # OPTIONAL — created by you
-    manifest.json5
-    xmas-2026.json5
+    manifest.jsonc
+    xmas-2026.jsonc
 ```
 
 Each tier is loaded in order. Within a tier, files load in the order listed in
-its `manifest.json5`. Items in later layers override items in earlier layers
+its `manifest.jsonc`. Items in later layers override items in earlier layers
 when they share the same identifier (`id`, `classname`, `name`, or the
 top-level key for flat dictionaries).
 
@@ -126,7 +126,7 @@ the strategy that makes the most sense:
 | Type                 | Split strategy                              |
 |----------------------|---------------------------------------------|
 | EffectMap            | one file per effect `type` (dance, fx, ...) |
-| FigureData           | one `palettes.json5` + one file per setType |
+| FigureData           | one `palettes.jsonc` + one file per setType |
 | FigureMap            | chunks of `libraries` (default 500/file)    |
 | FurnitureData        | floor / wall, chunks of `furnitype` (300)   |
 | HabboAvatarActions   | grouped by `state` (or single file if ≤1)   |
@@ -134,7 +134,7 @@ the strategy that makes the most sense:
 | ExternalTexts/UITexts| grouped by key prefix (e.g. `gamecenter.*`) |
 
 Useful flags: `--type=<name>` to force the type, `--chunk-size=N` to override
-the default chunk size, `--json` to emit standard JSON instead of JSON5,
+the default chunk size, `--json` to emit standard JSON instead of JSONC,
 `--force` to overwrite an existing output directory. Full reference:
 
 ```
@@ -151,7 +151,7 @@ In `public/configuration/renderer-config.json`, replace the legacy file URL
 with the directory URL (note the trailing slash — that's how the loader
 detects split mode):
 
-```json5
+```jsonc
 {
   // single file (legacy, still supported):
   "furnidata.url": "https://example.com/nitro-assets/gamedata/FurnitureData.json",
@@ -187,14 +187,14 @@ Both styles work; you can migrate one gamedata file at a time.
 	-   `yarn build` <== the final step to build the DIST folder this is where your browser needs to point / or upload this to your /client if you do the compile on a other machine (preferd)
     -   You can override any variable by passing it to `NitroConfig` in the index.html
 
-## JSON / JSON5 configuration mode
+## JSON / JSONC configuration mode
 
 Starting with this version of Nitro V3, you can choose how the client parses the
 configuration files (`renderer-config.json`, `ui-config.json`, `client-mode.json`,
 and the gamedata JSONs served by the renderer):
 
--   **JSON5** (recommended) — accepts comments, trailing commas, single quotes
-    and unquoted identifiers. Easier to maintain, especially in `ui-config.json`
+-   **JSONC** (recommended) — accepts comments and trailing commas while still
+    requiring double-quoted keys and strings. It is easier to maintain in `ui-config.json`
     where you may want inline notes.
 -   **JSON (legacy strict)** — only valid standard JSON is accepted. Any comment
     or trailing comma will fail the load with a clear error.
@@ -209,10 +209,11 @@ which mode to use:
   Nitro V3 — JSON mode configuration
 ════════════════════════════════════════════════════════════
 
-  1) JSON5  (recommended)
+  1) JSONC  (recommended)
   2) JSON   (legacy strict)
+  auto      Try strict JSON first, then JSONC
 
-Scelta [1=JSON5]:
+Choice [1=JSONC]:
 ```
 
 Your choice is stored in `.nitro-build.json` at the project root (gitignored, so
@@ -231,14 +232,14 @@ You can also set the mode without interaction (useful in CI / scripts):
 ```
 # one-shot override for a single build
 NITRO_JSON_MODE=legacy yarn build
-NITRO_JSON_MODE=json5  yarn build
+NITRO_JSON_MODE=jsonc  yarn build
 
 # write the choice persistently
 echo '{"jsonMode":"legacy"}' > .nitro-build.json
 ```
 
-The recognized values are `legacy`, `json5`, and `auto` (auto = try strict JSON
-first, fall back to JSON5 — equivalent to the original Render V3 behaviour).
+The recognized values are `legacy`, `jsonc`, and `auto` (auto = try strict JSON
+first, fall back to JSONC — equivalent to the original Render V3 behaviour).
 
 ### How it propagates
 
@@ -250,7 +251,7 @@ The chosen mode is injected at build time as the compile-time constant
     and every gamedata JSON loaded by the renderer
 
 In `legacy` mode, an invalid file produces a clear error that suggests switching
-to JSON5; nothing is silently coerced.
+to JSONC; nothing is silently coerced.
 
 ## Usage
 
