@@ -4,4 +4,5 @@ export const getRemainingCooldownSeconds = (cooldownUntilMs: number, nowMs: numb
     return Math.ceil((cooldownUntilMs - nowMs) / 1_000);
 };
 
-export const shouldStartOwnCooldown = (actorUserId: number, ownUserId: number): boolean => actorUserId > 0 && actorUserId === ownUserId;
+export const shouldStartOwnCooldown = (actorUserId: number, ownUserId: number, cooldownSeconds: number): boolean =>
+    cooldownSeconds > 0 && actorUserId > 0 && actorUserId === ownUserId;

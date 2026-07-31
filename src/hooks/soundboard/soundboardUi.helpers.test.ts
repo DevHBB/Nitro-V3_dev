@@ -21,8 +21,12 @@ describe('soundboard UI helpers', () => {
     });
 
     it('starts cooldown only for the local account', () => {
-        expect(shouldStartOwnCooldown(42, 42)).toBe(true);
-        expect(shouldStartOwnCooldown(42, 7)).toBe(false);
-        expect(shouldStartOwnCooldown(-1, -1)).toBe(false);
+        expect(shouldStartOwnCooldown(42, 42, 30)).toBe(true);
+        expect(shouldStartOwnCooldown(42, 7, 30)).toBe(false);
+        expect(shouldStartOwnCooldown(-1, -1, 30)).toBe(false);
+    });
+
+    it('does not start a zero-second cooldown', () => {
+        expect(shouldStartOwnCooldown(42, 42, 0)).toBe(false);
     });
 });
