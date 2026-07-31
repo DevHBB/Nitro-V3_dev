@@ -71,14 +71,14 @@
     "catalog.admin.edit": "Edit:",
     "catalog.admin.edit.page": "Edit Page",
     "catalog.admin.hidden": "hidden",
-    "catalog.admin.edit.title": "Edit \"%name%\"",
+    "catalog.admin.edit.title": "Edit %name%",
     "catalog.admin.show": "Show",
     "catalog.admin.hide": "Hide",
     "catalog.admin.delete": "Delete",
-    "catalog.admin.delete.title": "Delete \"%name%\"",
-    "catalog.admin.delete.category.confirm": "Delete category \"%name%\" and all its content?",
+    "catalog.admin.delete.title": "Delete %name%",
+    "catalog.admin.delete.category.confirm": "Delete category %name% and all its content?",
     "catalog.admin.delete.page": "Delete page",
-    "catalog.admin.delete.page.confirm": "Delete page \"%name%\"?",
+    "catalog.admin.delete.page.confirm": "Delete page %name%?",
     "catalog.admin.delete.offer.confirm": "Are you sure you want to delete this offer?",
     "catalog.admin.create": "Create",
     "catalog.admin.save": "Save",
@@ -534,6 +534,9 @@
     "radio.empty": "No stations",
     "radio.error": "Unable to load stations",
     "radio.stop": "Stop",
+    "radio.live": "Live",
+    "radio.hide": "Hide",
+    "radio.show": "Show",
     "rarevalues.title": "Rare Values",
     "rarevalues.loading": "Loading values…",
     "rarevalues.empty": "No rares found",
@@ -676,7 +679,7 @@
     "wiredfurni.sendsignal.furni": "Furniture to send forward:",
 
     // ------------------------------------------------------------------------
-    // Wired chests — player-facing UI
+    // Wired chests (Scrigno) — player-facing UI
     // ------------------------------------------------------------------------
     "wiredchests.furni_chest": "Furni Chest",
     "wiredchests.coin_chest": "Coin Chest",
@@ -837,5 +840,14 @@
     "snowwar.error.already_in_game": "You are already in a game.",
     "snowwar.error.not_enough_players": "Not enough players to start.",
     "snowwar.error.no_tickets": "You have no games left.",
-    "snowwar.error.internal": "Something went wrong, try again."
+    "snowwar.error.internal": "Something went wrong, try again.",
+    "image.position.editor.title": "Image position",
+    "image.position.editor.button": "Edit position",
+    "image.position.editor.hint": "Drag the dot to move the image.",
+    "image.position.editor.scale": "Scale",
+    "image.position.editor.opacity": "Opacity",
+    "image.position.editor.offsetx": "Offset X",
+    "image.position.editor.offsety": "Offset Y",
+    "image.position.editor.offsetz": "Depth",
+    "image.position.editor.cancel": "Cancel",
 }
