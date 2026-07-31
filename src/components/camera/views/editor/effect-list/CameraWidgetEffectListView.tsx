@@ -16,7 +16,7 @@ export const CameraWidgetEffectListView: FC<CameraWidgetEffectListViewProps> = (
     const { myLevel = 0, selectedEffects = [], effects = [], thumbnails = [], processAction = null } = props;
 
     return (
-        <Grid columnCount={3} overflow="auto">
+        <Grid columnCount={3} fullHeight={false}>
             {effects &&
                 effects.length > 0 &&
                 effects.map((effect, index) => {

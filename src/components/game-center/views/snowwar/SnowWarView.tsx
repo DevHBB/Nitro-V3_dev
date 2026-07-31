@@ -3,6 +3,7 @@ import { LocalizeText } from '../../../../api';
 import { useGameCenter, useSnowWar } from '../../../../hooks';
 import { SnowWarArenaView } from './SnowWarArenaView';
 import { SnowWarLobbyView } from './SnowWarLobbyView';
+import { SnowWarLeaderboardView } from './SnowWarLeaderboardView';
 import { SnowWarResultsView } from './SnowWarResultsView';
 import { SnowWarTeamsView } from './SnowWarTeamsView';
 
@@ -26,7 +27,7 @@ const ERROR_TEXTS: Record<number, [string, string]> = {
  */
 export const SnowWarView: FC = () =>
 {
-    const { phase, errorCode, queueExpired } = useSnowWar();
+    const { phase, errorCode, queueExpired, leaderboard } = useSnowWar();
     const { isVisible: gameCenterVisible, setIsVisible: setGameCenterVisible } = useGameCenter();
 
     // Queue wait timed out: drop the player back onto the game center main
@@ -35,6 +36,8 @@ export const SnowWarView: FC = () =>
     {
         if (queueExpired) setGameCenterVisible(true);
     }, [queueExpired, setGameCenterVisible]);
+
+    if (leaderboard.isOpen) return <SnowWarLeaderboardView />;
 
     if (queueExpired)
     {

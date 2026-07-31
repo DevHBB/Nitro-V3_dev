@@ -1,12 +1,18 @@
 import {
     SUBTURN_MOVEMENT,
     SUBTURN_MS,
-    calculateFlightPath,
+    SUBTURNS_PER_TICK,
+    calculateFlightPathWorld,
     direction360To8,
     getAngleFromComponents,
     getBaseVelX,
     getBaseVelY,
+    INITIAL_HIT_POINTS,
+    INVINCIBLE_AFTER_STUN_TIME,
     moveTowards,
+    SNOWBALL_CREATE_TIME,
+    STUN_TIME,
+    TILE_SIZE_WORLD,
     tileToWorld,
     worldToTile,
 } from './SnowWarMath';
@@ -14,9 +20,9 @@ import {
 /**
  * Client-side SnowWar world state.
  *
- * The server is authoritative: it streams one GameStatus packet per 300ms
- * tick containing 5 subturns of events, plus FullGameStatus snapshots on
- * demand. This class replays those events at the same 60ms/subturn cadence
+ * The server is authoritative: it streams one GameStatus packet per 150ms
+ * turn containing 3 subturns of events, plus FullGameStatus snapshots on
+ * demand. This class replays those events at the same 50ms/subturn cadence
  * using the same integer math as the server, and keeps the previous subturn
  * position of every mobile object so the view can interpolate between
  * subturns for smooth animation.
@@ -25,25 +31,24 @@ import {
 export const SNOWWAR_OBJECT_AVATAR = 1;
 export const SNOWWAR_OBJECT_SNOWBALL = 2;
 export const SNOWWAR_OBJECT_MACHINE = 3;
+export const SNOWWAR_OBJECT_TREE = 4;
+export const SNOWWAR_OBJECT_PILE = 5;
 
 export const SNOWWAR_EVENT_MOVE = 2;
 export const SNOWWAR_EVENT_CREATE_SNOWBALL = 3;
 export const SNOWWAR_EVENT_LAUNCH_SNOWBALL = 4;
 export const SNOWWAR_EVENT_HIT = 5;
-export const SNOWWAR_EVENT_MACHINE_ADD = 6;
-export const SNOWWAR_EVENT_MACHINE_TRANSFER = 7;
+export const SNOWWAR_EVENT_MACHINE_ADD = 11;
+export const SNOWWAR_EVENT_MACHINE_TRANSFER = 12;
 export const SNOWWAR_EVENT_DELETE_OBJECT = 8;
 export const SNOWWAR_EVENT_STUN = 9;
+export const SNOWWAR_EVENT_RAY_GUN_BURST = 10;
+export const SNOWWAR_EVENT_TREE_HIT = 13;
 
 export const SNOWWAR_STATE_NORMAL = 0;
 export const SNOWWAR_STATE_CREATING = 1;
 export const SNOWWAR_STATE_STUNNED = 2;
 export const SNOWWAR_STATE_INVINCIBLE = 3;
-
-const INITIAL_HEALTH = 4;
-const CREATING_TIMER = 20;
-const STUNNED_TIMER = 125;
-const INVINCIBILITY_TIMER = 60;
 
 export interface SnowWarSimEvent {
     type: number;
@@ -78,7 +83,6 @@ export interface SnowWarAvatarState {
     nextGoalX: number | null;
     nextGoalY: number | null;
     pathfindIterations: number;
-    hitFlashUntilSubturn: number;
 }
 
 export interface SnowWarSnowballState {
@@ -94,6 +98,7 @@ export interface SnowWarSnowballState {
     trajectory: number;
     timeToLive: number;
     parabolaOffset: number;
+    planarVelocity: number;
 }
 
 export interface SnowWarMachineState {
@@ -101,6 +106,30 @@ export interface SnowWarMachineState {
     tileX: number;
     tileY: number;
     snowballCount: number;
+}
+
+export interface SnowWarTreeState {
+    objectId: number;
+    tileX: number;
+    tileY: number;
+    maximumHits: number;
+    hits: number;
+}
+
+export interface SnowWarPileState {
+    objectId: number;
+    tileX: number;
+    tileY: number;
+    maxSnowballs: number;
+    snowballCount: number;
+}
+
+export interface SnowWarImpactState {
+    id: number;
+    worldX: number;
+    worldY: number;
+    height: number;
+    trajectory: number;
 }
 
 interface FullStatusObject {
@@ -129,9 +158,22 @@ interface FullStatusObject {
     timeToLive?: number;
     throwerObjectId?: number;
     parabolaOffset?: number;
+    maximumHits?: number;
+    hits?: number;
+    maxSnowballs?: number;
 }
 
 const MAX_PATHFIND_ITERATIONS = 50;
+
+// The custom Polaris full-status shape predates AIR's planar-velocity field.
+// Live launch events carry enough data for the exact value; a mid-flight
+// snapshot uses AIR's nominal coefficient until the next authoritative update.
+const nominalPlanarVelocity = (trajectory: number): number =>
+{
+    if (trajectory === 0) return 2000;
+    if (trajectory === 1) return 1788;
+    return 1414;
+};
 
 // Same order as the server's SnowWarPathfinder.DIAGONAL_MOVE_POINTS - the
 // greedy step tie-breaks by this order via stable sort on both sides.
@@ -139,11 +181,20 @@ const DIAGONAL_MOVE_POINTS: [number, number][] = [
     [0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1],
 ];
 
+const RAY_GUN_SPREAD: [number, number][] = [
+    [0, 0], [0, 1], [1, 0], [-1, 1], [-1, -1], [1, -1], [1, 1],
+];
+
 export class SnowWarSimulation
 {
     public readonly avatars: Map<number, SnowWarAvatarState> = new Map();
     public readonly snowballs: Map<number, SnowWarSnowballState> = new Map();
     public readonly machines: Map<number, SnowWarMachineState> = new Map();
+    public readonly trees: Map<string, SnowWarTreeState> = new Map();
+    public readonly piles: Map<string, SnowWarPileState> = new Map();
+
+    private _impacts: SnowWarImpactState[] = [];
+    private _impactId = 0;
 
     private _blockedTiles: boolean[][] = [];
     private _mapWidth = 0;
@@ -154,18 +205,19 @@ export class SnowWarSimulation
     private _subturnCount = 0; // total subturns processed (monotonic)
     private _lastAdvanceAt: number | null = null;
 
-    // The server delivers one whole tick (SUBTURNS_PER_TICK subturns) every
-    // SERVER_TICK_MS, and the client plays them back at exactly that rate, so
-    // there is no buffer to hide network jitter: a packet that lands a few ms
-    // late leaves the interpolation with nothing to advance toward and motion
-    // freezes for a frame or two. It is barely visible with a static camera,
-    // but a clear stutter once the camera follows the avatar. Rather than add a
-    // playout buffer (which would read as input lag), we let the interpolation
-    // extrapolate a little past the last known subturn - continuing existing
-    // motion through the gap. A stopped avatar has prev == cur, so it never
-    // drifts; only genuinely-moving entities coast, and they correct on the
-    // next packet. Capped so a longer stall settles instead of sliding away.
     private static readonly MAX_EXTRAPOLATION_ALPHA = 2;
+
+    private static readonly TARGET_BUFFER_SUBTURNS = 2;
+
+    private static readonly CATCHUP_BUFFER_SUBTURNS = 12;
+    // Must outpace the server's 20 subturns/s even on a low-FPS tab, or the
+    // buffer pins at the cap and the whole replica runs behind real time
+    // (live symptom: throw sound now, ball/splash seconds later).
+    private static readonly CATCHUP_RATE = 3;
+    // Hard bound on both memory and standing delay: 18 subturns = 0.9s. AIR
+    // keeps its replica pinned to the newest server turn; anything past this
+    // is drained synchronously rather than replayed late.
+    private static readonly MAX_BUFFERED_SUBTURNS = 18;
 
     public get subturnCount(): number
     {
@@ -187,6 +239,9 @@ export class SnowWarSimulation
         this.avatars.clear();
         this.snowballs.clear();
         this.machines.clear();
+        this.trees.clear();
+        this.piles.clear();
+        this._impacts = [];
         this._pendingSubturns = [];
         this._subturnClock = 0;
         this._subturnCount = 0;
@@ -225,12 +280,6 @@ export class SnowWarSimulation
             if (x >= 0 && y >= 0 && x < this._mapWidth && y < this._mapHeight) this._blockedTiles[y][x] = true;
         };
 
-        // Only solid furni block a tile; walkable props (walkableHeight 0, e.g.
-        // rugs/ice) stay walkable, matching the server's SnowWarTile. Default to
-        // blocking if the height is missing (older packet) to stay safe. A furni
-        // blocks its WHOLE footprint (width x length, extending +x/+y from its
-        // origin, swapped for the 90/270 rotations) - the same rectangle the
-        // server's SnowWarMap blocks - so a 3x3 prop blocks all nine tiles.
         for (const item of items)
         {
             if ((item.walkableHeight ?? 3) <= 0) continue;
@@ -255,6 +304,9 @@ export class SnowWarSimulation
         this.avatars.clear();
         this.snowballs.clear();
         this.machines.clear();
+        this.trees.clear();
+        this.piles.clear();
+        this._impacts = [];
         this._pendingSubturns = [];
 
         for (const object of objects)
@@ -274,7 +326,7 @@ export class SnowWarSimulation
                         prevWorldX: object.worldX ?? 0,
                         prevWorldY: object.worldY ?? 0,
                         rotation: object.rotation ?? 0,
-                        health: object.health ?? INITIAL_HEALTH,
+                        health: object.health ?? INITIAL_HIT_POINTS,
                         snowballCount: object.snowballCount ?? 0,
                         activityState: object.activityState ?? SNOWWAR_STATE_NORMAL,
                         activityTimer: object.activityTimer ?? 0,
@@ -286,7 +338,6 @@ export class SnowWarSimulation
                         nextGoalX: null,
                         nextGoalY: null,
                         pathfindIterations: 0,
-                        hitFlashUntilSubturn: 0,
                     });
                     break;
                 case SNOWWAR_OBJECT_SNOWBALL:
@@ -303,6 +354,7 @@ export class SnowWarSimulation
                         trajectory: object.trajectory ?? 1,
                         timeToLive: object.timeToLive ?? 0,
                         parabolaOffset: object.parabolaOffset ?? 0,
+                        planarVelocity: nominalPlanarVelocity(object.trajectory ?? 1),
                     });
                     break;
                 case SNOWWAR_OBJECT_MACHINE:
@@ -313,6 +365,30 @@ export class SnowWarSimulation
                         snowballCount: object.snowballCount ?? 0,
                     });
                     break;
+                case SNOWWAR_OBJECT_TREE: {
+                    const tileX = worldToTile(object.worldX ?? 0);
+                    const tileY = worldToTile(object.worldY ?? 0);
+                    this.trees.set(`${tileX},${tileY}`, {
+                        objectId: object.objectId,
+                        tileX,
+                        tileY,
+                        maximumHits: object.maximumHits ?? 3,
+                        hits: object.hits ?? 0,
+                    });
+                    break;
+                }
+                case SNOWWAR_OBJECT_PILE: {
+                    const tileX = worldToTile(object.worldX ?? 0);
+                    const tileY = worldToTile(object.worldY ?? 0);
+                    this.piles.set(`${tileX},${tileY}`, {
+                        objectId: object.objectId,
+                        tileX,
+                        tileY,
+                        maxSnowballs: object.maxSnowballs ?? 12,
+                        snowballCount: object.snowballCount ?? 0,
+                    });
+                    break;
+                }
             }
         }
     }
@@ -322,12 +398,18 @@ export class SnowWarSimulation
     {
         for (const subturn of subturns) this._pendingSubturns.push(subturn);
 
-        // Never let a laggy tab build an unbounded backlog: when more than 2
-        // ticks (10 subturns) are queued, fast-forward the oldest ones.
-        while (this._pendingSubturns.length > 10) this.advanceSubturn();
+        // Empty/movement-only backlog can be collapsed safely, but never
+        // consume projectile subturns here: queueGameStatus runs between
+        // paints, so a short throw could otherwise be launched, flown and
+        // deleted without ever reaching the DOM.
+        while (this._pendingSubturns.length > SnowWarSimulation.MAX_BUFFERED_SUBTURNS)
+        {
+            if (this.snowballs.size > 0 || this.nextSubturnTouchesProjectile()) break;
+            this.advanceSubturn();
+        }
     }
 
-    /** Advance real time; processes queued subturns at 60ms cadence. */
+    /** Advance real time; processes queued subturns at the AIR 50ms cadence. */
     public update(nowMs: number): void
     {
         if (this._lastAdvanceAt === null)
@@ -336,19 +418,37 @@ export class SnowWarSimulation
             return;
         }
 
-        this._subturnClock += Math.min(500, Math.max(0, nowMs - this._lastAdvanceAt));
+        const delta = Math.min(500, Math.max(0, nowMs - this._lastAdvanceAt));
         this._lastAdvanceAt = nowMs;
+
+        const buffered = this._pendingSubturns.length;
+        const presentingProjectile = this.snowballs.size > 0 || this.nextSubturnTouchesProjectile();
+        let rate = 1;
+        if (!presentingProjectile)
+        {
+            if (buffered < SnowWarSimulation.TARGET_BUFFER_SUBTURNS) rate = 0.92;
+            else if (buffered > SnowWarSimulation.CATCHUP_BUFFER_SUBTURNS) rate = SnowWarSimulation.CATCHUP_RATE;
+            else if (buffered > SnowWarSimulation.TARGET_BUFFER_SUBTURNS + 3) rate = 1.08;
+        }
+        this._subturnClock += delta * rate;
 
         while (this._subturnClock >= SUBTURN_MS && this._pendingSubturns.length > 0)
         {
             this._subturnClock -= SUBTURN_MS;
+            const projectileSubturn = this.snowballs.size > 0 || this.nextSubturnTouchesProjectile();
             this.advanceSubturn();
+
+            if (projectileSubturn || this.snowballs.size > 0)
+            {
+                // A browser frame must be allowed to paint each projectile
+                // step. Discard catch-up credit for this frame so the next
+                // AIR subturn is presented after another real 50 ms instead
+                // of being consumed by this same update() call.
+                this._subturnClock = 0;
+                break;
+            }
         }
 
-        // Starved (no pending data): let the clock run a little past one subturn
-        // so interpolationAlpha extrapolates the current motion through short
-        // network jitter instead of hard-freezing, then cap it so a longer
-        // stall settles at a bounded lead rather than sliding away.
         const maxClock = SUBTURN_MS * SnowWarSimulation.MAX_EXTRAPOLATION_ALPHA;
         if (this._pendingSubturns.length === 0 && this._subturnClock > maxClock)
         {
@@ -356,12 +456,34 @@ export class SnowWarSimulation
         }
     }
 
+    /**
+     * Fired when a server event is applied during replay. Sounds hang off this
+     * (AIR plays them from the engine replay too) so audio stays in sync with
+     * the rendered state instead of the packet arrival time.
+     */
+    public onEventApplied: ((event: SnowWarSimEvent) => void) | null = null;
+
+    private nextSubturnTouchesProjectile(): boolean
+    {
+        const next = this._pendingSubturns[0];
+        if (!next) return false;
+
+        return next.some(event =>
+            event.type === SNOWWAR_EVENT_LAUNCH_SNOWBALL
+            || event.type === SNOWWAR_EVENT_RAY_GUN_BURST
+            || event.type === SNOWWAR_EVENT_DELETE_OBJECT);
+    }
+
     private advanceSubturn(): void
     {
         const events = this._pendingSubturns.shift() ?? [];
         this._subturnCount++;
 
-        for (const event of events) this.applyEvent(event);
+        for (const event of events)
+        {
+            this.applyEvent(event);
+            this.onEventApplied?.(event);
+        }
 
         for (const avatar of this.avatars.values()) this.stepAvatar(avatar);
         for (const ball of [...this.snowballs.values()]) this.stepSnowball(ball);
@@ -374,6 +496,11 @@ export class SnowWarSimulation
             case SNOWWAR_EVENT_MOVE: {
                 const avatar = this.avatars.get(event.p1);
                 if (!avatar) return;
+                if (avatar.activityState === SNOWWAR_STATE_CREATING)
+                {
+                    avatar.activityState = SNOWWAR_STATE_NORMAL;
+                    avatar.activityTimer = 0;
+                }
                 const goalTileX = worldToTile(event.p2);
                 const goalTileY = worldToTile(event.p3);
                 if (avatar.walkGoalX !== goalTileX || avatar.walkGoalY !== goalTileY)
@@ -388,40 +515,23 @@ export class SnowWarSimulation
                 const avatar = this.avatars.get(event.p1);
                 if (!avatar) return;
                 avatar.activityState = SNOWWAR_STATE_CREATING;
-                avatar.activityTimer = CREATING_TIMER;
+                avatar.activityTimer = SNOWBALL_CREATE_TIME;
                 this.stopAvatarWalk(avatar);
                 return;
             }
             case SNOWWAR_EVENT_LAUNCH_SNOWBALL: {
-                const thrower = this.avatars.get(event.p2);
-                const startX = thrower ? thrower.worldX : event.p3;
-                const startY = thrower ? thrower.worldY : event.p4;
-                const flight = calculateFlightPath(
-                    worldToTile(startX), worldToTile(startY),
-                    worldToTile(event.p3), worldToTile(event.p4), event.p5);
-
-                if (thrower)
-                {
-                    thrower.snowballCount = Math.max(0, thrower.snowballCount - 1);
-                    thrower.rotation = direction360To8(getAngleFromComponents(
-                        event.p3 - thrower.worldX, event.p4 - thrower.worldY));
-                    this.stopAvatarWalk(thrower);
-                }
-
-                this.snowballs.set(event.p1, {
-                    objectId: event.p1,
-                    throwerObjectId: event.p2,
-                    locH: tileToWorld(worldToTile(startX)),
-                    locV: tileToWorld(worldToTile(startY)),
-                    prevLocH: tileToWorld(worldToTile(startX)),
-                    prevLocV: tileToWorld(worldToTile(startY)),
-                    height: 0,
-                    prevHeight: 0,
-                    direction: flight.direction,
-                    trajectory: event.p5,
-                    timeToLive: flight.timeToLive,
-                    parabolaOffset: flight.parabolaOffset,
-                });
+                this.launchSnowball(event.p1, event.p2, event.p3, event.p4, event.p5, true, true);
+                return;
+            }
+            case SNOWWAR_EVENT_RAY_GUN_BURST: {
+                RAY_GUN_SPREAD.forEach(([dx, dy], index) => this.launchSnowball(
+                    event.p1 + index,
+                    event.p2,
+                    event.p3 + (dx * TILE_SIZE_WORLD),
+                    event.p4 + (dy * TILE_SIZE_WORLD),
+                    event.p5,
+                    index === 0,
+                    false));
                 return;
             }
             case SNOWWAR_EVENT_HIT: {
@@ -430,7 +540,6 @@ export class SnowWarSimulation
                 if (target)
                 {
                     target.health = Math.max(0, target.health - 1);
-                    target.hitFlashUntilSubturn = this._subturnCount + 8;
                 }
                 if (thrower) thrower.score += 1;
                 return;
@@ -443,12 +552,21 @@ export class SnowWarSimulation
             case SNOWWAR_EVENT_MACHINE_TRANSFER: {
                 const avatar = this.avatars.get(event.p1);
                 const machine = this.machines.get(event.p2);
+                const pile = [...this.piles.values()].find(candidate => candidate.objectId === event.p2);
                 if (machine) machine.snowballCount = Math.max(0, machine.snowballCount - 1);
+                if (pile) pile.snowballCount = Math.max(0, pile.snowballCount - 1);
                 if (avatar) avatar.snowballCount = Math.min(5, avatar.snowballCount + 1);
                 return;
             }
             case SNOWWAR_EVENT_DELETE_OBJECT: {
                 this.snowballs.delete(event.p1);
+                this._impacts.push({
+                    id: ++this._impactId,
+                    worldX: event.p2,
+                    worldY: event.p3,
+                    height: event.p4,
+                    trajectory: event.p5,
+                });
                 return;
             }
             case SNOWWAR_EVENT_STUN: {
@@ -457,15 +575,70 @@ export class SnowWarSimulation
                 if (target)
                 {
                     target.activityState = SNOWWAR_STATE_STUNNED;
-                    target.activityTimer = STUNNED_TIMER;
-                    target.snowballCount = 0;
+                    target.activityTimer = STUN_TIME;
                     target.health = 0;
+                    target.rotation = (direction360To8(event.p3) + 4) % 8;
                     this.stopAvatarWalk(target);
                 }
                 if (thrower) thrower.score += 5;
                 return;
             }
+            case SNOWWAR_EVENT_TREE_HIT: {
+                const key = `${event.p1},${event.p2}`;
+                const tree = this.trees.get(key);
+                if (tree) tree.hits = event.p3;
+                return;
+            }
         }
+    }
+
+    public drainImpacts(): SnowWarImpactState[]
+    {
+        return this._impacts.splice(0);
+    }
+
+    private launchSnowball(
+        objectId: number,
+        throwerObjectId: number,
+        targetX: number,
+        targetY: number,
+        trajectory: number,
+        turnsThrower: boolean,
+        consumeAmmo: boolean): void
+    {
+        const thrower = this.avatars.get(throwerObjectId);
+        const startX = thrower ? thrower.worldX : targetX;
+        const startY = thrower ? thrower.worldY : targetY;
+        const flight = calculateFlightPathWorld(startX, startY, targetX, targetY, trajectory);
+
+        if (thrower && turnsThrower)
+        {
+            thrower.rotation = direction360To8(getAngleFromComponents(targetX - thrower.worldX, targetY - thrower.worldY));
+            this.stopAvatarWalk(thrower);
+        }
+
+        // Only hand throws spend carried snowballs; the server never charges
+        // ammo for ray gun bursts, so the replica must not either.
+        if (thrower && consumeAmmo)
+        {
+            thrower.snowballCount = Math.max(0, thrower.snowballCount - 1);
+        }
+
+        this.snowballs.set(objectId, {
+            objectId,
+            throwerObjectId,
+            locH: startX,
+            locV: startY,
+            prevLocH: startX,
+            prevLocV: startY,
+            height: 3000,
+            prevHeight: 3000,
+            direction: flight.direction,
+            trajectory: flight.trajectory,
+            timeToLive: flight.timeToLive,
+            parabolaOffset: flight.parabolaOffset,
+            planarVelocity: flight.planarVelocity,
+        });
     }
 
     private stepAvatar(avatar: SnowWarAvatarState): void
@@ -487,8 +660,8 @@ export class SnowWarSimulation
                         break;
                     case SNOWWAR_STATE_STUNNED:
                         avatar.activityState = SNOWWAR_STATE_INVINCIBLE;
-                        avatar.activityTimer = INVINCIBILITY_TIMER;
-                        avatar.health = INITIAL_HEALTH;
+                        avatar.activityTimer = INVINCIBLE_AFTER_STUN_TIME;
+                        avatar.health = INITIAL_HIT_POINTS;
                         break;
                     case SNOWWAR_STATE_INVINCIBLE:
                         avatar.activityState = SNOWWAR_STATE_NORMAL;
@@ -498,12 +671,8 @@ export class SnowWarSimulation
         }
 
         if (avatar.walkGoalX === null || avatar.walkGoalY === null) return;
-        if (avatar.activityState === SNOWWAR_STATE_STUNNED) return;
+        if (avatar.activityState !== SNOWWAR_STATE_NORMAL && avatar.activityState !== SNOWWAR_STATE_INVINCIBLE) return;
 
-        // Mirror of the server's SnowWarAvatarObject.moveOneFrame: walk the
-        // tile grid via the same greedy pathfinder instead of sliding in a
-        // straight line, so avatars never cross blocked tiles ("walk in air")
-        // and the client position matches the server's path exactly.
         const targetWorldX = tileToWorld(avatar.walkGoalX);
         const targetWorldY = tileToWorld(avatar.walkGoalY);
 
@@ -575,6 +744,9 @@ export class SnowWarSimulation
         {
             const x = avatar.tileX + dx;
             const y = avatar.tileY + dy;
+            if (dx !== 0 && dy !== 0
+                && !this.isValidStep(avatar, avatar.tileX + dx, avatar.tileY)
+                && !this.isValidStep(avatar, avatar.tileX, avatar.tileY + dy)) continue;
             if (this.isValidStep(avatar, x, y)) positions.push({ x, y });
         }
 
@@ -585,11 +757,8 @@ export class SnowWarSimulation
         const distanceSquared = (p: { x: number; y: number }) =>
             ((p.x - goalX) * (p.x - goalX)) + ((p.y - goalY) * (p.y - goalY));
 
-        // Stable sort keeps the server's neighbour-order tie-breaking.
         positions.sort((a, b) => distanceSquared(a) - distanceSquared(b));
 
-        // Only step if it brings us strictly closer to the goal; otherwise
-        // stop where we are (mirrors the server's oscillation guard).
         if (distanceSquared(positions[0]) >= distanceSquared({ x: avatar.tileX, y: avatar.tileY })) return null;
 
         return positions[0];
@@ -619,8 +788,6 @@ export class SnowWarSimulation
 
     private isTileWalkable(x: number, y: number): boolean
     {
-        // Without level data (tests, pre-LevelData packets) fall back to the
-        // pre-map behaviour of unrestricted movement.
         if (!this._mapHeight) return true;
         if (x < 0 || y < 0 || x >= this._mapWidth || y >= this._mapHeight) return false;
         return !this._blockedTiles[y][x];
@@ -634,34 +801,30 @@ export class SnowWarSimulation
 
         ball.timeToLive--;
 
-        ball.locH = (ball.locH + (((getBaseVelX(ball.direction) * 2000) / 255) | 0)) | 0;
-        ball.locV = (ball.locV + (((getBaseVelY(ball.direction) * 2000) / 255) | 0)) | 0;
+        ball.locH = (ball.locH + (((getBaseVelX(ball.direction) * ball.planarVelocity) / 255) | 0)) | 0;
+        ball.locV = (ball.locV + (((getBaseVelY(ball.direction) * ball.planarVelocity) / 255) | 0)) | 0;
 
         let distanceFromPeak = ball.timeToLive - ball.parabolaOffset;
         let heightMultiplier: number;
-        let baseHeight: number;
-
         switch (ball.trajectory)
         {
             case 0:
                 if (ball.timeToLive > 3) distanceFromPeak = 3 - ball.parabolaOffset;
-                heightMultiplier = 4;
-                baseHeight = 4000;
+                heightMultiplier = 10;
                 break;
-            case 2:
-                heightMultiplier = 100;
-                baseHeight = 3000;
+            case 1:
+                heightMultiplier = 25;
                 break;
             default:
-                heightMultiplier = 10;
-                baseHeight = 3000;
+                heightMultiplier = 50;
                 break;
         }
 
-        ball.height = (baseHeight + heightMultiplier
+        ball.height = (3000 + heightMultiplier
             * ((ball.parabolaOffset * ball.parabolaOffset) - (distanceFromPeak * distanceFromPeak))) | 0;
+        if (ball.trajectory === 0) ball.height = Math.min(ball.height, 3000);
 
-        if (ball.height < 0 || ball.timeToLive <= 0) this.snowballs.delete(ball.objectId);
+        if (ball.height < 0) this.snowballs.delete(ball.objectId);
     }
 
     public getAvatarByUserId(userId: number): SnowWarAvatarState | null

@@ -431,10 +431,11 @@ export const InfoStandWidgetFurniView: FC<InfoStandWidgetFurniViewProps> = (prop
     // Persist the position from the editor: rebuild the branding map with the
     // new offsets and send it (same path as Save), then reflect it in the fields.
     const savePositionEditor = useCallback(
-        (x: number, y: number, z: number, scale: number) => {
+        (x: number, y: number, z: number, scale: number, alpha: number) => {
             const map = new Map<string, string>();
             const clone = Array.from(furniValues);
             let hasScale = false;
+            let hasAlpha = false;
 
             for (let i = 0; i < furniKeys.length; i++) {
                 const key = furniKeys[i];
@@ -446,14 +447,18 @@ export const InfoStandWidgetFurniView: FC<InfoStandWidgetFurniViewProps> = (prop
                 else if (key === 'scale') {
                     value = String(scale);
                     hasScale = true;
+                } else if (key === 'alpha') {
+                    value = String(alpha);
+                    hasAlpha = true;
                 }
 
                 clone[i] = value;
                 map.set(key, value);
             }
 
-            // older branding furni may not carry a scale key yet — always send it
+            // older branding furni may not carry scale/alpha keys yet — always send them
             if (!hasScale) map.set('scale', String(scale));
+            if (!hasAlpha) map.set('alpha', String(alpha));
 
             GetRoomEngine().modifyRoomObjectDataWithMap(avatarInfo.id, avatarInfo.category, RoomObjectOperationType.OBJECT_SAVE_STUFF_DATA, map);
             setFurniValues(clone);
@@ -971,6 +976,7 @@ export const InfoStandWidgetFurniView: FC<InfoStandWidgetFurniViewProps> = (prop
                     initialY={getBrandingOffset('offsetY')}
                     initialZ={getBrandingOffset('offsetZ')}
                     initialScale={getBrandingOffset('scale') || 100}
+                    initialAlpha={furniKeys.indexOf('alpha') >= 0 ? getBrandingOffset('alpha') : 100}
                     onClose={() => setShowPositionEditor(false)}
                     onSave={savePositionEditor}
                 />

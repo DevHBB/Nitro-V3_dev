@@ -1,7 +1,7 @@
 import { GetRoomEngine, Vector3d } from '@nitrots/nitro-renderer';
 import { FC, useEffect, useRef } from 'react';
 import { GetSessionDataManager, LocalizeText } from '../../../../api';
-import snowStormLogo from '../../../../assets/images/snowstorm/snowstorm.png';
+import snowStormLogo from '../../../../assets/images/snowstorm/original/snowstorm_logo.png';
 import { LayoutAvatarImageView } from '../../../../common';
 import { useSnowWar } from '../../../../hooks';
 

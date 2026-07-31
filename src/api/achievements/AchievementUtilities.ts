@@ -68,7 +68,7 @@ export class AchievementUtilities {
     public static getAchievementIsIgnored(achievement: AchievementData): boolean {
         if (!achievement) return false;
 
-        const ignored = GetConfigurationValue<string[]>('achievements.unseen.ignored');
+        const ignored = GetConfigurationValue<string[]>('achievements.unseen.ignored') ?? [];
         const value = achievement.badgeId.replace(/[0-9]/g, '');
         const index = ignored.indexOf(value);
 
