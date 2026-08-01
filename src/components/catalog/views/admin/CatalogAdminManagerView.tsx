@@ -1,7 +1,7 @@
 import { FC, useCallback, useState } from 'react';
 import {
-    FaArrowsAlt,
     FaArrowDown,
+    FaArrowsAlt,
     FaArrowUp,
     FaChevronDown,
     FaChevronRight,
@@ -14,14 +14,14 @@ import {
     FaSitemap,
     FaTrash
 } from 'react-icons/fa';
-import { CatalogType, GetConfigurationValue, ICatalogNode, IPurchasableOffer, LocalizeText, ProductTypeEnum } from '../../../../api';
+import { GetConfigurationValue, ICatalogNode, IPurchasableOffer, LocalizeText, ProductTypeEnum } from '../../../../api';
 import { NitroCardContentView, NitroCardHeaderView, NitroCardView } from '../../../../common';
 import { useCatalogActions, useCatalogData, useCatalogUiState } from '../../../../hooks';
 import { replaceCatalogPageOffers } from '../../../../hooks/catalog/useCatalog.helpers';
 import { useCatalogAdmin } from '../../CatalogAdminContext';
 import { parseCatalogTabLabel } from '../../useCatalogWindowWidth';
-import { CatalogAdminOfferPriceView } from './CatalogAdminOfferPriceView';
 import { CatalogIconView } from '../catalog-icon/CatalogIconView';
+import { CatalogAdminOfferPriceView } from './CatalogAdminOfferPriceView';
 
 type CatalogAdminOffer = Parameters<NonNullable<ReturnType<typeof useCatalogAdmin>>['setEditingOffer']>[0];
 type ManagerTab = 'pages' | 'publish';
@@ -74,7 +74,7 @@ const getOfferIconUrl = (offer: IPurchasableOffer): string | null => {
 
 export const CatalogAdminManagerView: FC<{}> = () => {
     const { rootNode = null, currentPage = null } = useCatalogData();
-    const { currentType = CatalogType.NORMAL, setCurrentPage } = useCatalogUiState();
+    const { setCurrentPage } = useCatalogUiState();
     const { activateNode = null } = useCatalogActions();
     const catalogAdmin = useCatalogAdmin();
     const [activeTab, setActiveTab] = useState<ManagerTab>('pages');
@@ -204,24 +204,17 @@ export const CatalogAdminManagerView: FC<{}> = () => {
     };
 
     const editPage = (node: ICatalogNode | null, isRoot: boolean) => {
+        catalogAdmin.setCreatingPage(false);
         catalogAdmin.setEditingPageNode(isRoot ? null : node);
         catalogAdmin.setEditingRootPage(isRoot);
         catalogAdmin.setEditingPageData(true);
     };
 
     const createCategory = (parent: ICatalogNode) => {
-        catalogAdmin.createPage({
-            caption: 'New Category',
-            captionSave: 'New Category',
-            catalogMode: currentType,
-            pageLayout: 'default_3x3',
-            iconImage: 0,
-            minRank: 1,
-            visible: '1',
-            enabled: '1',
-            orderNum: 99,
-            parentId: parent.pageId
-        });
+        catalogAdmin.setCreatingPage(true);
+        catalogAdmin.setEditingRootPage(false);
+        catalogAdmin.setEditingPageNode(parent);
+        catalogAdmin.setEditingPageData(true);
     };
 
     const deletePage = (node: ICatalogNode) => {
@@ -339,10 +332,7 @@ export const CatalogAdminManagerView: FC<{}> = () => {
                     <button
                         className="nitro-catalog-admin-btn"
                         onClick={() =>
-                            catalogAdmin.togglePageVisible(
-                                selectedNode.pageId,
-                                `${isHidden ? 'Showed' : 'Hidden'} page: ${nodeName(selectedNode)}`
-                            )
+                            catalogAdmin.togglePageVisible(selectedNode.pageId, isHidden, `${isHidden ? 'Showed' : 'Hidden'} page: ${nodeName(selectedNode)}`)
                         }
                     >
                         {isHidden ? <FaEye /> : <FaEyeSlash />} <span>{isHidden ? 'Show' : 'Hide'}</span>
@@ -468,16 +458,16 @@ export const CatalogAdminManagerView: FC<{}> = () => {
         <div className="nitro-catalog-admin-publish">
             <div className={`nitro-catalog-admin-publish-status ${hasPendingChanges ? 'has-pending' : ''}`}>
                 {hasPendingChanges
-                    ? `${pendingChanges.length} unpublished change${pendingChanges.length === 1 ? '' : 's'}.`
-                    : 'Catalog is up to date — no pending changes.'}
+                    ? `${pendingChanges.length} change${pendingChanges.length === 1 ? '' : 's'} awaiting client refresh.`
+                    : 'Catalog is up to date — no changes waiting to be published.'}
             </div>
             <p className="nitro-catalog-admin-publish-text">
-                Publishing pushes every pending page, offer and ordering change live to all connected players. Edits are saved as drafts until you publish.
+                Changes are saved immediately. Publishing reloads the server catalog and tells connected players to refresh it.
             </p>
 
             {pendingChanges.length > 0 && (
                 <div className="nitro-catalog-admin-publish-changes">
-                    <div className="nitro-catalog-admin-publish-changes-head">Pending changes</div>
+                    <div className="nitro-catalog-admin-publish-changes-head">Changes since last publish</div>
                     <ul className="nitro-catalog-admin-publish-changes-list">
                         {[...pendingChanges].reverse().map((change) => (
                             <li key={change.id} className="nitro-catalog-admin-publish-change">
