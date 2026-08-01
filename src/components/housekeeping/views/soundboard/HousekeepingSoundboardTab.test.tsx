@@ -114,6 +114,18 @@ describe('HousekeepingSoundboardTab', () => {
         expect(mocks.upsert).toHaveBeenLastCalledWith(expect.objectContaining({ id: 33, name: 'Fanfara' }));
     });
 
+    it('locks the draft while a catalog mutation is pending', () => {
+        mocks.pendingOperation = 1;
+        render(<HousekeepingSoundboardTab />);
+
+        expect(screen.getByRole('textbox', { name: 'Name' })).toBeDisabled();
+        expect(screen.getByRole('textbox', { name: 'URL' })).toBeDisabled();
+        expect(screen.getByRole('spinbutton', { name: 'Minimum rank' })).toBeDisabled();
+        expect(screen.getByRole('checkbox', { name: 'Enabled' })).toBeDisabled();
+        expect(screen.getByRole('button', { name: 'New sound' })).toBeDisabled();
+        expect(screen.getByRole('button', { name: 'Edit Campanella' })).toBeDisabled();
+    });
+
     it('surfaces renderer preview failures', async () => {
         mocks.playSoundboard.mockResolvedValueOnce(false);
         render(<HousekeepingSoundboardTab />);

@@ -47,6 +47,7 @@ export const HousekeepingSoundboardTab: FC = () => {
     );
     const filteredSounds = useMemo(() => filterCatalogSounds(orderedSounds, query, filter), [orderedSounds, query, filter]);
     const validation = validateCatalogDraft(draft);
+    const draftLocked = pendingOperation !== null;
 
     const editSound = (sound: ISoundboardCatalogSound) => {
         setDraft({ id: sound.id, name: sound.name, url: sound.url, minRank: sound.minRank, enabled: sound.enabled });
@@ -124,6 +125,7 @@ export const HousekeepingSoundboardTab: FC = () => {
                     {LocalizeText('housekeeping.soundboard.name')}
                     <input
                         aria-label={LocalizeText('housekeeping.soundboard.name')}
+                        disabled={draftLocked}
                         value={draft.name}
                         onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))}
                         className="rounded border border-zinc-300 bg-white px-2 py-1 text-xs font-normal normal-case"
@@ -133,6 +135,7 @@ export const HousekeepingSoundboardTab: FC = () => {
                     {LocalizeText('housekeeping.soundboard.url')}
                     <input
                         aria-label={LocalizeText('housekeeping.soundboard.url')}
+                        disabled={draftLocked}
                         value={draft.url}
                         onChange={(event) => setDraft((current) => ({ ...current, url: event.target.value }))}
                         className="rounded border border-zinc-300 bg-white px-2 py-1 text-xs font-normal normal-case"
@@ -145,6 +148,7 @@ export const HousekeepingSoundboardTab: FC = () => {
                         min={1}
                         step={1}
                         aria-label={LocalizeText('housekeeping.soundboard.min_rank')}
+                        disabled={draftLocked}
                         value={draft.minRank}
                         onChange={(event) => setDraft((current) => ({ ...current, minRank: Number(event.target.value) }))}
                         className="rounded border border-zinc-300 bg-white px-2 py-1 text-xs font-normal normal-case"
@@ -154,6 +158,7 @@ export const HousekeepingSoundboardTab: FC = () => {
                     <input
                         type="checkbox"
                         checked={draft.enabled}
+                        disabled={draftLocked}
                         onChange={(event) => setDraft((current) => ({ ...current, enabled: event.target.checked }))}
                     />
                     {LocalizeText('housekeeping.soundboard.enabled')}
@@ -166,7 +171,12 @@ export const HousekeepingSoundboardTab: FC = () => {
                     </div>
                 )}
                 <div className="col-span-2 flex flex-wrap justify-end gap-1.5">
-                    <button type="button" onClick={() => setDraft({ ...EMPTY_DRAFT })} className="rounded bg-zinc-200 px-2 py-1 text-xs font-semibold">
+                    <button
+                        type="button"
+                        disabled={draftLocked}
+                        onClick={() => setDraft({ ...EMPTY_DRAFT })}
+                        className="rounded bg-zinc-200 px-2 py-1 text-xs font-semibold disabled:opacity-40"
+                    >
                         {LocalizeText('housekeeping.soundboard.create')}
                     </button>
                     <button
@@ -224,9 +234,10 @@ export const HousekeepingSoundboardTab: FC = () => {
                                 </button>
                                 <button
                                     type="button"
+                                    disabled={draftLocked}
                                     aria-label={`${LocalizeText('housekeeping.soundboard.edit')} ${sound.name}`}
                                     onClick={() => editSound(sound)}
-                                    className="rounded bg-zinc-200 px-1.5 py-1 text-[10px]"
+                                    className="rounded bg-zinc-200 px-1.5 py-1 text-[10px] disabled:opacity-40"
                                 >
                                     {LocalizeText('housekeeping.soundboard.edit')}
                                 </button>
