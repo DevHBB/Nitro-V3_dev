@@ -88,7 +88,7 @@ export const FriendsMessengerThreadGroup: FC<{ thread: MessengerThread; group: M
     };
 
     return <div className={`messenger-message-row${own ? ' own' : ''}`}>
-        {!own && <div className="message-avatar"><LayoutAvatarImageView direction={2} figure={figure} headOnly /></div>}
+        {!own && <div className="message-avatar"><LayoutAvatarImageView direction={2} figure={figure} headOnly compactHead compactHeadSize={40} compactHeadPadding={0} /></div>}
         <div className="messenger-message-body">
             <div className="messenger-message-name">{name}:</div>
             <div className="messenger-message-bubble">
@@ -98,6 +98,6 @@ export const FriendsMessengerThreadGroup: FC<{ thread: MessengerThread; group: M
             </div>
             <div className="messenger-message-time">{group.chats[0].date.toLocaleTimeString()}</div>
         </div>
-        {own && <div className="message-avatar"><LayoutAvatarImageView direction={4} figure={figure} headOnly /></div>}
+        {own && <div className="message-avatar"><LayoutAvatarImageView direction={4} figure={figure} headOnly compactHead compactHeadSize={40} compactHeadPadding={0} /></div>}
     </div>;
 };
