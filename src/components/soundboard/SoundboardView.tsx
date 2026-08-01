@@ -1,5 +1,5 @@
 import { AddLinkEventTracker, ILinkEventTracker, RemoveLinkEventTracker } from '@nitrots/nitro-renderer';
-import { FC, useEffect, useMemo, useState } from 'react';
+import { FC, useEffect, useMemo, useRef, useState } from 'react';
 import { LocalizeText } from '../../api';
 import { useSoundboard } from '../../hooks';
 import {
@@ -120,7 +120,8 @@ export const SoundboardContentView: FC<SoundboardContentViewProps> = ({
 
 export const SoundboardView: FC<{}> = () => {
     const [isVisible, setIsVisible] = useState(false);
-    const { enabled, sounds, categories, recentSoundIds, isCoolingDown, play } = useSoundboard();
+    const { enabled, sounds, categories, recentSoundIds, isCoolingDown, play, refresh } = useSoundboard();
+    const wasVisibleRef = useRef(false);
 
     useEffect(() => {
         const linkTracker: ILinkEventTracker = {
@@ -150,6 +151,13 @@ export const SoundboardView: FC<{}> = () => {
     useEffect(() => {
         if (!enabled) setIsVisible(false);
     }, [enabled]);
+
+    useEffect(() => {
+        const visible = isVisible && enabled;
+
+        if (visible && !wasVisibleRef.current) refresh();
+        wasVisibleRef.current = visible;
+    }, [enabled, isVisible, refresh]);
 
     if (!isVisible || !enabled) return null;
 

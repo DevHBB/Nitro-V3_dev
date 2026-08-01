@@ -57,6 +57,13 @@ const getTimeZeroPadded = (time: number) => {
 
 let modDisclaimerTimeout: ReturnType<typeof setTimeout> = null;
 const recentBadgeNotifications = new Set<string>();
+
+export const prependSingleBubble = (alerts: NotificationBubbleItem[], item: NotificationBubbleItem): NotificationBubbleItem[] => {
+    const shouldReplace = item.notificationType === NotificationBubbleType.CLUBGIFT || item.notificationType === NotificationBubbleType.SOUNDBOARD;
+
+    return [item, ...(shouldReplace ? alerts.filter((value) => value.notificationType !== item.notificationType) : alerts)];
+};
+
 const useNotificationStore = () => {
     const [alerts, setAlerts] = useState<NotificationAlertItem[]>([]);
     const [bubbleAlerts, setBubbleAlerts] = useState<NotificationBubbleItem[]>([]);
@@ -115,15 +122,7 @@ const useNotificationStore = () => {
 
             const notificationItem = new NotificationBubbleItem(message, type, imageUrl, internalLink, senderName);
 
-            setBubbleAlerts((prevValue) => {
-                if (type === NotificationBubbleType.CLUBGIFT) {
-                    const filteredAlerts = prevValue.filter((value) => value.notificationType !== NotificationBubbleType.CLUBGIFT);
-
-                    return [notificationItem, ...filteredAlerts];
-                }
-
-                return [notificationItem, ...prevValue];
-            });
+            setBubbleAlerts((prevValue) => prependSingleBubble(prevValue, notificationItem));
         },
         [bubblesDisabled]
     );

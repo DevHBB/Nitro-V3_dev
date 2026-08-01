@@ -17,11 +17,11 @@ const TONE_CLASSES: Record<SoundboardTone, string> = {
 export const SoundboardPadView: FC<SoundboardPadViewProps> = ({ sound, disabled, onPlay }) => (
     <button
         type="button"
-        disabled={disabled}
+        aria-disabled={disabled}
         data-tone={sound.tone}
         title={sound.name}
-        onClick={() => onPlay(sound)}
-        className={`h-9 min-w-0 cursor-pointer truncate rounded-md border-2 px-2 text-[11px] font-bold text-white shadow-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 ${TONE_CLASSES[sound.tone]}`}
+        onClick={() => !disabled && onPlay(sound)}
+        className={`h-9 min-w-0 cursor-pointer truncate rounded-md border-2 px-2 text-[11px] font-bold text-white shadow-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-1 aria-disabled:cursor-not-allowed aria-disabled:opacity-50 ${TONE_CLASSES[sound.tone]}`}
     >
         {sound.name}
     </button>

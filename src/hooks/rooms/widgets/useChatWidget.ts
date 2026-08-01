@@ -325,15 +325,23 @@ const useChatWidgetState = () => {
             null
         );
 
-        bubble.prefixText = '\u{1F50A}';
-        bubble.displayOrder = 'prefix-name';
-
         setChatMessages((previous) => {
             const next = [...previous, bubble];
 
             if (next.length > CHAT_MESSAGES_MAX) next.shift();
 
             return next;
+        });
+
+        addChatEntry({
+            id: -1,
+            webId: -1,
+            entityId: event.actorRoomIndex,
+            name: LocalizeText('soundboard.title'),
+            message,
+            roomId: roomSession.roomId,
+            timestamp: ChatHistoryCurrentDate(),
+            type: ChatEntryType.TYPE_ROOM_INFO
         });
     });
 

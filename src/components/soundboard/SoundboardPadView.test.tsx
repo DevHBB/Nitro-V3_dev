@@ -34,7 +34,8 @@ describe('SoundboardPadView', () => {
         render(<SoundboardPadView sound={sound} disabled onPlay={onPlay} />);
 
         const button = screen.getByRole('button', { name: 'Campanella' });
-        expect(button).toBeDisabled();
+        expect(button).not.toBeDisabled();
+        expect(button).toHaveAttribute('aria-disabled', 'true');
         fireEvent.click(button);
         expect(onPlay).not.toHaveBeenCalled();
     });

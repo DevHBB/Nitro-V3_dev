@@ -1,18 +1,21 @@
 import {
     GetSessionDataManager,
+    GetSoundManager,
     ISoundboardSound,
     loadGamedata,
     SoundboardPlayComposer,
+    SoundboardPlayDeniedEvent,
     SoundboardPlayEvent,
+    SoundboardRequestSettingsComposer,
     SoundboardSetEnabledComposer,
     SoundboardSettingsEvent
 } from '@nitrots/nitro-renderer';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useBetween } from 'use-between';
-import { DispatchUiEvent, GetConfigurationValue, SendMessageComposer, setSoundboardRoomEnabled } from '../../api';
+import { DispatchUiEvent, GetConfigurationValue, LocalizeText, NotificationBubbleType, SendMessageComposer, setSoundboardRoomEnabled } from '../../api';
 import { SoundboardRoomMessageEvent } from '../../events';
 import { useMessageEvent } from '../events';
-import { SoundboardAudioController } from './SoundboardAudioController';
+import { useNotificationActions } from '../notification';
 import {
     DisplaySoundboardSound,
     mergeSoundboardPresentation,
@@ -28,14 +31,14 @@ export type ClientSoundboardSound = DisplaySoundboardSound;
 const resolveSoundUrl = (url: string): string => {
     if (!url) return '';
 
-    // Keep explicit schemes intact so the audio controller can validate them.
+    // Keep explicit schemes intact so the renderer audio channel can validate them.
     if (/^[a-z][a-z\d+.-]*:/i.test(url) || url.startsWith('//') || url.startsWith('/')) return url;
 
     const base = (GetConfigurationValue<string>('soundboard.url.prefix') || GetConfigurationValue<string>('asset.url') || '').replace(/\/+$/, '');
     return base ? `${base}/${url.replace(/^\/+/, '')}` : url;
 };
 
-const useSoundboardState = () => {
+export const useSoundboardState = () => {
     const [enabled, setEnabled] = useState(false);
     const [serverSounds, setServerSounds] = useState<ISoundboardSound[]>([]);
     const [layout, setLayout] = useState<SoundboardLayout>(() => normalizeSoundboardLayout(null));
@@ -43,9 +46,15 @@ const useSoundboardState = () => {
     const [cooldownRemainingSeconds, setCooldownRemainingSeconds] = useState(0);
     const cooldownSecondsRef = useRef(0);
     const cooldownUntilRef = useRef(0);
-    const audioControllerRef = useRef<SoundboardAudioController | null>(null);
+    const { showSingleBubble } = useNotificationActions();
 
-    if (!audioControllerRef.current) audioControllerRef.current = new SoundboardAudioController();
+    const showCooldownBubble = useCallback((remainingSeconds: number) => {
+        const seconds = Math.max(1, remainingSeconds);
+        showSingleBubble(
+            LocalizeText('soundboard.error.cooldown', ['seconds'], [seconds.toString()]),
+            NotificationBubbleType.SOUNDBOARD
+        );
+    }, [showSingleBubble]);
 
     const handleSettings = useCallback((event: SoundboardSettingsEvent) => {
         const parser = event.getParser();
@@ -57,9 +66,29 @@ const useSoundboardState = () => {
 
     useMessageEvent<SoundboardSettingsEvent>(SoundboardSettingsEvent, handleSettings);
 
+    const handleDenied = useCallback((event: SoundboardPlayDeniedEvent) => {
+        const parser = event.getParser();
+
+        if (parser.reason === 1) {
+            const seconds = Math.max(1, parser.remainingSeconds);
+            const now = Date.now();
+            cooldownUntilRef.current = now + seconds * 1_000;
+            setCooldownRemainingSeconds(getRemainingCooldownSeconds(cooldownUntilRef.current, now));
+            showCooldownBubble(seconds);
+            return;
+        }
+
+        const key = parser.reason === 2 ? 'soundboard.error.room_disabled' : 'soundboard.error.unavailable';
+        showSingleBubble(LocalizeText(key), NotificationBubbleType.SOUNDBOARD);
+    }, [showCooldownBubble, showSingleBubble]);
+
+    useMessageEvent<SoundboardPlayDeniedEvent>(SoundboardPlayDeniedEvent, handleDenied);
+
     const handlePlay = useCallback((event: SoundboardPlayEvent) => {
         const parser = event.getParser();
-        void audioControllerRef.current?.play(resolveSoundUrl(parser.url));
+        void GetSoundManager().playSoundboard(resolveSoundUrl(parser.url)).then((played) => {
+            if (!played) showSingleBubble(LocalizeText('soundboard.error.audio'), NotificationBubbleType.SOUNDBOARD);
+        });
         setRecentSoundIds((current) => pushRecentSound(current, parser.soundId));
         DispatchUiEvent(new SoundboardRoomMessageEvent(parser.username, parser.soundName, parser.actorUserId, parser.actorRoomIndex));
 
@@ -69,7 +98,7 @@ const useSoundboardState = () => {
             cooldownUntilRef.current = now + cooldownSecondsRef.current * 1_000;
             setCooldownRemainingSeconds(getRemainingCooldownSeconds(cooldownUntilRef.current, now));
         }
-    }, []);
+    }, [showSingleBubble]);
 
     useMessageEvent<SoundboardPlayEvent>(SoundboardPlayEvent, handlePlay);
 
@@ -110,8 +139,20 @@ const useSoundboardState = () => {
     const categories = layout.categories as SoundboardCategory[];
 
     const play = useCallback((sound: ClientSoundboardSound) => {
-        if (!sound || getRemainingCooldownSeconds(cooldownUntilRef.current, Date.now()) > 0) return;
+        if (!sound) return;
+
+        const remainingSeconds = getRemainingCooldownSeconds(cooldownUntilRef.current, Date.now());
+        if (remainingSeconds > 0) {
+            setCooldownRemainingSeconds(remainingSeconds);
+            showCooldownBubble(remainingSeconds);
+            return;
+        }
+
         SendMessageComposer(new SoundboardPlayComposer(sound.id));
+    }, [showCooldownBubble]);
+
+    const refresh = useCallback(() => {
+        SendMessageComposer(new SoundboardRequestSettingsComposer());
     }, []);
 
     const setRoomEnabled = useCallback((value: boolean) => {
@@ -121,7 +162,7 @@ const useSoundboardState = () => {
     }, []);
 
     const reset = useCallback(() => {
-        audioControllerRef.current?.stop();
+        GetSoundManager().stopSoundboard();
         setEnabled(false);
         setServerSounds([]);
         setLayout(normalizeSoundboardLayout(null));
@@ -132,7 +173,7 @@ const useSoundboardState = () => {
         setSoundboardRoomEnabled(false);
     }, []);
 
-    return { enabled, sounds, categories, recentSoundIds, isCoolingDown, play, setRoomEnabled, reset };
+    return { enabled, sounds, categories, recentSoundIds, cooldownRemainingSeconds, isCoolingDown, play, refresh, setRoomEnabled, reset };
 };
 
 export const useSoundboard = () => useBetween(useSoundboardState);
