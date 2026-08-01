@@ -1,10 +1,11 @@
-import { AddLinkEventTracker, CreateLinkEvent, ILinkEventTracker, NitroSettingsEvent, RemoveLinkEventTracker, UserSettingsCameraFollowComposer, UserSettingsEvent, UserSettingsOldChatComposer, UserSettingsPrivacyComposer, UserSettingsRoomInvitesComposer, UserSettingsSoundComposer } from '@nitrots/nitro-renderer';
+import { AddLinkEventTracker, CreateLinkEvent, ILinkEventTracker, NitroSettingsEvent, RemoveLinkEventTracker, SoundboardSaveVolumeComposer, UserSettingsCameraFollowComposer, UserSettingsEvent, UserSettingsOldChatComposer, UserSettingsPrivacyComposer, UserSettingsRoomInvitesComposer, UserSettingsSoundComposer } from '@nitrots/nitro-renderer';
 import { FC, useEffect, useState } from 'react';
 import { FaUserCog, FaVolumeDown, FaVolumeMute, FaVolumeUp } from 'react-icons/fa';
 import { DispatchMainEvent, DispatchUiEvent, LocalizeText, SendMessageComposer } from '../../api';
 import { Button, NitroCardContentView, NitroCardHeaderView, NitroCardView, Text } from '../../common';
 import { useCatalogPlaceMultipleItems, useCatalogSkipPurchaseConfirmation, useChatWindow, useMessageEvent } from '../../hooks';
 import { classNames } from '../../layout';
+import { SoundboardVolumeControl } from './SoundboardVolumeControl';
 
 const localizeWithFallback = (key: string, fallback: string) =>
 {
@@ -76,6 +77,11 @@ export const UserSettingsView: FC<{}> = props =>
                 clone.volumeTrax = Math.max(0, clone.volumeTrax);
                 clone.volumeTrax = Math.min(100, clone.volumeTrax);
                 break;
+            case 'soundboard_volume':
+                clone.volumeSoundboard = value as number;
+                clone.volumeSoundboard = Math.max(0, clone.volumeSoundboard);
+                clone.volumeSoundboard = Math.min(100, clone.volumeSoundboard);
+                break;
         }
 
         if(doUpdate) setUserSettings(clone);
@@ -90,6 +96,9 @@ export const UserSettingsView: FC<{}> = props =>
             case 'volume':
                 SendMessageComposer(new UserSettingsSoundComposer(Math.round(userSettings.volumeSystem), Math.round(userSettings.volumeFurni), Math.round(userSettings.volumeTrax)));
                 break;
+            case 'soundboard_volume':
+                SendMessageComposer(new SoundboardSaveVolumeComposer(Math.round(userSettings.volumeSoundboard)));
+                break;
         }
     };
 
@@ -101,6 +110,7 @@ export const UserSettingsView: FC<{}> = props =>
         settingsEvent.volumeSystem = parser.volumeSystem;
         settingsEvent.volumeFurni = parser.volumeFurni;
         settingsEvent.volumeTrax = parser.volumeTrax;
+        settingsEvent.volumeSoundboard = parser.volumeSoundboard;
         settingsEvent.oldChat = parser.oldChat;
         settingsEvent.roomInvites = parser.roomInvites;
         settingsEvent.cameraFollow = parser.cameraFollow;
@@ -264,6 +274,10 @@ export const UserSettingsView: FC<{}> = props =>
                                 <FaVolumeUp className={ classNames((userSettings.volumeTrax < 50) && 'text-muted', 'fa-icon') } />
                             </div>
                         </div>
+                        <SoundboardVolumeControl
+                            value={ userSettings.volumeSoundboard }
+                            onChange={ value => processAction('soundboard_volume', value) }
+                            onCommit={ () => saveRangeSlider('soundboard_volume') } />
                     </div> }
                 { showAccountLink &&
                     <div className="flex flex-col pt-2 mt-1 border-t border-black/10">

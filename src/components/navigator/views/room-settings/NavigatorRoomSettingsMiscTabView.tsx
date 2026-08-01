@@ -57,12 +57,9 @@ export const NavigatorRoomSettingsMiscTabView: FC<NavigatorRoomSettingsMiscTabVi
                     </div>
                 </div>
                 <div className={`p-3 rounded transition-colors ${cooldown ? 'bg-gray-200 opacity-60' : 'bg-gray-100'}`}>
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <div className="font-bold text-sm">🔊 {LocalizeText('soundboard.title')}</div>
-                            <div className="text-xs text-gray-500">{LocalizeText('soundboard.room.setting.desc')}</div>
-                        </div>
-                        <label className="relative inline-flex items-center cursor-pointer">
+                    <label className="flex items-center justify-between cursor-pointer">
+                        <span className="font-bold text-sm">{LocalizeText('soundboard.room.allow')}</span>
+                        <span className="relative inline-flex items-center">
                             <input
                                 type="checkbox"
                                 checked={soundboardEnabled}
@@ -70,8 +67,8 @@ export const NavigatorRoomSettingsMiscTabView: FC<NavigatorRoomSettingsMiscTabVi
                                 onChange={(e) => toggleSoundboard(e.target.checked)}
                                 className="w-5 h-5"
                             />
-                        </label>
-                    </div>
+                        </span>
+                    </label>
                 </div>
             </div>
         </>
