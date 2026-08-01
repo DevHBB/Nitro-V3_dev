@@ -44,7 +44,15 @@ export const FriendsListGroupItemView: FC<{ friend: MessengerFriend; selected: b
     return (
         <div className={`hfl-friend ${friend.online ? 'online' : 'offline'}${selected ? ' selected' : ''}`} role="button" tabIndex={0} onClick={() => selectFriend(friend.id)} onKeyDown={(event) => event.key === 'Enter' && selectFriend(friend.id)}>
             <div className="hfl-friend-avatar">
-                    <LayoutAvatarImageView figure={resolveAvatarFigure(friend.figure, friend.gender)} gender={resolveAvatarGender(friend.gender)} headOnly direction={2} />
+                <LayoutAvatarImageView
+                    figure={resolveAvatarFigure(friend.figure, friend.gender)}
+                    gender={resolveAvatarGender(friend.gender)}
+                    headOnly
+                    compactHead
+                    compactHeadSize={20}
+                    compactHeadPadding={0}
+                    direction={2}
+                />
             </div>
             <span className="hfl-friend-profile" onClick={stop}><UserProfileIconView userId={friend.id} /></span>
             <span className="hfl-friend-name">{friend.name}</span>
