@@ -26,6 +26,7 @@ describe('isHousekeepingTabAvailable', () => {
         expect(isHousekeepingTabAvailable(HousekeepingTabId.ROOMS, 'full')).toBe(true);
         expect(isHousekeepingTabAvailable(HousekeepingTabId.ECONOMY, 'full')).toBe(true);
         expect(isHousekeepingTabAvailable(HousekeepingTabId.AUDIT, 'full')).toBe(true);
+        expect(isHousekeepingTabAvailable(HousekeepingTabId.SOUNDBOARD, 'full')).toBe(true);
     });
 
     it('exposes only Users + Rooms in light mode', () => {
@@ -35,6 +36,7 @@ describe('isHousekeepingTabAvailable', () => {
         expect(isHousekeepingTabAvailable(HousekeepingTabId.DASHBOARD, 'light')).toBe(false);
         expect(isHousekeepingTabAvailable(HousekeepingTabId.ECONOMY, 'light')).toBe(false);
         expect(isHousekeepingTabAvailable(HousekeepingTabId.AUDIT, 'light')).toBe(false);
+        expect(isHousekeepingTabAvailable(HousekeepingTabId.SOUNDBOARD, 'light')).toBe(false);
     });
 });
 
@@ -45,7 +47,8 @@ describe('housekeepingTabsForMode', () => {
             HousekeepingTabId.USERS,
             HousekeepingTabId.ROOMS,
             HousekeepingTabId.ECONOMY,
-            HousekeepingTabId.AUDIT
+            HousekeepingTabId.AUDIT,
+            HousekeepingTabId.SOUNDBOARD
         ]);
     });
 

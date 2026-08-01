@@ -17,6 +17,7 @@ import { HousekeepingAuditTab } from './views/audit/HousekeepingAuditTab';
 import { HousekeepingDashboardTab } from './views/dashboard/HousekeepingDashboardTab';
 import { HousekeepingEconomyTab } from './views/economy/HousekeepingEconomyTab';
 import { HousekeepingRoomsTab } from './views/rooms/HousekeepingRoomsTab';
+import { HousekeepingSoundboardTab } from './views/soundboard/HousekeepingSoundboardTab';
 import { HousekeepingUsersTab } from './views/users/HousekeepingUsersTab';
 
 const TAB_IDS: HousekeepingTabId[] = [
@@ -24,7 +25,8 @@ const TAB_IDS: HousekeepingTabId[] = [
     HousekeepingTabId.USERS,
     HousekeepingTabId.ROOMS,
     HousekeepingTabId.ECONOMY,
-    HousekeepingTabId.AUDIT
+    HousekeepingTabId.AUDIT,
+    HousekeepingTabId.SOUNDBOARD
 ];
 
 const isHkTabId = (value: string): value is HousekeepingTabId => (TAB_IDS as string[]).includes(value);
@@ -35,6 +37,7 @@ export const HousekeepingView: FC = () => {
     // for plain users/mods on servers that haven't granted it. Reactive
     // — promote/demote takes effect on the next render without a relog.
     const isHk = useHasPermission('acc_housekeeping');
+    const canManageSoundboard = useHasPermission('acc_soundboard_manage');
     // Two-layer config gate on top of the permission:
     //   - `housekeeping.enabled` (boolean, default false): master kill
     //     switch for the whole module
@@ -68,7 +71,9 @@ export const HousekeepingView: FC = () => {
                         if (parts.length > 2) {
                             const candidate = parts[2];
 
-                            if (isHkTabId(candidate) && isHousekeepingTabAvailable(candidate, getHousekeepingMode())) {
+                            const canOpenCandidate = candidate !== HousekeepingTabId.SOUNDBOARD || canManageSoundboard;
+
+                            if (isHkTabId(candidate) && canOpenCandidate && isHousekeepingTabAvailable(candidate, getHousekeepingMode())) {
                                 setActiveTab(candidate);
                                 setIsVisible(true);
                             }
@@ -121,7 +126,7 @@ export const HousekeepingView: FC = () => {
         AddLinkEventTracker(linkTracker);
 
         return () => RemoveLinkEventTracker(linkTracker);
-    }, [setIsVisible, togglePanel, closePanel, setActiveTab, lookupUserById, seedUserFromAvatar]);
+    }, [setIsVisible, togglePanel, closePanel, setActiveTab, lookupUserById, seedUserFromAvatar, canManageSoundboard]);
 
     // When the panel is gated off (perm revoked mid-session, or
     // `housekeeping.enabled` is false) make sure it isn't left visible.
@@ -134,8 +139,9 @@ export const HousekeepingView: FC = () => {
     // sessions), bounce them to Users — the canonical default for
     // the trimmed layout.
     useEffect(() => {
-        if (!isHousekeepingTabAvailable(activeTab, hkMode)) setActiveTab(HousekeepingTabId.USERS);
-    }, [activeTab, hkMode, setActiveTab]);
+        const soundboardDenied = activeTab === HousekeepingTabId.SOUNDBOARD && !canManageSoundboard;
+        if (soundboardDenied || !isHousekeepingTabAvailable(activeTab, hkMode)) setActiveTab(HousekeepingTabId.USERS);
+    }, [activeTab, hkMode, canManageSoundboard, setActiveTab]);
 
     const activeView = useMemo(() => {
         switch (activeTab) {
@@ -145,25 +151,28 @@ export const HousekeepingView: FC = () => {
                 return <HousekeepingEconomyTab />;
             case HousekeepingTabId.AUDIT:
                 return <HousekeepingAuditTab />;
+            case HousekeepingTabId.SOUNDBOARD:
+                return canManageSoundboard ? <HousekeepingSoundboardTab /> : <HousekeepingUsersTab />;
             case HousekeepingTabId.USERS:
                 return <HousekeepingUsersTab />;
             case HousekeepingTabId.DASHBOARD:
             default:
                 return <HousekeepingDashboardTab />;
         }
-    }, [activeTab]);
+    }, [activeTab, canManageSoundboard]);
 
     if (!hkEnabled || !isHk || !isVisible) return null;
 
     const showDashboard = isHousekeepingTabAvailable(HousekeepingTabId.DASHBOARD, hkMode);
     const showEconomy = isHousekeepingTabAvailable(HousekeepingTabId.ECONOMY, hkMode);
     const showAudit = isHousekeepingTabAvailable(HousekeepingTabId.AUDIT, hkMode);
+    const showSoundboard = canManageSoundboard && isHousekeepingTabAvailable(HousekeepingTabId.SOUNDBOARD, hkMode);
     const isLight = hkMode === 'light';
     const headerSuffix = isLight ? ` · ${LocalizeText('housekeeping.mode.light')}` : '';
     // Light mode is narrower because there are only 2 tabs and the
     // content density is lower — gives the operator more screen real
     // estate without a 600px-wide panel for two tabs.
-    const sizeClass = isLight ? 'min-w-[420px] max-w-[480px]' : 'min-w-[520px] max-w-[600px]';
+    const sizeClass = isLight ? 'min-w-[420px] max-w-[480px]' : 'min-w-[620px] max-w-[700px]';
 
     return (
         <WidgetErrorBoundary name="HousekeepingView">
@@ -208,6 +217,14 @@ export const HousekeepingView: FC = () => {
                             <div className="flex items-center gap-1.5 text-xs">
                                 <span className="nitro-icon nitro-icon-hk-tab icon-message" />
                                 <span>{LocalizeText('housekeeping.tab.audit')}</span>
+                            </div>
+                        </NitroCardTabsItemView>
+                    )}
+                    {showSoundboard && (
+                        <NitroCardTabsItemView isActive={activeTab === HousekeepingTabId.SOUNDBOARD} onClick={() => setActiveTab(HousekeepingTabId.SOUNDBOARD)}>
+                            <div className="flex items-center gap-1.5 text-xs">
+                                <span className="nitro-icon nitro-icon-hk-tab icon-soundboard" />
+                                <span>{LocalizeText('housekeeping.tab.soundboard')}</span>
                             </div>
                         </NitroCardTabsItemView>
                     )}
