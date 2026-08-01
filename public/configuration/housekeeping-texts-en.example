@@ -168,6 +168,7 @@
     "housekeeping.soundboard.create": "New sound",
     "housekeeping.soundboard.save": "Save sound",
     "housekeeping.soundboard.preview": "Preview",
+    "housekeeping.soundboard.preview_failed": "The preview could not be played.",
     "housekeeping.soundboard.edit": "Edit",
     "housekeeping.soundboard.move_up": "Move up",
     "housekeeping.soundboard.move_down": "Move down",
@@ -182,5 +183,6 @@
     "housekeeping.soundboard.result.invalid_rank": "The minimum rank does not exist.",
     "housekeeping.soundboard.result.invalid_order": "The submitted order is incomplete or contains duplicates.",
     "housekeeping.soundboard.result.not_found": "The sound no longer exists.",
-    "housekeeping.soundboard.result.persistence_failure": "The catalog could not be saved. Check the emulator log."
+    "housekeeping.soundboard.result.persistence_failure": "The catalog could not be saved. Check the emulator log.",
+    "housekeeping.soundboard.result.catalog_full": "The Soundboard catalog already contains 500 sounds."
 }

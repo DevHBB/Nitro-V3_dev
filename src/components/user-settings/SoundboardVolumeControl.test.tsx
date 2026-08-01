@@ -25,4 +25,17 @@ describe('SoundboardVolumeControl', () => {
         expect(onChange).toHaveBeenCalledWith(25);
         expect(onCommit).toHaveBeenCalledOnce();
     });
+
+    it('commits keyboard volume changes without requiring a pointer event', () => {
+        const onChange = vi.fn();
+        const onCommit = vi.fn();
+        render(<SoundboardVolumeControl value={80} onChange={onChange} onCommit={onCommit} />);
+
+        const range = screen.getByRole('slider', { name: 'Soundboard' });
+        fireEvent.change(range, { target: { value: '79' } });
+        fireEvent.keyUp(range, { key: 'ArrowLeft' });
+
+        expect(onChange).toHaveBeenCalledWith(79);
+        expect(onCommit).toHaveBeenCalledOnce();
+    });
 });

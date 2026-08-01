@@ -168,6 +168,7 @@
     "housekeeping.soundboard.create": "Nuovo suono",
     "housekeeping.soundboard.save": "Salva suono",
     "housekeeping.soundboard.preview": "Anteprima",
+    "housekeeping.soundboard.preview_failed": "Impossibile riprodurre l'anteprima.",
     "housekeeping.soundboard.edit": "Modifica",
     "housekeeping.soundboard.move_up": "Sposta su",
     "housekeeping.soundboard.move_down": "Sposta giù",
@@ -182,5 +183,6 @@
     "housekeeping.soundboard.result.invalid_rank": "Il rank minimo non esiste.",
     "housekeeping.soundboard.result.invalid_order": "L'ordine inviato è incompleto o contiene duplicati.",
     "housekeeping.soundboard.result.not_found": "Il suono non esiste più.",
-    "housekeeping.soundboard.result.persistence_failure": "Impossibile salvare il catalogo. Controlla il log dell'emulatore."
+    "housekeeping.soundboard.result.persistence_failure": "Impossibile salvare il catalogo. Controlla il log dell'emulatore.",
+    "housekeeping.soundboard.result.catalog_full": "Il catalogo Soundboard contiene già 500 suoni."
 }

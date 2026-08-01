@@ -1,8 +1,8 @@
 /* @vitest-environment jsdom */
 
-import { act, renderHook } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SoundboardPlayDeniedEvent, SoundboardSettingsEvent } from '@nitrots/nitro-renderer';
+import { act, renderHook, waitFor } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NotificationBubbleType } from '../../api/notification/NotificationBubbleType';
 import { useSoundboardState } from './useSoundboard';
 
@@ -11,14 +11,21 @@ const mocks = vi.hoisted(() => ({
     playSoundboard: vi.fn().mockResolvedValue(true),
     stopSoundboard: vi.fn(),
     sendMessage: vi.fn(),
-    showSingleBubble: vi.fn()
+    showSingleBubble: vi.fn(),
+    loadGamedata: vi.fn().mockResolvedValue({})
 }));
 
 vi.mock('@nitrots/nitro-renderer', () => {
-    class NitroEvent { constructor(public type: string) {} }
-    class SoundboardPlayComposer { constructor(public id: number) {} }
+    class NitroEvent {
+        constructor(public type: string) {}
+    }
+    class SoundboardPlayComposer {
+        constructor(public id: number) {}
+    }
     class SoundboardRequestSettingsComposer {}
-    class SoundboardSetEnabledComposer { constructor(public enabled: boolean) {} }
+    class SoundboardSetEnabledComposer {
+        constructor(public enabled: boolean) {}
+    }
     class SoundboardPlayEvent {}
     class SoundboardPlayDeniedEvent {}
     class SoundboardSettingsEvent {}
@@ -26,7 +33,7 @@ vi.mock('@nitrots/nitro-renderer', () => {
     return {
         GetSessionDataManager: () => ({ getUserDataSnapshot: () => ({ userId: 42 }) }),
         GetSoundManager: () => ({ playSoundboard: mocks.playSoundboard, stopSoundboard: mocks.stopSoundboard }),
-        loadGamedata: vi.fn().mockResolvedValue({}),
+        loadGamedata: mocks.loadGamedata,
         NitroEvent,
         SoundboardPlayComposer,
         SoundboardRequestSettingsComposer,
@@ -38,12 +45,12 @@ vi.mock('@nitrots/nitro-renderer', () => {
 });
 
 vi.mock('../../api', () => ({
-        DispatchUiEvent: vi.fn(),
-        GetConfigurationValue: vi.fn().mockReturnValue(''),
-        LocalizeText: (key: string, names?: string[], values?: string[]) => `${key}:${values?.join(',') ?? ''}`,
-        NotificationBubbleType: { SOUNDBOARD: 'soundboard' },
-        SendMessageComposer: mocks.sendMessage,
-        setSoundboardRoomEnabled: vi.fn()
+    DispatchUiEvent: vi.fn(),
+    GetConfigurationValue: vi.fn().mockReturnValue(''),
+    LocalizeText: (key: string, names?: string[], values?: string[]) => `${key}:${values?.join(',') ?? ''}`,
+    NotificationBubbleType: { SOUNDBOARD: 'soundboard' },
+    SendMessageComposer: mocks.sendMessage,
+    setSoundboardRoomEnabled: vi.fn()
 }));
 
 vi.mock('../events', () => ({
@@ -61,25 +68,28 @@ describe('useSoundboardState', () => {
         mocks.stopSoundboard.mockClear();
         mocks.sendMessage.mockClear();
         mocks.showSingleBubble.mockClear();
+        mocks.loadGamedata.mockReset();
+        mocks.loadGamedata.mockResolvedValue({});
     });
 
     it('blocks a locally known cooldown and shows one personal bubble', () => {
         const { result } = renderHook(() => useSoundboardState());
 
-        act(() => mocks.handlers.get(SoundboardSettingsEvent)?.({
-            getParser: () => ({ enabled: true, cooldownSeconds: 30, sounds: [] })
-        }));
-        act(() => mocks.handlers.get(SoundboardPlayDeniedEvent)?.({
-            getParser: () => ({ reason: 1, remainingSeconds: 12 })
-        }));
+        act(() =>
+            mocks.handlers.get(SoundboardSettingsEvent)?.({
+                getParser: () => ({ enabled: true, cooldownSeconds: 30, sounds: [] })
+            })
+        );
+        act(() =>
+            mocks.handlers.get(SoundboardPlayDeniedEvent)?.({
+                getParser: () => ({ reason: 1, remainingSeconds: 12 })
+            })
+        );
         act(() => result.current.play({ id: 7 } as any));
 
         expect(result.current.isCoolingDown).toBe(true);
         expect(mocks.sendMessage).not.toHaveBeenCalled();
-        expect(mocks.showSingleBubble).toHaveBeenCalledWith(
-            expect.stringContaining('12'),
-            NotificationBubbleType.SOUNDBOARD
-        );
+        expect(mocks.showSingleBubble).toHaveBeenCalledWith(expect.stringContaining('12'), NotificationBubbleType.SOUNDBOARD);
     });
 
     it('sends refresh and play composers when allowed', () => {
@@ -90,5 +100,28 @@ describe('useSoundboardState', () => {
 
         expect(mocks.sendMessage).toHaveBeenCalledTimes(2);
         expect((mocks.sendMessage.mock.calls[1][0] as any).id).toBe(7);
+    });
+
+    it('keeps the JSON and JSONC catalog fallback local-only', async () => {
+        mocks.loadGamedata.mockImplementation(async (url: string) =>
+            url.includes('layout')
+                ? {}
+                : {
+                      sounds: [{ id: 11, name: 'Local click', url: 'sounds/soundboard/click.ogg' }]
+                  }
+        );
+        const { result } = renderHook(() => useSoundboardState());
+
+        act(() =>
+            mocks.handlers.get(SoundboardSettingsEvent)?.({
+                getParser: () => ({ enabled: true, cooldownSeconds: 30, sounds: [] })
+            })
+        );
+
+        await waitFor(() => expect(result.current.sounds).toEqual([expect.objectContaining({ id: 11, name: 'Local click', local: true })]));
+        act(() => result.current.play(result.current.sounds[0]));
+
+        expect(mocks.playSoundboard).toHaveBeenCalledWith('sounds/soundboard/click.ogg');
+        expect(mocks.sendMessage).toHaveBeenCalledTimes(0);
     });
 });

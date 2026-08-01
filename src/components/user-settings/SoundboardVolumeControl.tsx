@@ -15,7 +15,9 @@ export const SoundboardVolumeControl: FC<SoundboardVolumeControlProps> = ({ valu
 
     return (
         <div className="flex flex-col gap-1">
-            <label htmlFor="volumeSoundboard"><Text>{label}</Text></label>
+            <label htmlFor="volumeSoundboard">
+                <Text>{label}</Text>
+            </label>
             <div className="flex items-center gap-1">
                 {value === 0 && <FaVolumeMute className={classNames(value >= 50 && 'text-muted', 'fa-icon')} />}
                 {value > 0 && <FaVolumeDown className={classNames(value >= 50 && 'text-muted', 'fa-icon')} />}
@@ -29,6 +31,10 @@ export const SoundboardVolumeControl: FC<SoundboardVolumeControlProps> = ({ valu
                     type="range"
                     value={value}
                     onChange={(event) => onChange(Number(event.target.value))}
+                    onBlur={onCommit}
+                    onKeyUp={(event) => {
+                        if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'].includes(event.key)) onCommit();
+                    }}
                     onMouseUp={onCommit}
                     onTouchEnd={onCommit}
                 />
