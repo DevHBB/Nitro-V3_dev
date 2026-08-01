@@ -499,7 +499,7 @@
     "soundboard.category.recent": "الأخيرة",
     "soundboard.pagination.previous": "الصفحة السابقة",
     "soundboard.pagination.next": "الصفحة التالية",
-    "soundboard.room.played": "%user% شغّل \"%sound%\"",
+    "soundboard.room.played": "%user% شغّل %sound%",
     "soundboard.room.setting.desc": "السماح للأشخاص في هذه الغرفة بتشغيل المؤثرات الصوتية",
     "soundboard.room.allow": "السماح باستخدام لوحة الأصوات في هذه الغرفة",
     "soundboard.error.cooldown": "انتظر %seconds% ثانية قبل تشغيل صوت آخر.",

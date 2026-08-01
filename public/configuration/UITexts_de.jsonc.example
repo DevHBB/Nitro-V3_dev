@@ -534,7 +534,7 @@
     "soundboard.category.recent": "Zuletzt",
     "soundboard.pagination.previous": "Vorherige Seite",
     "soundboard.pagination.next": "Nächste Seite",
-    "soundboard.room.played": "%user% spielte \"%sound%\"",
+    "soundboard.room.played": "%user% spielte %sound%",
     "soundboard.room.setting.desc": "Erlaube Personen in diesem Raum, Soundeffekte abzuspielen",
     "soundboard.room.allow": "Soundboard in diesem Raum erlauben",
     "soundboard.error.cooldown": "Warte %seconds% Sekunden, bevor du einen weiteren Sound abspielst.",

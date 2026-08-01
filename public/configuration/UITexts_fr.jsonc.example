@@ -543,7 +543,7 @@
     "soundboard.category.recent": "Récents",
     "soundboard.pagination.previous": "Page précédente",
     "soundboard.pagination.next": "Page suivante",
-    "soundboard.room.played": "%user% a joué \"%sound%\"",
+    "soundboard.room.played": "%user% a joué %sound%",
     "soundboard.room.setting.desc": "Autoriser les personnes dans cet appart à jouer des effets sonores",
     "soundboard.room.allow": "Autoriser l'utilisation de la Soundboard dans cet appart",
     "soundboard.error.cooldown": "Attendez %seconds% secondes avant de jouer un autre son.",

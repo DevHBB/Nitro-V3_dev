@@ -543,7 +543,7 @@
     "soundboard.category.recent": "Recent",
     "soundboard.pagination.previous": "Vorige pagina",
     "soundboard.pagination.next": "Volgende pagina",
-    "soundboard.room.played": "%user% speelde \"%sound%\" af",
+    "soundboard.room.played": "%user% speelde %sound% af",
     "soundboard.room.setting.desc": "Sta mensen in deze kamer toe geluidseffecten af te spelen",
     "soundboard.room.allow": "Soundboardgebruik in deze kamer toestaan",
     "soundboard.error.cooldown": "Wacht %seconds% seconden voordat je een ander geluid afspeelt.",
