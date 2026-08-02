@@ -1,9 +1,10 @@
 import { CreateLinkEvent, Dispose, DropBounce, EaseOut, FindNewFriendsMessageComposer, JumpBy, Motions, NitroToolbarAnimateIconEvent, PerkAllowancesMessageEvent, PerkEnum, Queue, Wait, YouTubeRoomSettingsEvent } from '@nitrots/nitro-renderer';
 import { AnimatePresence, motion, Variants } from 'framer-motion';
-import { FC, useEffect, useMemo, useState } from 'react';
+import { FC, useEffect, useMemo, useRef, useState } from 'react';
 import { GetConfigurationValue, isHousekeepingEnabled, MessengerIconState, OpenMessengerChat, SendMessageComposer, setYoutubeRoomEnabled, VisitDesktop , localizeWithFallback} from '../../api';
 import { Flex, LayoutAvatarImageView, LayoutItemCountView } from '../../common';
-import { useAchievements, useFriends, useHasPermission, useInventoryUnseenTracker, useMentionsSnapshot, useMessageEvent, useMessenger, useModTools, useNitroEvent, useSessionInfo, useSoundboard, useWiredTools } from '../../hooks';
+import { SoundboardRoomMessageEvent } from '../../events';
+import { useAchievements, useFriends, useHasPermission, useInventoryUnseenTracker, useMentionsSnapshot, useMessageEvent, useMessenger, useModTools, useNitroEvent, useSessionInfo, useSoundboard, useUiEvent, useWiredTools } from '../../hooks';
 import { ToolbarItemView } from './ToolbarItemView';
 import { ToolbarMeView } from './ToolbarMeView';
 import { YouTubePlayerView } from './YouTubePlayerView';
@@ -36,6 +37,8 @@ export const ToolbarView: FC<{ isInRoom: boolean }> = props =>
     const [ staffStackBottom, setStaffStackBottom ] = useState<number | null>(null);
     const [ useGuideTool, setUseGuideTool ] = useState(false);
     const [ youtubeEnabled, setYoutubeEnabled ] = useState(false);
+    const [ soundboardPulse, setSoundboardPulse ] = useState(false);
+    const soundboardPulseTimerRef = useRef<number | null>(null);
     const { userFigure = null } = useSessionInfo();
     const { getFullCount = 0 } = useInventoryUnseenTracker();
     const { getTotalUnseen = 0 } = useAchievements();
@@ -80,6 +83,22 @@ export const ToolbarView: FC<{ isInRoom: boolean }> = props =>
         setYoutubeEnabled(enabled);
         setYoutubeRoomEnabled(enabled);
     });
+
+    useUiEvent<SoundboardRoomMessageEvent>(SoundboardRoomMessageEvent.ROOM_MESSAGE, () =>
+    {
+        setSoundboardPulse(true);
+        if(soundboardPulseTimerRef.current !== null) window.clearTimeout(soundboardPulseTimerRef.current);
+        soundboardPulseTimerRef.current = window.setTimeout(() =>
+        {
+            setSoundboardPulse(false);
+            soundboardPulseTimerRef.current = null;
+        }, 700);
+    });
+
+    useEffect(() => () =>
+    {
+        if(soundboardPulseTimerRef.current !== null) window.clearTimeout(soundboardPulseTimerRef.current);
+    }, []);
 
     useEffect(() =>
     {
@@ -284,7 +303,7 @@ export const ToolbarView: FC<{ isInRoom: boolean }> = props =>
                         </motion.div> }
                     { (isInRoom && soundboardEnabled) &&
                         <motion.div variants={ itemVariants }>
-                            <ToolbarItemView icon="soundboard" onClick={ () => CreateLinkEvent('soundboard/toggle') } className="tb-icon" />
+                            <ToolbarItemView icon="soundboard" onClick={ () => CreateLinkEvent('soundboard/toggle') } className={ `tb-icon ${ soundboardPulse ? 'animate-pulse' : '' }` } />
                         </motion.div> }
                     </>) }
                     { isMod &&
@@ -415,7 +434,7 @@ export const ToolbarView: FC<{ isInRoom: boolean }> = props =>
                         </motion.div> }
                     { (isInRoom && soundboardEnabled) &&
                         <motion.div variants={ itemVariants }>
-                            <ToolbarItemView icon="soundboard" onClick={ () => CreateLinkEvent('soundboard/toggle') } className="tb-icon" />
+                            <ToolbarItemView icon="soundboard" onClick={ () => CreateLinkEvent('soundboard/toggle') } className={ `tb-icon ${ soundboardPulse ? 'animate-pulse' : '' }` } />
                         </motion.div> }
                     <motion.div variants={ itemVariants } className="relative">
                         <ToolbarItemView icon="friendall" onClick={ () => CreateLinkEvent('friends/toggle') } className="tb-icon" />

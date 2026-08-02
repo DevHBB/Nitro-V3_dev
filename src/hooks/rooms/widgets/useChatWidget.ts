@@ -26,8 +26,9 @@ import {
     PlaySound,
     RoomChatFormatter
 } from '../../../api';
+import { SoundboardRoomMessageEvent } from '../../../events';
 import { useChatHistory } from './../../chat-history';
-import { useMessageEvent, useNitroEvent } from '../../events';
+import { useMessageEvent, useNitroEvent, useUiEvent } from '../../events';
 import { useUserDataSnapshot } from '../../session/useSessionSnapshots';
 import { useTranslation } from '../../translation';
 import { useRoom } from '../useRoom';
@@ -301,6 +302,46 @@ const useChatWidgetState = () => {
                 translation.detectedLanguage,
                 translation.targetLanguage
             );
+        });
+    });
+
+    useUiEvent<SoundboardRoomMessageEvent>(SoundboardRoomMessageEvent.ROOM_MESSAGE, (event) => {
+        if (!roomSession) return;
+
+        const roomObject = GetRoomEngine().getRoomObject(roomSession.roomId, event.actorRoomIndex, RoomObjectCategory.UNIT);
+        const bubbleLocation = roomObject ? GetRoomObjectScreenLocation(roomSession.roomId, roomObject.id, RoomObjectCategory.UNIT) : { x: 0, y: 0 };
+        const message = LocalizeText('soundboard.room.played', ['user', 'sound'], [event.username, event.soundName]);
+        const bubble = new ChatBubbleMessage(
+            -1,
+            -1,
+            roomSession.roomId,
+            message,
+            RoomChatFormatter(message),
+            '',
+            bubbleLocation,
+            1,
+            SystemChatStyleEnum.BOT,
+            null,
+            null
+        );
+
+        setChatMessages((previous) => {
+            const next = [...previous, bubble];
+
+            if (next.length > CHAT_MESSAGES_MAX) next.shift();
+
+            return next;
+        });
+
+        addChatEntry({
+            id: -1,
+            webId: -1,
+            entityId: event.actorRoomIndex,
+            name: LocalizeText('soundboard.title'),
+            message,
+            roomId: roomSession.roomId,
+            timestamp: ChatHistoryCurrentDate(),
+            type: ChatEntryType.TYPE_ROOM_INFO
         });
     });
 
