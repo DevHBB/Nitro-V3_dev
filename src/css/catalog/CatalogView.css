@@ -2486,6 +2486,24 @@
     background: var(--catalog-swf-bg, #d7d7cf) !important;
 }
 
+.nitro-catalog-admin-operation-error {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-height: 30px;
+    padding: 6px 10px;
+    border-bottom: 1px solid #b85b54;
+    background: #f8d9d5;
+    color: #762c27;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.nitro-catalog-admin-operation-error svg {
+    flex: 0 0 auto;
+    color: #b64038;
+}
+
 /* Tab strip under the header */
 .nitro-catalog-admin-tabs {
     display: flex;

@@ -1,4 +1,4 @@
-import { FC, useCallback, useEffect, useState } from 'react';
+import { FC, useCallback, useEffect, useMemo, useState } from 'react';
 import {
     FaArrowDown,
     FaArrowsAlt,
@@ -32,6 +32,7 @@ import { CatalogStudioPreview } from '../../admin/studio/CatalogStudioPreview';
 import { useCatalogStudio } from '../../admin/studio/useCatalogStudio';
 import { parseCatalogTabLabel } from '../../useCatalogWindowWidth';
 import { CatalogIconView } from '../catalog-icon/CatalogIconView';
+import { buildCatalogAdminDraftTree } from './CatalogAdminDraftTree';
 import { CatalogAdminOfferPriceView } from './CatalogAdminOfferPriceView';
 
 type CatalogAdminOffer = Parameters<NonNullable<ReturnType<typeof useCatalogAdmin>>['setEditingOffer']>[0];
@@ -94,12 +95,16 @@ export const CatalogAdminManagerView: FC<{}> = () => {
     const [search, setSearch] = useState('');
     const [dragOverPageId, setDragOverPageId] = useState<number | null>(null);
     const [dragOverOfferIndex, setDragOverOfferIndex] = useState<number | null>(null);
+    const [selectedPageId, setSelectedPageId] = useState(currentPage?.pageId ?? -1);
 
     const query = search.trim().toLowerCase();
-    const selectedPageId = currentPage?.pageId ?? -1;
-    const selectedNode = findNodeByPageId(rootNode, selectedPageId);
-    const offers = currentPage?.offers ?? [];
-    const categoryCount = rootNode?.children.length ?? 0;
+    const draftRootNode = useMemo(
+        () => buildCatalogAdminDraftTree(rootNode, studio.session?.pages ?? [], currentType),
+        [currentType, rootNode, studio.session?.pages]
+    );
+    const selectedNode = findNodeByPageId(draftRootNode, selectedPageId);
+    const offers = currentPage?.pageId === selectedPageId ? (currentPage.offers ?? []) : [];
+    const categoryCount = draftRootNode?.children.length ?? 0;
     const validationCurrent = studio.validation
         ? studio.validation.current && studio.validation.revision === studio.revision
         : studio.session?.validationCurrent ?? false;
@@ -123,6 +128,10 @@ export const CatalogAdminManagerView: FC<{}> = () => {
         if (!catalogAdmin?.adminMode || !studio.session) return;
         studio.loadHistory();
     }, [catalogAdmin?.adminMode, studio.session?.draftVersionId, studio.loadHistory]);
+
+    useEffect(() => {
+        if (selectedPageId < 0 && currentPage?.pageId != null) setSelectedPageId(currentPage.pageId);
+    }, [currentPage?.pageId, selectedPageId]);
 
     const handlePageDragStart = useCallback((event: React.DragEvent, node: ICatalogNode) => {
         event.stopPropagation();
@@ -237,9 +246,12 @@ export const CatalogAdminManagerView: FC<{}> = () => {
     const selectNode = (node: ICatalogNode) => {
         if (node.children.length) setExpanded((prev) => new Set(prev).add(node.pageId));
         if (node.pageId > -1) {
-        if (selectedPageId > 0 && selectedPageId !== node.pageId) studio.releaseLock('PAGE', selectedPageId, currentType === 'BUILDERS_CLUB' || currentType === 'BUILDER' ? 'BUILDER' : 'NORMAL');
-        studio.acquireLock('PAGE', node.pageId, currentType === 'BUILDERS_CLUB' || currentType === 'BUILDER' ? 'BUILDER' : 'NORMAL');
-            activateNode?.(node);
+            if (selectedPageId > 0 && selectedPageId !== node.pageId) studio.releaseLock('PAGE', selectedPageId, currentType === 'BUILDERS_CLUB' || currentType === 'BUILDER' ? 'BUILDER' : 'NORMAL');
+            studio.acquireLock('PAGE', node.pageId, currentType === 'BUILDERS_CLUB' || currentType === 'BUILDER' ? 'BUILDER' : 'NORMAL');
+            setSelectedPageId(node.pageId);
+
+            const liveNode = findNodeByPageId(rootNode, node.pageId);
+            if (liveNode) activateNode?.(liveNode);
         }
     };
 
@@ -541,18 +553,18 @@ export const CatalogAdminManagerView: FC<{}> = () => {
                     </span>
                     <button
                         className="nitro-catalog-admin-add"
-                        disabled={!rootNode}
+                        disabled={!draftRootNode}
                         title="New root category"
-                        onClick={() => rootNode && createCategory(rootNode)}
+                        onClick={() => draftRootNode && createCategory(draftRootNode)}
                     >
                         <FaPlus />
                     </button>
                 </div>
                 <div className="nitro-catalog-admin-tree">
-                    {!rootNode || rootNode.children.length === 0 ? (
+                    {!draftRootNode || draftRootNode.children.length === 0 ? (
                         <div className="nitro-catalog-admin-placeholder is-small">No categories</div>
                     ) : (
-                        rootNode.children.map((child) => renderNode(child, 0))
+                        draftRootNode.children.map((child) => renderNode(child, 0))
                     )}
                 </div>
             </div>
@@ -708,6 +720,12 @@ export const CatalogAdminManagerView: FC<{}> = () => {
                         </span>
                     </div>
                 </div>
+                {catalogAdmin.lastError && (
+                    <div className="nitro-catalog-admin-operation-error" role="alert">
+                        <FaExclamationTriangle />
+                        <span>{catalogAdmin.lastError}</span>
+                    </div>
+                )}
                 <div className="nitro-catalog-admin-tabs">
                     {tabs.map((tab) => (
                         <button

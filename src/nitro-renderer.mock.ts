@@ -414,6 +414,10 @@ export class CatalogStudioPreviewComposer extends CatalogStudioComposerStub {}
 export class CatalogStudioExportComposer extends CatalogStudioComposerStub {}
 export class CatalogStudioDocumentDryRunComposer extends CatalogStudioComposerStub {}
 export class CatalogStudioDocumentApplyComposer extends CatalogStudioComposerStub {}
+export class CatalogAdminDeletePageComposer extends CatalogStudioComposerStub {}
+export class CatalogAdminMovePageComposer extends CatalogStudioComposerStub {}
+export class CatalogAdminSetPageEnabledComposer extends CatalogStudioComposerStub {}
+export class CatalogAdminSetPageVisibleComposer extends CatalogStudioComposerStub {}
 
 export class CatalogStudioSessionEvent extends MessageEvent {}
 export class CatalogStudioAcquireLockEvent extends MessageEvent {}

@@ -160,6 +160,12 @@ export const CATALOG_ROOT_LOCK_ID = 2147483647;
 const PAGE_INDEX_REFRESH_ACTIONS = new Set(['savePage', 'createPage', 'deletePage', 'movePage', 'toggleVisible', 'toggleEnabled']);
 const OFFER_REFRESH_ACTIONS = new Set(['saveOffer', 'createOffer', 'deleteOffer', 'reorder']);
 
+type QueuedPageMutation =
+    | { kind: 'delete'; pageId: number; catalogType: string; summary: string }
+    | { kind: 'move'; pageId: number; catalogType: string; newParentId: number; newIndex: number; summary: string }
+    | { kind: 'toggleEnabled'; pageId: number; catalogType: string; enabled: boolean; summary: string }
+    | { kind: 'toggleVisible'; pageId: number; catalogType: string; visible: boolean; summary: string };
+
 export const CatalogAdminProvider: FC<{ children: ReactNode }> = ({ children }) => {
     const { currentType } = useCatalogUiState();
     const studio = useCatalogStudio();
@@ -173,6 +179,7 @@ export const CatalogAdminProvider: FC<{ children: ReactNode }> = ({ children }) 
     const [creatingPage, setCreatingPage] = useState(false);
     const [loading, setLoading] = useState(false);
     const [lastError, setLastError] = useState<string | null>(null);
+    const queuedPageMutationRef = useRef<QueuedPageMutation | null>(null);
     const queuedOfferDeleteRef = useRef<{ offerId: number; summary: string } | null>(null);
     const pendingActionRef = useRef<string | null>(null);
     const { simpleAlert = null } = useNotification();
@@ -463,21 +470,6 @@ export const CatalogAdminProvider: FC<{ children: ReactNode }> = ({ children }) 
         [currentType, beginAdminAction, studio]
     );
 
-    const deletePage = useCallback(
-        (pageId: number, summary?: string) => {
-            const effectiveSummary = summary || `Deleted page #${pageId}`;
-            const lock = studio.locks[studioLockKey('PAGE', pageId, currentType)];
-            if (!studio.session || !lock) {
-                setLastError('Select the page and wait for its edit lock before deleting it');
-                return;
-            }
-            if (!beginAdminAction('deletePage', effectiveSummary)) return;
-            SendMessageComposer(new CatalogAdminDeletePageComposer(
-                pageId, currentType, studio.session.draftVersionId, studio.revision, lock.token, effectiveSummary));
-        },
-        [currentType, beginAdminAction, studio]
-    );
-
     const saveOffer = useCallback(
         (data: IOfferEditData) => {
             const summary = `Updated offer: ${data.catalogName || `#${data.offerId}`}`;
@@ -593,50 +585,120 @@ export const CatalogAdminProvider: FC<{ children: ReactNode }> = ({ children }) 
         [currentType, beginAdminAction, studio]
     );
 
-    const reorderPage = useCallback(
-        (pageId: number, newParentId: number, newIndex: number, summary?: string) => {
-            const effectiveSummary = summary || `Moved page #${pageId}`;
-            const lock = studio.locks[studioLockKey('PAGE', pageId, currentType)];
-            if (!studio.session || !lock) {
-                setLastError('Select the page and wait for its edit lock before moving it');
+    const performPageMutation = useCallback(
+        (mutation: QueuedPageMutation) => {
+            if (!studio.session) {
+                queuedPageMutationRef.current = mutation;
+                setLastError(null);
+                studio.refresh();
                 return;
             }
-            if (!beginAdminAction('movePage', effectiveSummary)) return;
-            SendMessageComposer(new CatalogAdminMovePageComposer(
-                pageId, newParentId, newIndex, currentType,
-                studio.session.draftVersionId, studio.revision, lock.token, effectiveSummary));
+
+            const lock = studio.locks[studioLockKey('PAGE', mutation.pageId, mutation.catalogType)];
+            if (!lock) {
+                queuedPageMutationRef.current = mutation;
+                setLastError(null);
+                studio.acquireLock('PAGE', mutation.pageId, toStudioCatalogType(mutation.catalogType));
+                return;
+            }
+
+            if (!beginAdminAction(
+                mutation.kind === 'delete' ? 'deletePage' :
+                    mutation.kind === 'move' ? 'movePage' :
+                        mutation.kind === 'toggleEnabled' ? 'toggleEnabled' : 'toggleVisible',
+                mutation.summary
+            )) return;
+
+            switch (mutation.kind) {
+                case 'delete':
+                    SendMessageComposer(new CatalogAdminDeletePageComposer(
+                        mutation.pageId, mutation.catalogType, studio.session.draftVersionId,
+                        studio.revision, lock.token, mutation.summary));
+                    break;
+                case 'move':
+                    SendMessageComposer(new CatalogAdminMovePageComposer(
+                        mutation.pageId, mutation.newParentId, mutation.newIndex, mutation.catalogType,
+                        studio.session.draftVersionId, studio.revision, lock.token, mutation.summary));
+                    break;
+                case 'toggleEnabled':
+                    SendMessageComposer(new CatalogAdminSetPageEnabledComposer(
+                        mutation.pageId, mutation.enabled, mutation.catalogType, studio.session.draftVersionId,
+                        studio.revision, lock.token, mutation.summary));
+                    break;
+                case 'toggleVisible':
+                    SendMessageComposer(new CatalogAdminSetPageVisibleComposer(
+                        mutation.pageId, mutation.visible, mutation.catalogType, studio.session.draftVersionId,
+                        studio.revision, lock.token, mutation.summary));
+                    break;
+            }
         },
-        [currentType, beginAdminAction, studio]
+        [beginAdminAction, studio.acquireLock, studio.locks, studio.refresh, studio.revision, studio.session]
+    );
+
+    useEffect(() => {
+        const queued = queuedPageMutationRef.current;
+        if (!queued || !studio.session) return;
+
+        const lock = studio.locks[studioLockKey('PAGE', queued.pageId, queued.catalogType)];
+        if (!lock) {
+            studio.acquireLock('PAGE', queued.pageId, toStudioCatalogType(queued.catalogType));
+            return;
+        }
+
+        queuedPageMutationRef.current = null;
+        performPageMutation(queued);
+    }, [performPageMutation, studio.acquireLock, studio.locks, studio.session]);
+
+    const deletePage = useCallback(
+        (pageId: number, summary?: string) => {
+            performPageMutation({
+                kind: 'delete',
+                pageId,
+                catalogType: currentType,
+                summary: summary || `Deleted page #${pageId}`
+            });
+        },
+        [currentType, performPageMutation]
+    );
+
+    const reorderPage = useCallback(
+        (pageId: number, newParentId: number, newIndex: number, summary?: string) => {
+            performPageMutation({
+                kind: 'move',
+                pageId,
+                catalogType: currentType,
+                newParentId,
+                newIndex,
+                summary: summary || `Moved page #${pageId}`
+            });
+        },
+        [currentType, performPageMutation]
     );
 
     const togglePageEnabled = useCallback(
         (pageId: number, enabled: boolean, summary?: string) => {
-            const effectiveSummary = summary || `Toggled enabled state for page #${pageId}`;
-            const lock = studio.locks[studioLockKey('PAGE', pageId, currentType)];
-            if (!studio.session || !lock) {
-                setLastError('Select the page and wait for its edit lock before changing it');
-                return;
-            }
-            if (!beginAdminAction('toggleEnabled', effectiveSummary)) return;
-            SendMessageComposer(new CatalogAdminSetPageEnabledComposer(
-                pageId, enabled, currentType, studio.session.draftVersionId, studio.revision, lock.token, effectiveSummary));
+            performPageMutation({
+                kind: 'toggleEnabled',
+                pageId,
+                catalogType: currentType,
+                enabled,
+                summary: summary || `Toggled enabled state for page #${pageId}`
+            });
         },
-        [currentType, beginAdminAction, studio]
+        [currentType, performPageMutation]
     );
 
     const togglePageVisible = useCallback(
         (pageId: number, visible: boolean, summary?: string) => {
-            const effectiveSummary = summary || `Toggled visibility for page #${pageId}`;
-            const lock = studio.locks[studioLockKey('PAGE', pageId, currentType)];
-            if (!studio.session || !lock) {
-                setLastError('Select the page and wait for its edit lock before changing it');
-                return;
-            }
-            if (!beginAdminAction('toggleVisible', effectiveSummary)) return;
-            SendMessageComposer(new CatalogAdminSetPageVisibleComposer(
-                pageId, visible, currentType, studio.session.draftVersionId, studio.revision, lock.token, effectiveSummary));
+            performPageMutation({
+                kind: 'toggleVisible',
+                pageId,
+                catalogType: currentType,
+                visible,
+                summary: summary || `Toggled visibility for page #${pageId}`
+            });
         },
-        [currentType, beginAdminAction, studio]
+        [currentType, performPageMutation]
     );
 
     const publishCatalog = useCallback(() => studio.publish(), [studio]);
