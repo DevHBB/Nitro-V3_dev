@@ -206,7 +206,14 @@ export const FriendsMessengerView: FC<{}> = (props) => {
                                     className={'messenger-avatar-tab' + (activeThread === thread ? ' active' : '') + (thread.unread ? ' unread' : '')}
                                     onClick={(event) => setActiveThreadId(thread.threadId)}
                                 >
-                                    <LayoutAvatarImageView figure={figure} headOnly={true} direction={isStaff ? 3 : 2} />
+                                    <LayoutAvatarImageView
+                                        figure={figure}
+                                        headOnly={true}
+                                        compactHead={true}
+                                        compactHeadSize={35}
+                                        compactHeadPadding={0}
+                                        direction={isStaff ? 3 : 2}
+                                    />
                                 </button>
                             );
                         })}

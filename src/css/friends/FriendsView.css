@@ -2309,14 +2309,15 @@ button.swf-friends-section-header {
     box-shadow: inset 1px 1px 0 #fff !important;
 }
 
-.swf-messenger-window .messenger-avatar-tab .avatar-image {
-    top: 7px !important;
-    left: 7px !important;
-    width: 20px !important;
-    height: 20px !important;
-    background-size: 52px auto !important;
-    background-position: 51% 40% !important;
+.swf-messenger-window .messenger-avatar-tab .avatar-image.compact-head {
+    top: 0 !important;
+    left: 0 !important;
+    width: 35px !important;
+    height: 35px !important;
+    background-size: 35px 35px !important;
+    background-position: center !important;
     transform: none !important;
+    image-rendering: auto !important;
 }
 
 .swf-messenger-window .messenger-thread-header {
@@ -3011,13 +3012,14 @@ button.swf-friends-section-header {
     overflow: hidden;
 }
 
-.swf-messenger-window .message-avatar .avatar-image {
+.swf-messenger-window .message-avatar .avatar-image.compact-head {
     inset: 0 !important;
     width: 40px !important;
     height: 40px !important;
-    background-size: auto !important;
-    background-position: -25px -38px !important;
+    background-size: 40px 40px !important;
+    background-position: center !important;
     transform: none !important;
+    image-rendering: auto !important;
 }
 
 .swf-messenger-window .chat-messages {
