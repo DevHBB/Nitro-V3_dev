@@ -2186,13 +2186,229 @@
 
 /* ============================================================================
    Catalog Admin Editor window
-   Tabbed management console (Pages / Offers / Publish) that lives in its own
+   Shared draft command center that lives in its own
    draggable window, so the main catalog chrome stays identical in browse and
    admin mode (the tab strip no longer carries admin controls).
    ============================================================================ */
 .nitro-catalog-admin-manager {
-    width: 760px;
+    width: 880px;
     max-width: calc(100vw - 16px);
+    color: #263842;
+    font-family: Ubuntu, Arial, sans-serif;
+    font-size: 11px;
+}
+
+.nitro-catalog-admin-manager button,
+.nitro-catalog-admin-manager input,
+.nitro-catalog-admin-manager select {
+    font-family: Ubuntu, Arial, sans-serif;
+}
+
+.nitro-catalog-admin-preview-persona,
+.nitro-catalog-admin-bulk-grid,
+.nitro-catalog-admin-import-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin: 8px 0;
+    padding: 7px 8px;
+    border: 1px solid #a8b5bd;
+    border-radius: 5px;
+    background: linear-gradient(180deg, #edf3f6 0%, #dce7ed 100%);
+}
+
+.nitro-catalog-admin-preview-persona label,
+.nitro-catalog-admin-bulk-grid label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    min-height: 25px;
+    margin: 0;
+    color: #3b505c;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.nitro-catalog-admin-preview-persona input[type="number"],
+.nitro-catalog-admin-bulk-grid input:not([type="checkbox"]),
+.nitro-catalog-admin-bulk-grid select,
+.nitro-catalog-admin-import-toolbar select {
+    height: 25px;
+    min-width: 74px;
+    padding: 2px 7px;
+    border: 1px solid #8499a5;
+    border-radius: 4px;
+    outline: 0;
+    background: #f9fbfc;
+    color: #203844;
+    font: 700 10px Ubuntu, Arial, sans-serif;
+}
+
+.nitro-catalog-admin-preview-persona input:focus,
+.nitro-catalog-admin-bulk-grid input:focus,
+.nitro-catalog-admin-bulk-grid select:focus,
+.nitro-catalog-admin-import-toolbar select:focus,
+.nitro-catalog-admin-import-export textarea:focus {
+    border-color: #3e83b5;
+    box-shadow: 0 0 0 2px rgba(62, 131, 181, .18);
+}
+
+.nitro-catalog-admin-preview-persona input[type="checkbox"],
+.nitro-catalog-admin-bulk-grid input[type="checkbox"] {
+    width: 13px;
+    height: 13px;
+    margin: 0;
+    accent-color: #438ec0;
+}
+
+.nitro-catalog-admin-preview-pages {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(205px, 1fr));
+    gap: 6px;
+    max-height: 355px;
+    padding-right: 3px;
+    overflow: auto;
+}
+
+.nitro-catalog-admin-preview-page,
+.nitro-catalog-admin-preview-offer {
+    border: 1px solid #aab8c0;
+    border-radius: 5px;
+    padding: 6px 7px;
+    background: #f8fafb;
+}
+
+.nitro-catalog-admin-preview-page header,
+.nitro-catalog-admin-preview-offer {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.nitro-catalog-admin-preview-page header strong,
+.nitro-catalog-admin-preview-offer strong {
+    color: #223b48;
+    font-size: 10px;
+    line-height: 1.25;
+}
+
+.nitro-catalog-admin-preview-page header span,
+.nitro-catalog-admin-preview-offer span,
+.nitro-catalog-admin-preview-offer small {
+    color: #647985;
+    font-size: 9px;
+    line-height: 1.3;
+}
+
+.nitro-catalog-admin-preview-offers {
+    display: grid;
+    gap: 4px;
+    margin-top: 6px;
+}
+
+.nitro-catalog-admin-preview-offer.is-eligible {
+    border-left: 3px solid #4a9b63;
+}
+
+.nitro-catalog-admin-preview-offer.is-blocked {
+    border-left: 3px solid #bd574f;
+    background: #fbefee;
+}
+
+.nitro-catalog-admin-preview-offer.is-blocked small {
+    color: #a33d36;
+    font-weight: 700;
+}
+
+.nitro-catalog-admin-bulk,
+.nitro-catalog-admin-studio-preview,
+.nitro-catalog-admin-import-export {
+    height: 100%;
+    min-height: 0;
+    color: #263842;
+}
+
+.nitro-catalog-admin-import-export textarea {
+    width: 100%;
+    min-height: 292px;
+    padding: 8px 9px;
+    border: 1px solid #8499a5;
+    border-radius: 5px;
+    outline: 0;
+    background: #f8fafb;
+    color: #243945;
+    resize: vertical;
+    font: 11px/1.45 Consolas, "Courier New", monospace;
+    tab-size: 2;
+}
+
+.nitro-catalog-admin-command-bar {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    justify-content: space-between;
+    padding: 9px 10px;
+    border-bottom: 1px solid #4b5964;
+    background: linear-gradient(180deg, #354957 0%, #273845 100%);
+    color: #f7fbff;
+}
+
+.nitro-catalog-admin-command-title {
+    display: flex;
+    flex: 0 0 auto;
+    flex-direction: column;
+    line-height: 1.15;
+}
+
+.nitro-catalog-admin-command-title strong {
+    font-size: 12px;
+}
+
+.nitro-catalog-admin-command-title span {
+    color: #bcd0de;
+    font-size: 9px;
+}
+
+.nitro-catalog-admin-command-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    justify-content: flex-end;
+}
+
+.nitro-catalog-admin-command-stats > span {
+    display: inline-flex;
+    gap: 4px;
+    align-items: center;
+    min-height: 21px;
+    padding: 2px 7px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.18);
+    color: #e7f1f7;
+    font-size: 9px;
+    font-weight: 700;
+}
+
+.nitro-catalog-admin-command-stats > span.has-pending {
+    border-color: #e6ad43;
+    color: #ffe29a;
+}
+
+.nitro-catalog-admin-command-stats > span.has-error {
+    border-color: #db7068;
+    color: #ffc1bc;
+}
+
+.nitro-catalog-admin-command-stats > span.is-valid {
+    border-color: #64b77b;
+    color: #b9edc7;
+}
+
+.nitro-catalog-admin-command-stats svg {
+    width: 9px;
+    height: 9px;
 }
 
 .nitro-catalog-admin-manager-body {
@@ -2333,6 +2549,87 @@
     box-shadow: 0 0 0 2px rgba(240, 163, 24, 0.5);
 }
 
+.nitro-catalog-admin-btn.is-small {
+    height: 23px;
+    padding: 0 8px;
+    font-size: 9px;
+}
+
+/* ---- Activity tab ---- */
+.nitro-catalog-admin-activity {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    height: 100%;
+    min-height: 0;
+}
+
+.nitro-catalog-admin-section-head {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
+    border: 1px solid #aaa9a0;
+    border-radius: 5px;
+    background: #f7f7f2;
+}
+
+.nitro-catalog-admin-section-head > div,
+.nitro-catalog-admin-history-main,
+.nitro-catalog-admin-version-row > div,
+.nitro-catalog-admin-validation-row > div {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.nitro-catalog-admin-section-head strong,
+.nitro-catalog-admin-history-summary,
+.nitro-catalog-admin-version-row strong,
+.nitro-catalog-admin-validation-row strong {
+    color: #252521;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.nitro-catalog-admin-section-head span,
+.nitro-catalog-admin-history-meta,
+.nitro-catalog-admin-version-row span,
+.nitro-catalog-admin-validation-row span,
+.nitro-catalog-admin-history-side > span {
+    color: #75756e;
+    font-size: 9px;
+}
+
+.nitro-catalog-admin-history-list {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 5px;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.nitro-catalog-admin-history-row,
+.nitro-catalog-admin-version-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
+    border: 1px solid #b7b7ae;
+    border-radius: 5px;
+    background: #fff;
+}
+
+.nitro-catalog-admin-history-side {
+    display: flex;
+    flex: 0 0 auto;
+    gap: 8px;
+    align-items: center;
+}
+
 /* Empty / placeholder states */
 .nitro-catalog-admin-placeholder {
     display: flex;
@@ -2354,7 +2651,8 @@
 /* ---- Pages tab: sidebar tree + detail pane ---- */
 .nitro-catalog-admin-pages {
     display: grid;
-    grid-template-columns: 240px 1fr;
+    grid-template-columns: 220px minmax(0, 1fr) 190px;
+    grid-template-rows: minmax(0, 1fr) 82px;
     gap: 8px;
     height: 100%;
     min-height: 0;
@@ -2863,9 +3161,197 @@
     font-weight: 700;
 }
 
-.nitro-catalog-admin-publish-status.has-pending {
+.nitro-catalog-admin-publish-status.is-draft {
     background: rgba(240, 163, 24, 0.18);
     color: #8a5b00;
+}
+
+.nitro-catalog-admin-inspector {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+    min-height: 0;
+    padding: 9px;
+    border: 1px solid #b7b7ae;
+    border-radius: 4px;
+    background: #f7f7f2;
+    overflow-y: auto;
+}
+
+.nitro-catalog-admin-inspector-head {
+    display: flex;
+    flex-direction: column;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #d0d0c8;
+}
+
+.nitro-catalog-admin-inspector-head strong {
+    color: #252521;
+    font-size: 12px;
+}
+
+.nitro-catalog-admin-inspector-head span {
+    color: #77776f;
+    font-size: 9px;
+}
+
+.nitro-catalog-admin-inspector-data {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin: 0;
+}
+
+.nitro-catalog-admin-inspector-data > div {
+    display: flex;
+    gap: 8px;
+    justify-content: space-between;
+    padding: 3px 0;
+    border-bottom: 1px dotted #d0d0c8;
+}
+
+.nitro-catalog-admin-inspector-data dt,
+.nitro-catalog-admin-inspector-data dd {
+    margin: 0;
+    font-size: 9px;
+}
+
+.nitro-catalog-admin-inspector-data dt {
+    color: #77776f;
+}
+
+.nitro-catalog-admin-inspector-data dd {
+    min-width: 0;
+    overflow: hidden;
+    color: #252521;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.nitro-catalog-admin-lock-state {
+    display: flex;
+    gap: 6px;
+    align-items: flex-start;
+    padding: 6px;
+    border: 1px solid #c6a55c;
+    border-radius: 4px;
+    background: #fff7df;
+    color: #77550e;
+}
+
+.nitro-catalog-admin-lock-state.is-owned {
+    border-color: #76aa82;
+    background: #edf8ef;
+    color: #2c6e3b;
+}
+
+.nitro-catalog-admin-lock-state > div {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.nitro-catalog-admin-lock-state strong,
+.nitro-catalog-admin-lock-state span {
+    font-size: 8px;
+    line-height: 1.3;
+}
+
+.nitro-catalog-admin-inspector-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 5px;
+    margin-top: auto;
+}
+
+.nitro-catalog-admin-inspector-actions .nitro-catalog-admin-btn {
+    justify-content: flex-start;
+    width: 100%;
+}
+
+.nitro-catalog-admin-changes-drawer {
+    display: flex;
+    grid-column: 1 / -1;
+    gap: 8px;
+    align-items: center;
+    min-width: 0;
+    padding: 7px 9px;
+    border: 1px solid #9da9b1;
+    border-radius: 4px;
+    background: linear-gradient(180deg, #eef4f7 0%, #dce7ed 100%);
+}
+
+.nitro-catalog-admin-changes-title {
+    display: flex;
+    flex: 0 0 auto;
+    gap: 6px;
+    align-items: center;
+}
+
+.nitro-catalog-admin-changes-title > div {
+    display: flex;
+    flex-direction: column;
+}
+
+.nitro-catalog-admin-changes-title strong {
+    color: #273845;
+    font-size: 10px;
+}
+
+.nitro-catalog-admin-changes-title span {
+    color: #60737f;
+    font-size: 8px;
+}
+
+.nitro-catalog-admin-changes-feed {
+    display: flex;
+    flex: 1 1 auto;
+    gap: 5px;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.nitro-catalog-admin-changes-feed > button {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    min-width: 0;
+    padding: 5px 7px;
+    border: 1px solid rgba(58, 84, 99, 0.22);
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.7);
+    text-align: left;
+}
+
+.nitro-catalog-admin-changes-feed > button strong,
+.nitro-catalog-admin-changes-feed > button span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.nitro-catalog-admin-changes-feed > button strong {
+    color: #273845;
+    font-size: 8px;
+}
+
+.nitro-catalog-admin-changes-feed > button span,
+.nitro-catalog-admin-changes-feed > span {
+    color: #697a85;
+    font-size: 8px;
+}
+
+.nitro-catalog-admin-publish-status.is-blocked,
+.nitro-catalog-admin-publish-status.is-offline {
+    background: rgba(184, 59, 50, 0.14);
+    color: #98342d;
+}
+
+.nitro-catalog-admin-publish-status.is-ready {
+    background: rgba(31, 111, 46, 0.16);
+    color: #1f6f2e;
 }
 
 .nitro-catalog-admin-publish-text {
@@ -2940,7 +3426,33 @@
     display: flex;
     flex: 0 0 auto;
     justify-content: center;
+    gap: 8px;
     padding-top: 4px;
+}
+
+.nitro-catalog-admin-validation-list,
+.nitro-catalog-admin-versions {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.nitro-catalog-admin-validation-row {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    padding: 7px 9px;
+    border: 1px solid #d9a39f;
+    border-radius: 4px;
+    background: #fff3f2;
+}
+
+.nitro-catalog-admin-validation-row > svg {
+    flex: 0 0 auto;
+    margin-top: 2px;
+    color: #b83b32;
 }
 
 /* Scrollbars for the console scroll areas (the window isn't .nitro-catalog-window,
@@ -2948,7 +3460,10 @@
 .nitro-catalog-admin-tree,
 .nitro-catalog-admin-offers-list,
 .nitro-catalog-admin-detail,
-.nitro-catalog-admin-publish-changes-list {
+.nitro-catalog-admin-publish-changes-list,
+.nitro-catalog-admin-history-list,
+.nitro-catalog-admin-validation-list,
+.nitro-catalog-admin-versions {
     scrollbar-width: thin;
     scrollbar-color: #a9b4bd #e7e7df;
 }
@@ -2956,7 +3471,10 @@
 .nitro-catalog-admin-tree::-webkit-scrollbar,
 .nitro-catalog-admin-offers-list::-webkit-scrollbar,
 .nitro-catalog-admin-detail::-webkit-scrollbar,
-.nitro-catalog-admin-publish-changes-list::-webkit-scrollbar {
+.nitro-catalog-admin-publish-changes-list::-webkit-scrollbar,
+.nitro-catalog-admin-history-list::-webkit-scrollbar,
+.nitro-catalog-admin-validation-list::-webkit-scrollbar,
+.nitro-catalog-admin-versions::-webkit-scrollbar {
     width: 12px;
     height: 12px;
 }
@@ -2964,7 +3482,10 @@
 .nitro-catalog-admin-tree::-webkit-scrollbar-track,
 .nitro-catalog-admin-offers-list::-webkit-scrollbar-track,
 .nitro-catalog-admin-detail::-webkit-scrollbar-track,
-.nitro-catalog-admin-publish-changes-list::-webkit-scrollbar-track {
+.nitro-catalog-admin-publish-changes-list::-webkit-scrollbar-track,
+.nitro-catalog-admin-history-list::-webkit-scrollbar-track,
+.nitro-catalog-admin-validation-list::-webkit-scrollbar-track,
+.nitro-catalog-admin-versions::-webkit-scrollbar-track {
     background: #e7e7df;
     border-radius: 6px;
 }
@@ -2972,7 +3493,10 @@
 .nitro-catalog-admin-tree::-webkit-scrollbar-thumb,
 .nitro-catalog-admin-offers-list::-webkit-scrollbar-thumb,
 .nitro-catalog-admin-detail::-webkit-scrollbar-thumb,
-.nitro-catalog-admin-publish-changes-list::-webkit-scrollbar-thumb {
+.nitro-catalog-admin-publish-changes-list::-webkit-scrollbar-thumb,
+.nitro-catalog-admin-history-list::-webkit-scrollbar-thumb,
+.nitro-catalog-admin-validation-list::-webkit-scrollbar-thumb,
+.nitro-catalog-admin-versions::-webkit-scrollbar-thumb {
     border: 3px solid #e7e7df;
     border-radius: 6px;
     background: #a9b4bd;
@@ -2981,6 +3505,9 @@
 .nitro-catalog-admin-tree::-webkit-scrollbar-thumb:hover,
 .nitro-catalog-admin-offers-list::-webkit-scrollbar-thumb:hover,
 .nitro-catalog-admin-detail::-webkit-scrollbar-thumb:hover,
-.nitro-catalog-admin-publish-changes-list::-webkit-scrollbar-thumb:hover {
+.nitro-catalog-admin-publish-changes-list::-webkit-scrollbar-thumb:hover,
+.nitro-catalog-admin-history-list::-webkit-scrollbar-thumb:hover,
+.nitro-catalog-admin-validation-list::-webkit-scrollbar-thumb:hover,
+.nitro-catalog-admin-versions::-webkit-scrollbar-thumb:hover {
     background: #8fa0ac;
 }
