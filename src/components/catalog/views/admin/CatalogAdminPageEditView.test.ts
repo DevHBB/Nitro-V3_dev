@@ -1,7 +1,81 @@
 import { describe, expect, it } from 'vitest';
 import * as PageEditor from './CatalogAdminPageEditView';
+import { createCatalogAdminPageDetailsFromSnapshot } from './CatalogAdminPageState';
 
 describe('catalog admin page form state', () => {
+    it('uses the selected catalog node name while page details are loading', () => {
+        const resolveDisplayName = (PageEditor as any).resolveCatalogAdminPageDisplayName;
+
+        expect(resolveDisplayName('', '', 'Front Page (12)', 'front_page', 'Untitled page')).toBe('Front Page');
+    });
+
+    it('explains each blocking state instead of silently disabling save', () => {
+        const resolveInteraction = (PageEditor as any).resolveCatalogAdminPageInteraction;
+
+        expect(resolveInteraction(false, false, false, false, null)).toMatchObject({
+            canSave: false,
+            message: 'Connecting to Catalog Studio...'
+        });
+        expect(resolveInteraction(true, false, false, false, null)).toMatchObject({
+            canSave: false,
+            message: 'Loading page details...'
+        });
+        expect(resolveInteraction(true, true, false, false, null)).toMatchObject({
+            canSave: false,
+            message: 'Waiting for the edit lock...'
+        });
+        expect(resolveInteraction(true, true, true, false, null)).toMatchObject({
+            canSave: true,
+            message: null
+        });
+        expect(resolveInteraction(true, true, true, false, 'Lock denied')).toMatchObject({
+            canSave: false,
+            message: 'Lock denied'
+        });
+    });
+
+    it('maps the complete Catalog Studio page snapshot into editor details', () => {
+        const details = createCatalogAdminPageDetailsFromSnapshot({
+            catalogType: 'NORMAL',
+            pageId: 976,
+            parentId: -1,
+            captionSave: 'front_page',
+            caption: '[Front Page]',
+            pageLayout: 'frontpage',
+            iconColor: 2,
+            iconImage: 7,
+            minRank: 4,
+            orderNum: 3,
+            visible: true,
+            enabled: true,
+            clubOnly: false,
+            catalogMode: 'NORMAL',
+            vipOnly: false,
+            pageHeadline: 'headline',
+            pageTeaser: 'teaser',
+            pageSpecial: 'special',
+            pageText1: 'one',
+            pageText2: 'two',
+            pageTextDetails: 'details',
+            pageTextTeaser: 'teaser text',
+            roomId: 0,
+            includes: '12;13'
+        });
+
+        expect(details).toMatchObject({
+            pageId: 976,
+            caption: '[Front Page]',
+            captionSave: 'front_page',
+            layout: 'frontpage',
+            iconColor: 2,
+            iconImage: 7,
+            minRank: 4,
+            headline: 'headline',
+            textOne: 'one',
+            includes: '12;13'
+        });
+    });
+
     it('uses the authoritative database values returned for the selected page', () => {
         const createFormState = (PageEditor as any).createCatalogAdminPageFormState;
         const state = createFormState({

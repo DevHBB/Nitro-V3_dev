@@ -51,6 +51,7 @@ export const CatalogStudioProvider: FC<{ active: boolean; children: ReactNode }>
     const [lastError, setLastError] = useState<string | null>(null);
     const sessionRef = useRef<CatalogStudioSession | null>(null);
     const locksRef = useRef<Record<string, CatalogStudioLock>>({});
+    const pendingLockKeysRef = useRef<Set<string>>(new Set());
 
     const replaceSession = useCallback((next: CatalogStudioSession) => {
         sessionRef.current = next;
@@ -94,6 +95,8 @@ export const CatalogStudioProvider: FC<{ active: boolean; children: ReactNode }>
 
     const handleLock = useCallback((event: CatalogStudioAcquireLockEvent | CatalogStudioRenewLockEvent) => {
         const parser = event.getParser();
+        const parsedCatalogType = parser.catalogType === 'BUILDER' ? 'BUILDER' : 'NORMAL';
+        pendingLockKeysRef.current.delete(lockKey(parser.entityType, parser.entityId, parsedCatalogType));
         setLoading(false);
         if (!parser.success) {
             setLastError(parser.message || parser.code);
@@ -102,7 +105,7 @@ export const CatalogStudioProvider: FC<{ active: boolean; children: ReactNode }>
         const nextLock: CatalogStudioLock = {
             draftVersionId: parser.draftVersionId,
             entityType: parser.entityType,
-            catalogType: parser.catalogType === 'BUILDER' ? 'BUILDER' : 'NORMAL',
+            catalogType: parsedCatalogType,
             entityId: parser.entityId,
             ownerId: parser.ownerId,
             ownerName: parser.ownerName,
@@ -208,6 +211,7 @@ export const CatalogStudioProvider: FC<{ active: boolean; children: ReactNode }>
         if (!active) {
             setSession(null);
             sessionRef.current = null;
+            pendingLockKeysRef.current.clear();
             return;
         }
         refresh();
@@ -228,7 +232,9 @@ export const CatalogStudioProvider: FC<{ active: boolean; children: ReactNode }>
 
     const acquireLock = useCallback((entityType: string, entityId: number, catalogType: 'NORMAL' | 'BUILDER' = 'NORMAL') => {
         const current = sessionRef.current;
-        if (!current) return;
+        const key = lockKey(entityType, entityId, catalogType);
+        if (!current || locksRef.current[key] || pendingLockKeysRef.current.has(key)) return;
+        pendingLockKeysRef.current.add(key);
         setLoading(true);
         SendMessageComposer(new CatalogStudioAcquireLockComposer(nextOperationId('acquire-lock'), current.draftVersionId, entityType, catalogType, entityId));
     }, []);

@@ -115,6 +115,24 @@ describe('CatalogStudioProvider', () => {
         expect(release.getMessageArray()).toEqual(expect.arrayContaining([ 12, 'PAGE', 44, 'token-123' ]));
     });
 
+    it('does not send duplicate lock requests while the first request is pending', () => {
+        render(<CatalogStudioProvider active><Probe /></CatalogStudioProvider>);
+        emit('CatalogStudioSessionEvent', {
+            activeVersionId: 11, draftVersionId: 12, revision: 7,
+            activeUpdatedAt: '', draftCreatedAt: '', pendingCount: 0,
+            actors: [], validationCurrent: false, validationIssueCount: 0, publishedVersions: []
+        });
+
+        act(() => {
+            screen.getByText('lock').click();
+            screen.getByText('lock').click();
+        });
+
+        const acquireCalls = vi.mocked(SendMessageComposer).mock.calls
+            .filter(([ composer ]) => composer.constructor.name === 'CatalogStudioAcquireLockComposer');
+        expect(acquireCalls).toHaveLength(1);
+    });
+
     it('drops locks from the old draft after a successful publication', () => {
         render(<CatalogStudioProvider active><Probe /></CatalogStudioProvider>);
         emit('CatalogStudioSessionEvent', {

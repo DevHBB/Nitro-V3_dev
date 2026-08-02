@@ -25,7 +25,7 @@ import { NitroCardContentView, NitroCardHeaderView, NitroCardView } from '../../
 import { useCatalogActions, useCatalogData, useCatalogUiState } from '../../../../hooks';
 import { replaceCatalogPageOffers } from '../../../../hooks/catalog/useCatalog.helpers';
 import { CATALOG_ROOT_LOCK_ID, useCatalogAdmin } from '../../CatalogAdminContext';
-import { getCatalogStudioCommandState } from '../../admin/studio/CatalogStudioCommandCenter';
+import { getCatalogStudioCommandState, getCatalogStudioPageLockKey } from '../../admin/studio/CatalogStudioCommandCenter';
 import { CatalogStudioBulkPanel } from '../../admin/studio/CatalogStudioBulkPanel';
 import { CatalogStudioImportExportPanel } from '../../admin/studio/CatalogStudioImportExportPanel';
 import { CatalogStudioPreview } from '../../admin/studio/CatalogStudioPreview';
@@ -475,7 +475,7 @@ export const CatalogAdminManagerView: FC<{}> = () => {
             return <aside className="nitro-catalog-admin-inspector"><div className="nitro-catalog-admin-placeholder is-small">No page selected</div></aside>;
         }
 
-        const lock = studio.locks[`PAGE:${selectedNode.pageId}`];
+        const lock = studio.locks[getCatalogStudioPageLockKey(selectedNode.pageId, currentType)];
 
         return (
             <aside className="nitro-catalog-admin-inspector">
@@ -484,10 +484,10 @@ export const CatalogAdminManagerView: FC<{}> = () => {
                     <span>Page #{selectedNode.pageId}</span>
                 </div>
                 <dl className="nitro-catalog-admin-inspector-data">
-                    <div><dt>Name</dt><dd>{nodeName(selectedNode)}</dd></div>
+                    <div><dt>Name</dt><dd title={nodeName(selectedNode)}>{nodeName(selectedNode)}</dd></div>
                     <div><dt>Sub-pages</dt><dd>{selectedNode.children.length}</dd></div>
                     <div><dt>Offers</dt><dd>{offers.length}</dd></div>
-                    <div><dt>Visibility</dt><dd>{selectedNode.isVisible ? 'Visible' : 'Hidden'}</dd></div>
+                    <div><dt>Visibility</dt><dd className={selectedNode.isVisible ? 'is-positive' : 'is-muted'}>{selectedNode.isVisible ? 'Visible' : 'Hidden'}</dd></div>
                     <div><dt>Revision</dt><dd>{studio.revision}</dd></div>
                 </dl>
                 <div className={`nitro-catalog-admin-lock-state ${lock ? 'is-owned' : ''}`}>
@@ -690,20 +690,20 @@ export const CatalogAdminManagerView: FC<{}> = () => {
         <NitroCardView classNames={['nitro-catalog-admin-manager']} uniqueKey="catalog-admin-manager">
             <NitroCardHeaderView headerText="Catalog Admin Editor" onCloseClick={() => catalogAdmin.setAdminMode(false)} />
             <NitroCardContentView classNames={['nitro-catalog-admin-manager-body']}>
-                <div className={`nitro-catalog-admin-command-bar is-${commandState.phase}`}>
+                <div aria-live="polite" className={`nitro-catalog-admin-command-bar is-${commandState.phase}`}>
                     <div className="nitro-catalog-admin-command-title">
                         <strong>Catalog Studio</strong>
                         <span>Shared draft command center</span>
                     </div>
                     <div className="nitro-catalog-admin-command-stats">
-                        <span><FaClock /> Revision {studio.revision}</span>
+                        <span className="is-revision"><FaClock /> Revision {studio.revision}</span>
                         <span className={hasPendingChanges ? 'has-pending' : ''}>
                             <FaCloudUploadAlt /> {commandState.pendingLabel}
                         </span>
-                        <span><FaUsers /> {commandState.actorLabel}</span>
-                        <span><FaLock /> {commandState.lockLabel}</span>
-                        <span className={validationIssueCount > 0 ? 'has-error' : validationCurrent ? 'is-valid' : ''}>
-                            {validationIssueCount > 0 ? <FaExclamationTriangle /> : <FaCheckCircle />}
+                        <span className="is-actors"><FaUsers /> {commandState.actorLabel}</span>
+                        <span className="is-locks"><FaLock /> {commandState.lockLabel}</span>
+                        <span className={validationIssueCount > 0 ? 'has-error' : validationCurrent ? 'is-valid' : 'has-warning'}>
+                            {validationCurrent && validationIssueCount === 0 ? <FaCheckCircle /> : <FaExclamationTriangle />}
                             {commandState.validationLabel}
                         </span>
                     </div>

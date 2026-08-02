@@ -19,6 +19,7 @@ import { createContext, FC, ReactNode, useCallback, useContext, useEffect, useRe
 import { ICatalogNode, IPurchasableOffer, NotificationAlertType, SendMessageComposer } from '../../api';
 import { useCatalogUiState, useMessageEvent, useNotification } from '../../hooks';
 import { useCatalogStudio } from './admin/studio/useCatalogStudio';
+import { createCatalogAdminPageDetailsFromSnapshot } from './views/admin/CatalogAdminPageState';
 
 const toStudioCatalogType = (catalogType: string): 'NORMAL' | 'BUILDER' =>
     catalogType === 'BUILDERS_CLUB' || catalogType === 'BUILDER' ? 'BUILDER' : 'NORMAL';
@@ -134,6 +135,9 @@ interface ICatalogAdminContext {
     setCreatingPage: (value: boolean) => void;
     loading: boolean;
     lastError: string | null;
+    studioSessionReady: boolean;
+    ensurePageLock: (pageId: number) => void;
+    hasPageLock: (pageId: number) => boolean;
     savePage: (data: IPageEditData) => void;
     createPage: (data: IPageEditData) => void;
     deletePage: (pageId: number, summary?: string) => void;
@@ -264,6 +268,13 @@ export const CatalogAdminProvider: FC<{ children: ReactNode }> = ({ children }) 
                 setLastError('Catalog Studio session is not ready');
                 return;
             }
+
+            const catalogType = toStudioCatalogType(currentType);
+            const snapshot = studio.session.pages.find((page) =>
+                page.pageId === pageId && page.catalogType === catalogType);
+            if (snapshot) setEditingPageDetails(createCatalogAdminPageDetailsFromSnapshot(snapshot));
+
+            setLastError(null);
             SendMessageComposer(new CatalogAdminLoadPageComposer(
                 pageId,
                 currentType,
@@ -272,6 +283,32 @@ export const CatalogAdminProvider: FC<{ children: ReactNode }> = ({ children }) 
             ));
         },
         [currentType, studio.session, studio.revision]
+    );
+
+    const ensurePageLock = useCallback(
+        (pageId: number) => {
+            if (pageId == null || pageId < 0) return;
+
+            const key = studioLockKey('PAGE', pageId, currentType);
+            if (studio.locks[key]) {
+                setLastError(null);
+                return;
+            }
+            if (!studio.session) {
+                setLastError('Catalog Studio session is not ready');
+                studio.refresh();
+                return;
+            }
+
+            setLastError(null);
+            studio.acquireLock('PAGE', pageId, toStudioCatalogType(currentType));
+        },
+        [currentType, studio.acquireLock, studio.locks, studio.refresh, studio.session]
+    );
+
+    const hasPageLock = useCallback(
+        (pageId: number) => !!studio.locks[studioLockKey('PAGE', pageId, currentType)],
+        [currentType, studio.locks]
     );
 
     useEffect(() => {
@@ -623,7 +660,10 @@ export const CatalogAdminProvider: FC<{ children: ReactNode }> = ({ children }) 
                 creatingPage,
                 setCreatingPage,
                 loading,
-                lastError,
+                lastError: lastError || studio.lastError,
+                studioSessionReady: !!studio.session,
+                ensurePageLock,
+                hasPageLock,
                 savePage,
                 createPage,
                 deletePage,

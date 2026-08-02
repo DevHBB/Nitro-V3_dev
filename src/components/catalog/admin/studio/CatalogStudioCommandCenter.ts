@@ -21,6 +21,11 @@ export interface CatalogStudioCommandState {
 const quantity = (count: number, singular: string, plural: string) =>
     `${count} ${count === 1 ? singular : plural}`;
 
+export const getCatalogStudioPageLockKey = (pageId: number, catalogType: string) =>
+    catalogType === 'BUILDERS_CLUB' || catalogType === 'BUILDER'
+        ? `BUILDER:PAGE:${pageId}`
+        : `PAGE:${pageId}`;
+
 export const getCatalogStudioCommandState = (input: CatalogStudioCommandInput): CatalogStudioCommandState => {
     const hasPending = input.pendingCount > 0;
     const hasIssues = input.validationIssueCount > 0;

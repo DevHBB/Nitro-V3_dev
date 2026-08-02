@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { getCatalogStudioCommandState } from './CatalogStudioCommandCenter';
+import * as CommandCenter from './CatalogStudioCommandCenter';
+
+const { getCatalogStudioCommandState } = CommandCenter;
 
 describe('Catalog Studio command center state', () => {
     it('requires current validation before publishing pending changes', () => {
@@ -48,5 +50,13 @@ describe('Catalog Studio command center state', () => {
         expect(state.phase).toBe('blocked');
         expect(state.canPublish).toBe(false);
         expect(state.validationLabel).toBe('4 validation issues');
+    });
+
+    it('uses the catalog type when resolving a page lock', () => {
+        const getPageLockKey = (CommandCenter as any).getCatalogStudioPageLockKey;
+
+        expect(getPageLockKey(976, 'NORMAL')).toBe('PAGE:976');
+        expect(getPageLockKey(976, 'BUILDERS_CLUB')).toBe('BUILDER:PAGE:976');
+        expect(getPageLockKey(976, 'BUILDER')).toBe('BUILDER:PAGE:976');
     });
 });
