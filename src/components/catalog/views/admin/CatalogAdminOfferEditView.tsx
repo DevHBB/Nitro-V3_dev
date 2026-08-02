@@ -1,8 +1,8 @@
 import { FC, useEffect, useState } from 'react';
 import { FaCubes, FaSave, FaSpinner, FaTrash } from 'react-icons/fa';
-import { GetConfigurationValue, IPurchasableOffer, LocalizeText, ProductTypeEnum, localizeWithFallback } from '../../../../api';
-import { useCatalogData } from '../../../../hooks';
-import { IOfferEditData, useCatalogAdmin } from '../../CatalogAdminContext';
+import { CatalogType, GetConfigurationValue, IPurchasableOffer, LocalizeText, localizeWithFallback, ProductTypeEnum } from '../../../../api';
+import { useCatalogData, useCatalogUiState, usePurse } from '../../../../hooks';
+import { IEditingOfferDetails, IOfferEditData, useCatalogAdmin } from '../../CatalogAdminContext';
 import { CatalogAdminModalView } from './CatalogAdminModalView';
 import { CatalogAdminOfferPriceView } from './CatalogAdminOfferPriceView';
 
@@ -30,8 +30,47 @@ const getOfferIconUrl = (offer: IPurchasableOffer | null): string | null => {
     return product.getIconUrl(offer) ?? null;
 };
 
+export const createCatalogAdminOfferFormState = (details: IEditingOfferDetails): IOfferEditData => ({
+    offerId: details.offerId,
+    pageId: details.pageId,
+    itemIds: details.itemIds,
+    catalogName: details.catalogName,
+    costCredits: details.costCredits,
+    costPoints: details.costPoints,
+    pointsType: details.pointsType,
+    amount: details.amount,
+    clubOnly: details.clubOnly ? '1' : '0',
+    extradata: details.extradata,
+    haveOffer: details.haveOffer ? '1' : '0',
+    offerId_group: details.offerIdGroup,
+    limitedStack: details.limitedStack,
+    orderNumber: details.orderNumber
+});
+
+export const validateCatalogAdminOfferForm = (data: IOfferEditData, builderCatalog: boolean, limitedSells: number): string | null => {
+    if (data.pageId <= 0) return 'Select a valid catalog page.';
+    if (!data.catalogName.trim()) return 'Offer name is required.';
+
+    const cleanItemIds = data.itemIds.replace(/\s+/g, '');
+    if (!builderCatalog && !cleanItemIds) return 'Item IDs are required.';
+    if (cleanItemIds) {
+        const entries = cleanItemIds.split(/[;,]/);
+        if (entries.some((entry) => !/^\d+(?::[1-9]\d*)?$/.test(entry) || Number(entry.split(':')[0]) <= 0)) {
+            return 'Item IDs must use the format 123 or 123:2, separated by semicolons.';
+        }
+    }
+
+    if (data.costCredits < 0 || data.costPoints < 0 || data.pointsType < 0) return 'Prices and currency type cannot be negative.';
+    if (data.amount < 1 || data.amount > 10000) return 'Quantity must be between 1 and 10,000.';
+    if (data.orderNumber < 0) return 'Order cannot be negative.';
+    if (data.limitedStack < limitedSells) return 'Limited stack cannot be lower than the number already sold.';
+    return null;
+};
+
 export const CatalogAdminOfferEditView: FC<{}> = () => {
     const { currentPage = null } = useCatalogData();
+    const { currentType } = useCatalogUiState();
+    const { purse } = usePurse();
     const catalogAdmin = useCatalogAdmin();
     const editingOffer = catalogAdmin?.editingOffer ?? null;
     const editingOfferDetails = catalogAdmin?.editingOfferDetails ?? null;
@@ -91,36 +130,54 @@ export const CatalogAdminOfferEditView: FC<{}> = () => {
 
     useEffect(() => {
         if (!editingOfferDetails) return;
+        if (!editingOffer || editingOfferDetails.offerId !== editingOffer.offerId) return;
 
-        setOfferIdGroup(editingOfferDetails.offerIdGroup);
-        setLimitedStack(editingOfferDetails.limitedStack);
-        setOrderNumber(editingOfferDetails.orderNumber);
-    }, [editingOfferDetails]);
+        const form = createCatalogAdminOfferFormState(editingOfferDetails);
+        setItemIds(form.itemIds);
+        setCatalogName(form.catalogName);
+        setCostCredits(form.costCredits);
+        setCostPoints(form.costPoints);
+        setPointsType(form.pointsType);
+        setAmount(form.amount);
+        setClubOnly(form.clubOnly);
+        setExtradata(form.extradata);
+        setHaveOffer(form.haveOffer);
+        setOfferIdGroup(form.offerId_group);
+        setLimitedStack(form.limitedStack);
+        setOrderNumber(form.orderNumber);
+    }, [editingOffer, editingOfferDetails]);
 
     if (!editingOffer) return null;
 
+    const detailsReady = isNew || editingOfferDetails?.offerId === editingOffer.offerId;
+    const limitedSells = isNew ? 0 : editingOfferDetails?.limitedSells || 0;
+    const formData: IOfferEditData = {
+        offerId: isNew ? undefined : editingOffer.offerId,
+        pageId: isNew ? currentPage?.pageId || 0 : editingOfferDetails?.pageId || 0,
+        itemIds,
+        catalogName,
+        costCredits,
+        costPoints,
+        pointsType,
+        amount,
+        clubOnly,
+        extradata,
+        haveOffer,
+        offerId_group: offerId,
+        limitedStack,
+        orderNumber
+    };
+    const validationError = detailsReady ? validateCatalogAdminOfferForm(formData, currentType === CatalogType.BUILDER, limitedSells) : null;
+    const currencyTypes = Array.from(new Set([0, 5, 101, pointsType, ...Array.from(purse?.activityPoints?.keys?.() || [])]))
+        .filter((type) => type >= 0)
+        .sort((left, right) => left - right);
+
     const handleSave = async () => {
-        if (!saveOffer || !createOffer) return;
+        if (!saveOffer || !createOffer || !detailsReady) return;
+        if (validationError) return;
 
-        const data: IOfferEditData = {
-            offerId: isNew ? undefined : editingOffer.offerId,
-            pageId: currentPage?.pageId || 0,
-            itemIds,
-            catalogName,
-            costCredits,
-            costPoints,
-            pointsType,
-            amount,
-            clubOnly,
-            extradata,
-            haveOffer,
-            offerId_group: offerId,
-            limitedStack,
-            orderNumber
-        };
-
-        if (isNew) createOffer(data);
-        else saveOffer(data);
+        if (isNew) createOffer(formData);
+        else saveOffer(formData);
     };
 
     const handleDelete = () => {
@@ -131,7 +188,8 @@ export const CatalogAdminOfferEditView: FC<{}> = () => {
 
     const inputClass = 'nitro-catalog-admin-input';
     const previewIconUrl = isNew ? null : getOfferIconUrl(editingOffer);
-    const previewName = catalogName || editingOffer.localizationName || (isNew ? localizeWithFallback('catalog.admin.offer.new', 'New offer') : `#${editingOffer.offerId}`);
+    const previewName =
+        catalogName || editingOffer.localizationName || (isNew ? localizeWithFallback('catalog.admin.offer.new', 'New offer') : `#${editingOffer.offerId}`);
     const previewFallbackIcon = isNew ? null : editingOffer.product?.getIconUrl(editingOffer);
 
     return (
@@ -151,7 +209,8 @@ export const CatalogAdminOfferEditView: FC<{}> = () => {
                                         draggable={false}
                                         src={previewIconUrl}
                                         onError={(event) => {
-                                            if (previewFallbackIcon && event.currentTarget.src !== previewFallbackIcon) event.currentTarget.src = previewFallbackIcon;
+                                            if (previewFallbackIcon && event.currentTarget.src !== previewFallbackIcon)
+                                                event.currentTarget.src = previewFallbackIcon;
                                             else event.currentTarget.style.visibility = 'hidden';
                                         }}
                                     />
@@ -164,7 +223,9 @@ export const CatalogAdminOfferEditView: FC<{}> = () => {
                                     {previewName}
                                 </span>
                                 <span className="nitro-catalog-admin-offer-preview-sub">
-                                    {isNew ? localizeWithFallback('catalog.admin.offer.new', 'New offer') : `${localizeWithFallback('catalog.admin.offer.id', 'Offer ID')} #${editingOffer.offerId}`}
+                                    {isNew
+                                        ? localizeWithFallback('catalog.admin.offer.new', 'New offer')
+                                        : `${localizeWithFallback('catalog.admin.offer.id', 'Offer ID')} #${editingOffer.offerId}`}
                                     {amount > 1 ? ` · x${amount}` : ''}
                                 </span>
                                 <span className="nitro-catalog-admin-offer-preview-price">
@@ -188,7 +249,9 @@ export const CatalogAdminOfferEditView: FC<{}> = () => {
                             </div>
                             <div className="nitro-catalog-admin-form-grid is-3col">
                                 <div className="nitro-catalog-admin-form-field is-span-3">
-                                    <label className="nitro-catalog-admin-label is-field">{localizeWithFallback('catalog.admin.offer.item.ids', 'Item IDs')}</label>
+                                    <label className="nitro-catalog-admin-label is-field">
+                                        {localizeWithFallback('catalog.admin.offer.item.ids', 'Item IDs')}
+                                    </label>
                                     <input
                                         className={inputClass}
                                         placeholder={localizeWithFallback('catalog.admin.offer.item.ids.placeholder', '1234 or 100;200')}
@@ -199,15 +262,32 @@ export const CatalogAdminOfferEditView: FC<{}> = () => {
                                 </div>
                                 <div className="nitro-catalog-admin-form-field">
                                     <label className="nitro-catalog-admin-label is-field">{LocalizeText('catalog.admin.offer.quantity')}</label>
-                                    <input className={inputClass} min={1} type="number" value={amount} onChange={(e) => setAmount(parseInt(e.target.value) || 1)} />
+                                    <input
+                                        className={inputClass}
+                                        min={1}
+                                        type="number"
+                                        value={amount}
+                                        onChange={(e) => setAmount(parseInt(e.target.value) || 1)}
+                                    />
                                 </div>
                                 <div className="nitro-catalog-admin-form-field">
                                     <label className="nitro-catalog-admin-label is-field">{LocalizeText('catalog.admin.order')}</label>
-                                    <input className={inputClass} min={0} type="number" value={orderNumber} onChange={(e) => setOrderNumber(parseInt(e.target.value) || 0)} />
+                                    <input
+                                        className={inputClass}
+                                        min={0}
+                                        type="number"
+                                        value={orderNumber}
+                                        onChange={(e) => setOrderNumber(parseInt(e.target.value) || 0)}
+                                    />
                                 </div>
                                 <div className="nitro-catalog-admin-form-field">
                                     <label className="nitro-catalog-admin-label is-field">{localizeWithFallback('catalog.admin.offer.id', 'Offer ID')}</label>
-                                    <input className={inputClass} type="number" value={offerId} onChange={(e) => setOfferIdGroup(parseInt(e.target.value) || -1)} />
+                                    <input
+                                        className={inputClass}
+                                        type="number"
+                                        value={offerId}
+                                        onChange={(e) => setOfferIdGroup(parseInt(e.target.value) || -1)}
+                                    />
                                 </div>
                             </div>
                         </section>
@@ -217,18 +297,32 @@ export const CatalogAdminOfferEditView: FC<{}> = () => {
                             <div className="nitro-catalog-admin-form-grid is-3col">
                                 <div className="nitro-catalog-admin-form-field">
                                     <label className="nitro-catalog-admin-label is-field">{LocalizeText('catalog.admin.offer.credits')}</label>
-                                    <input className={inputClass} min={0} type="number" value={costCredits} onChange={(e) => setCostCredits(parseInt(e.target.value) || 0)} />
+                                    <input
+                                        className={inputClass}
+                                        min={0}
+                                        type="number"
+                                        value={costCredits}
+                                        onChange={(e) => setCostCredits(parseInt(e.target.value) || 0)}
+                                    />
                                 </div>
                                 <div className="nitro-catalog-admin-form-field">
                                     <label className="nitro-catalog-admin-label is-field">{LocalizeText('catalog.admin.offer.points')}</label>
-                                    <input className={inputClass} min={0} type="number" value={costPoints} onChange={(e) => setCostPoints(parseInt(e.target.value) || 0)} />
+                                    <input
+                                        className={inputClass}
+                                        min={0}
+                                        type="number"
+                                        value={costPoints}
+                                        onChange={(e) => setCostPoints(parseInt(e.target.value) || 0)}
+                                    />
                                 </div>
                                 <div className="nitro-catalog-admin-form-field">
                                     <label className="nitro-catalog-admin-label is-field">{LocalizeText('catalog.admin.offer.points.type')}</label>
                                     <select className={inputClass} value={pointsType} onChange={(e) => setPointsType(parseInt(e.target.value))}>
-                                        <option value={0}>{localizeWithFallback('catalog.admin.currency.duckets', 'Duckets')}</option>
-                                        <option value={5}>{localizeWithFallback('catalog.admin.currency.diamonds', 'Diamonds')}</option>
-                                        <option value={101}>{localizeWithFallback('catalog.admin.currency.seasonal', 'Seasonal')}</option>
+                                        {currencyTypes.map((type) => (
+                                            <option key={type} value={type}>
+                                                {localizeWithFallback(`purse.seasonal.currency.${type}`, `Currency ${type}`)} ({type})
+                                            </option>
+                                        ))}
                                     </select>
                                 </div>
                             </div>
@@ -245,9 +339,25 @@ export const CatalogAdminOfferEditView: FC<{}> = () => {
                                     </select>
                                 </div>
                                 <div className="nitro-catalog-admin-form-field">
-                                    <label className="nitro-catalog-admin-label is-field">{localizeWithFallback('catalog.admin.offer.limited.stack', 'Limited stack')}</label>
-                                    <input className={inputClass} min={0} type="number" value={limitedStack} onChange={(e) => setLimitedStack(parseInt(e.target.value) || 0)} />
+                                    <label className="nitro-catalog-admin-label is-field">
+                                        {localizeWithFallback('catalog.admin.offer.limited.stack', 'Limited stack')}
+                                    </label>
+                                    <input
+                                        className={inputClass}
+                                        min={0}
+                                        type="number"
+                                        value={limitedStack}
+                                        onChange={(e) => setLimitedStack(parseInt(e.target.value) || 0)}
+                                    />
                                 </div>
+                                {!isNew && (
+                                    <div className="nitro-catalog-admin-form-field">
+                                        <label className="nitro-catalog-admin-label is-field">
+                                            {localizeWithFallback('catalog.admin.offer.limited.sold', 'Already sold')}
+                                        </label>
+                                        <input className={inputClass} readOnly type="number" value={limitedSells} />
+                                    </div>
+                                )}
                                 <div className="nitro-catalog-admin-form-field">
                                     <label className="nitro-catalog-admin-label is-field">{LocalizeText('catalog.admin.offer.extradata')}</label>
                                     <input
@@ -260,13 +370,19 @@ export const CatalogAdminOfferEditView: FC<{}> = () => {
                                 </div>
                             </div>
                             <label className="nitro-catalog-admin-form-toggle">
-                                <input checked={haveOffer === '1'} id="haveOffer" type="checkbox" onChange={(e) => setHaveOffer(e.target.checked ? '1' : '0')} />
+                                <input
+                                    checked={haveOffer === '1'}
+                                    id="haveOffer"
+                                    type="checkbox"
+                                    onChange={(e) => setHaveOffer(e.target.checked ? '1' : '0')}
+                                />
                                 <span>{LocalizeText('catalog.admin.offer.have.offer')}</span>
                             </label>
                         </section>
                     </div>
 
                     <div className="nitro-catalog-admin-form-actions">
+                        {validationError && <span className="nitro-catalog-admin-translate-error">{validationError}</span>}
                         {!isNew ? (
                             <button className="nitro-catalog-admin-button is-danger" onClick={handleDelete}>
                                 <FaTrash className="text-[8px]" /> {LocalizeText('catalog.admin.delete')}
@@ -274,7 +390,7 @@ export const CatalogAdminOfferEditView: FC<{}> = () => {
                         ) : (
                             <div />
                         )}
-                        <button className="nitro-catalog-admin-button is-primary" disabled={loading} onClick={handleSave}>
+                        <button className="nitro-catalog-admin-button is-primary" disabled={loading || !detailsReady || !!validationError} onClick={handleSave}>
                             {loading ? <FaSpinner className="text-[8px] animate-spin" /> : <FaSave className="text-[8px]" />}{' '}
                             {isNew ? LocalizeText('catalog.admin.create') : LocalizeText('catalog.admin.save')}
                         </button>
