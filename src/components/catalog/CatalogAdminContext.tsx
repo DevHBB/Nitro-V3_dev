@@ -8,7 +8,6 @@ import {
     CatalogAdminMovePageComposer,
     CatalogAdminOfferDetailsEvent,
     CatalogAdminPageDetailsEvent,
-    CatalogAdminPublishComposer,
     CatalogAdminReorderOffersComposer,
     CatalogAdminResultEvent,
     CatalogAdminSaveOfferComposer,
@@ -19,6 +18,16 @@ import {
 import { createContext, FC, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { ICatalogNode, IPurchasableOffer, NotificationAlertType, SendMessageComposer } from '../../api';
 import { useCatalogUiState, useMessageEvent, useNotification } from '../../hooks';
+import { useCatalogStudio } from './admin/studio/useCatalogStudio';
+import { createCatalogAdminPageDetailsFromSnapshot } from './views/admin/CatalogAdminPageState';
+
+const toStudioCatalogType = (catalogType: string): 'NORMAL' | 'BUILDER' =>
+    catalogType === 'BUILDERS_CLUB' || catalogType === 'BUILDER' ? 'BUILDER' : 'NORMAL';
+
+const studioLockKey = (entityType: 'PAGE' | 'OFFER', entityId: number, catalogType: string) => {
+    const type = toStudioCatalogType(catalogType);
+    return type === 'NORMAL' ? `${entityType}:${entityId}` : `${type}:${entityType}:${entityId}`;
+};
 
 export interface IPageEditData {
     pageId?: number;
@@ -108,12 +117,6 @@ export interface IEditingPageDetails {
     includes: string;
 }
 
-export interface ICatalogAdminPendingChange {
-    id: string;
-    summary: string;
-    at: number;
-}
-
 interface ICatalogAdminContext {
     adminMode: boolean;
     setAdminMode: (value: boolean) => void;
@@ -132,32 +135,40 @@ interface ICatalogAdminContext {
     setCreatingPage: (value: boolean) => void;
     loading: boolean;
     lastError: string | null;
+    studioSessionReady: boolean;
+    ensurePageLock: (pageId: number) => void;
+    hasPageLock: (pageId: number) => boolean;
     savePage: (data: IPageEditData) => void;
     createPage: (data: IPageEditData) => void;
     deletePage: (pageId: number, summary?: string) => void;
     saveOffer: (data: IOfferEditData) => void;
     createOffer: (data: IOfferEditData) => void;
     deleteOffer: (offerId: number, summary?: string) => void;
-    reorderOffers: (orders: { id: number; orderNumber: number }[], summary?: string) => void;
+    reorderOffers: (orders: { id: number; orderNumber: number }[], summary?: string, pageId?: number) => void;
     reorderPage: (pageId: number, newParentId: number, newIndex: number, summary?: string) => void;
     togglePageEnabled: (pageId: number, enabled: boolean, summary?: string) => void;
     togglePageVisible: (pageId: number, visible: boolean, summary?: string) => void;
     publishCatalog: () => void;
-    hasPendingChanges: boolean;
-    pendingChanges: ICatalogAdminPendingChange[];
 }
 
 const CatalogAdminContext = createContext<ICatalogAdminContext>(null);
 
 export const useCatalogAdmin = () => useContext(CatalogAdminContext);
 
-let pendingChangeCounter = 0;
+export const CATALOG_ROOT_LOCK_ID = 2147483647;
 
 const PAGE_INDEX_REFRESH_ACTIONS = new Set(['savePage', 'createPage', 'deletePage', 'movePage', 'toggleVisible', 'toggleEnabled']);
 const OFFER_REFRESH_ACTIONS = new Set(['saveOffer', 'createOffer', 'deleteOffer', 'reorder']);
 
+type QueuedPageMutation =
+    | { kind: 'delete'; pageId: number; catalogType: string; summary: string }
+    | { kind: 'move'; pageId: number; catalogType: string; newParentId: number; newIndex: number; summary: string }
+    | { kind: 'toggleEnabled'; pageId: number; catalogType: string; enabled: boolean; summary: string }
+    | { kind: 'toggleVisible'; pageId: number; catalogType: string; visible: boolean; summary: string };
+
 export const CatalogAdminProvider: FC<{ children: ReactNode }> = ({ children }) => {
     const { currentType } = useCatalogUiState();
+    const studio = useCatalogStudio();
     const [adminMode, setAdminMode] = useState(false);
     const [editingOffer, setEditingOfferState] = useState<IPurchasableOffer | null>(null);
     const [editingOfferDetails, setEditingOfferDetails] = useState<IEditingOfferDetails | null>(null);
@@ -168,44 +179,18 @@ export const CatalogAdminProvider: FC<{ children: ReactNode }> = ({ children }) 
     const [creatingPage, setCreatingPage] = useState(false);
     const [loading, setLoading] = useState(false);
     const [lastError, setLastError] = useState<string | null>(null);
-    const [hasPendingChanges, setHasPendingChanges] = useState(false);
-    const [pendingChanges, setPendingChanges] = useState<ICatalogAdminPendingChange[]>([]);
+    const queuedPageMutationRef = useRef<QueuedPageMutation | null>(null);
+    const queuedOfferDeleteRef = useRef<{ offerId: number; summary: string } | null>(null);
     const pendingActionRef = useRef<string | null>(null);
-    const pendingChangeLabelRef = useRef<string | null>(null);
-    const pendingChangeRecordedForBatchRef = useRef(false);
     const { simpleAlert = null } = useNotification();
 
-    const beginAdminAction = useCallback((action: string, summary: string) => {
+    const beginAdminAction = useCallback((action: string, _summary: string) => {
         if (pendingActionRef.current) return false;
 
         setLoading(true);
         setLastError(null);
         pendingActionRef.current = action;
-        pendingChangeLabelRef.current = summary;
-
-        if (action === 'reorder') pendingChangeRecordedForBatchRef.current = false;
         return true;
-    }, []);
-
-    const recordPendingChange = useCallback((action: string | null, summary: string | null) => {
-        if (!action || action === 'publish' || !summary?.length) return;
-
-        if (action === 'reorder') {
-            if (pendingChangeRecordedForBatchRef.current) return;
-            pendingChangeRecordedForBatchRef.current = true;
-        }
-
-        pendingChangeCounter += 1;
-
-        setPendingChanges((prev) => [
-            ...prev,
-            {
-                id: `pending-${pendingChangeCounter}`,
-                summary,
-                at: Date.now()
-            }
-        ]);
-        setHasPendingChanges(true);
     }, []);
 
     const setEditingOffer = useCallback(
@@ -214,10 +199,19 @@ export const CatalogAdminProvider: FC<{ children: ReactNode }> = ({ children }) 
             setEditingOfferDetails(null);
 
             if (offer && offer.offerId !== -1) {
-                SendMessageComposer(new CatalogAdminLoadOfferComposer(offer.offerId, currentType));
+                if (!studio.session) {
+                    setLastError('Catalog Studio session is not ready');
+                    return;
+                }
+                SendMessageComposer(new CatalogAdminLoadOfferComposer(
+                    offer.offerId,
+                    currentType,
+                    studio.session.draftVersionId,
+                    studio.revision
+                ));
             }
         },
-        [currentType]
+        [currentType, studio.session, studio.revision]
     );
 
     useMessageEvent(CatalogAdminOfferDetailsEvent, (event: CatalogAdminOfferDetailsEvent) => {
@@ -277,9 +271,51 @@ export const CatalogAdminProvider: FC<{ children: ReactNode }> = ({ children }) 
         (pageId: number) => {
             setEditingPageDetails(null);
             if (pageId == null || pageId < 0) return;
-            SendMessageComposer(new CatalogAdminLoadPageComposer(pageId, currentType));
+            if (!studio.session) {
+                setLastError('Catalog Studio session is not ready');
+                return;
+            }
+
+            const catalogType = toStudioCatalogType(currentType);
+            const snapshot = studio.session.pages.find((page) =>
+                page.pageId === pageId && page.catalogType === catalogType);
+            if (snapshot) setEditingPageDetails(createCatalogAdminPageDetailsFromSnapshot(snapshot));
+
+            setLastError(null);
+            SendMessageComposer(new CatalogAdminLoadPageComposer(
+                pageId,
+                currentType,
+                studio.session.draftVersionId,
+                studio.revision
+            ));
         },
-        [currentType]
+        [currentType, studio.session, studio.revision]
+    );
+
+    const ensurePageLock = useCallback(
+        (pageId: number) => {
+            if (pageId == null || pageId < 0) return;
+
+            const key = studioLockKey('PAGE', pageId, currentType);
+            if (studio.locks[key]) {
+                setLastError(null);
+                return;
+            }
+            if (!studio.session) {
+                setLastError('Catalog Studio session is not ready');
+                studio.refresh();
+                return;
+            }
+
+            setLastError(null);
+            studio.acquireLock('PAGE', pageId, toStudioCatalogType(currentType));
+        },
+        [currentType, studio.acquireLock, studio.locks, studio.refresh, studio.session]
+    );
+
+    const hasPageLock = useCallback(
+        (pageId: number) => !!studio.locks[studioLockKey('PAGE', pageId, currentType)],
+        [currentType, studio.locks]
     );
 
     useEffect(() => {
@@ -310,10 +346,8 @@ export const CatalogAdminProvider: FC<{ children: ReactNode }> = ({ children }) 
     useMessageEvent(CatalogAdminResultEvent, (event: CatalogAdminResultEvent) => {
         const parser = event.getParser();
         const action = pendingActionRef.current;
-        const summary = pendingChangeLabelRef.current;
 
         pendingActionRef.current = null;
-        pendingChangeLabelRef.current = null;
         setLoading(false);
 
         if (!parser.success) {
@@ -330,26 +364,28 @@ export const CatalogAdminProvider: FC<{ children: ReactNode }> = ({ children }) 
             setEditingPageNode(null);
             setCreatingPage(false);
 
-            if (action === 'publish') {
-                setHasPendingChanges(false);
-                setPendingChanges([]);
-            } else {
-                recordPendingChange(action, summary);
+            studio.refresh();
+            studio.loadHistory();
 
-                if (PAGE_INDEX_REFRESH_ACTIONS.has(action)) {
-                    window.dispatchEvent(new Event('catalog-admin-refresh-index'));
-                }
+            if (action && PAGE_INDEX_REFRESH_ACTIONS.has(action)) {
+                window.dispatchEvent(new Event('catalog-admin-refresh-index'));
+            }
 
-                if (OFFER_REFRESH_ACTIONS.has(action)) {
-                    window.dispatchEvent(new Event('catalog-admin-refresh-current-page'));
-                }
+            if (action && OFFER_REFRESH_ACTIONS.has(action)) {
+                window.dispatchEvent(new Event('catalog-admin-refresh-current-page'));
             }
         }
     });
 
     const savePage = useCallback(
         (data: IPageEditData) => {
-            if (!beginAdminAction('savePage', `Updated page: ${data.caption || `#${data.pageId}`}`)) return;
+            const summary = `Updated page: ${data.caption || `#${data.pageId}`}`;
+            const lock = studio.locks[studioLockKey('PAGE', data.pageId || 0, currentType)];
+            if (!studio.session || !lock) {
+                setLastError('Open the page inspector and acquire its edit lock before saving');
+                return;
+            }
+            if (!beginAdminAction('savePage', summary)) return;
 
             SendMessageComposer(
                 new CatalogAdminSavePageComposer(
@@ -376,16 +412,29 @@ export const CatalogAdminProvider: FC<{ children: ReactNode }> = ({ children }) 
                     data.pageText2 || '',
                     data.pageTextTeaser || '',
                     data.roomId || 0,
-                    data.includes || ''
+                    data.includes || '',
+                    studio.session.draftVersionId,
+                    studio.revision,
+                    lock.token,
+                    summary
                 )
             );
         },
-        [currentType, beginAdminAction]
+        [currentType, beginAdminAction, studio]
     );
 
     const createPage = useCallback(
         (data: IPageEditData) => {
-            if (!beginAdminAction('createPage', `Created page: ${data.caption || 'New page'}`)) return;
+            const summary = `Created page: ${data.caption || 'New page'}`;
+            const lockId = data.parentId <= 0 ? CATALOG_ROOT_LOCK_ID : data.parentId;
+            const lock = studio.locks[studioLockKey('PAGE', lockId, currentType)];
+            if (!studio.session || !lock) {
+                setLastError(data.parentId <= 0
+                    ? 'Wait for the catalog root lock before creating a root category'
+                    : 'Open the parent page inspector and acquire its edit lock before creating a sub-page');
+                return;
+            }
+            if (!beginAdminAction('createPage', summary)) return;
             SendMessageComposer(
                 new CatalogAdminCreatePageComposer(
                     data.caption,
@@ -410,24 +459,26 @@ export const CatalogAdminProvider: FC<{ children: ReactNode }> = ({ children }) 
                     data.pageTextDetails || '',
                     data.pageTextTeaser || '',
                     data.roomId || 0,
-                    data.includes || ''
+                    data.includes || '',
+                    studio.session.draftVersionId,
+                    studio.revision,
+                    lock.token,
+                    summary
                 )
             );
         },
-        [currentType, beginAdminAction]
-    );
-
-    const deletePage = useCallback(
-        (pageId: number, summary?: string) => {
-            if (!beginAdminAction('deletePage', summary || `Deleted page #${pageId}`)) return;
-            SendMessageComposer(new CatalogAdminDeletePageComposer(pageId, currentType));
-        },
-        [currentType, beginAdminAction]
+        [currentType, beginAdminAction, studio]
     );
 
     const saveOffer = useCallback(
         (data: IOfferEditData) => {
-            if (!beginAdminAction('saveOffer', `Updated offer: ${data.catalogName || `#${data.offerId}`}`)) return;
+            const summary = `Updated offer: ${data.catalogName || `#${data.offerId}`}`;
+            const lock = studio.locks[studioLockKey('OFFER', data.offerId || 0, currentType)];
+            if (!studio.session || !lock) {
+                setLastError('Open the offer inspector and acquire its edit lock before saving');
+                return;
+            }
+            if (!beginAdminAction('saveOffer', summary)) return;
             SendMessageComposer(
                 new CatalogAdminSaveOfferComposer(
                     data.offerId || 0,
@@ -444,16 +495,26 @@ export const CatalogAdminProvider: FC<{ children: ReactNode }> = ({ children }) 
                     data.offerId_group,
                     data.limitedStack,
                     data.orderNumber,
-                    currentType
+                    currentType,
+                    studio.session.draftVersionId,
+                    studio.revision,
+                    lock.token,
+                    summary
                 )
             );
         },
-        [currentType, beginAdminAction]
+        [currentType, beginAdminAction, studio]
     );
 
     const createOffer = useCallback(
         (data: IOfferEditData) => {
-            if (!beginAdminAction('createOffer', `Created offer: ${data.catalogName || 'New offer'}`)) return;
+            const summary = `Created offer: ${data.catalogName || 'New offer'}`;
+            const lock = studio.locks[studioLockKey('PAGE', data.pageId, currentType)];
+            if (!studio.session || !lock) {
+                setLastError('Open the target page and acquire its edit lock before creating an offer');
+                return;
+            }
+            if (!beginAdminAction('createOffer', summary)) return;
             SendMessageComposer(
                 new CatalogAdminCreateOfferComposer(
                     data.pageId,
@@ -469,59 +530,178 @@ export const CatalogAdminProvider: FC<{ children: ReactNode }> = ({ children }) 
                     data.offerId_group,
                     data.limitedStack,
                     data.orderNumber,
-                    currentType
+                    currentType,
+                    studio.session.draftVersionId,
+                    studio.revision,
+                    lock.token,
+                    summary
                 )
             );
         },
-        [currentType, beginAdminAction]
+        [currentType, beginAdminAction, studio]
     );
 
     const deleteOffer = useCallback(
         (offerId: number, summary?: string) => {
-            if (!beginAdminAction('deleteOffer', summary || `Deleted offer #${offerId}`)) return;
-            SendMessageComposer(new CatalogAdminDeleteOfferComposer(offerId, currentType));
+            const effectiveSummary = summary || `Deleted offer #${offerId}`;
+            const lock = studio.locks[studioLockKey('OFFER', offerId, currentType)];
+            if (!studio.session) {
+                setLastError('Catalog Studio session is not ready');
+                return;
+            }
+            if (!lock) {
+                queuedOfferDeleteRef.current = { offerId, summary: effectiveSummary };
+                studio.acquireLock('OFFER', offerId, toStudioCatalogType(currentType));
+                return;
+            }
+            if (!beginAdminAction('deleteOffer', effectiveSummary)) return;
+            SendMessageComposer(new CatalogAdminDeleteOfferComposer(
+                offerId, currentType, studio.session.draftVersionId, studio.revision, lock.token, effectiveSummary));
         },
-        [currentType, beginAdminAction]
+        [currentType, beginAdminAction, studio]
     );
 
-    const reorderOffers = useCallback(
-        (orders: { id: number; orderNumber: number }[], summary?: string) => {
-            if (!orders.length) return;
+    useEffect(() => {
+        const queued = queuedOfferDeleteRef.current;
+        if (!queued || !studio.locks[studioLockKey('OFFER', queued.offerId, currentType)]) return;
+        queuedOfferDeleteRef.current = null;
+        deleteOffer(queued.offerId, queued.summary);
+    }, [currentType, deleteOffer, studio.locks]);
 
-            if (!beginAdminAction('reorder', summary || 'Reordered offers')) return;
-            SendMessageComposer(new CatalogAdminReorderOffersComposer(orders, currentType));
+    const reorderOffers = useCallback(
+        (orders: { id: number; orderNumber: number }[], summary?: string, pageId?: number) => {
+            if (!orders.length) return;
+            const effectivePageId = pageId || 0;
+            const lock = studio.locks[studioLockKey('PAGE', effectivePageId, currentType)];
+            const effectiveSummary = summary || 'Reordered offers';
+            if (!studio.session || !lock) {
+                setLastError('Select the page and wait for its edit lock before reordering offers');
+                return;
+            }
+            if (!beginAdminAction('reorder', effectiveSummary)) return;
+            SendMessageComposer(new CatalogAdminReorderOffersComposer(
+                orders, currentType, studio.session.draftVersionId, studio.revision, lock.token, effectiveSummary));
         },
-        [currentType, beginAdminAction]
+        [currentType, beginAdminAction, studio]
+    );
+
+    const performPageMutation = useCallback(
+        (mutation: QueuedPageMutation) => {
+            if (!studio.session) {
+                queuedPageMutationRef.current = mutation;
+                setLastError(null);
+                studio.refresh();
+                return;
+            }
+
+            const lock = studio.locks[studioLockKey('PAGE', mutation.pageId, mutation.catalogType)];
+            if (!lock) {
+                queuedPageMutationRef.current = mutation;
+                setLastError(null);
+                studio.acquireLock('PAGE', mutation.pageId, toStudioCatalogType(mutation.catalogType));
+                return;
+            }
+
+            if (!beginAdminAction(
+                mutation.kind === 'delete' ? 'deletePage' :
+                    mutation.kind === 'move' ? 'movePage' :
+                        mutation.kind === 'toggleEnabled' ? 'toggleEnabled' : 'toggleVisible',
+                mutation.summary
+            )) return;
+
+            switch (mutation.kind) {
+                case 'delete':
+                    SendMessageComposer(new CatalogAdminDeletePageComposer(
+                        mutation.pageId, mutation.catalogType, studio.session.draftVersionId,
+                        studio.revision, lock.token, mutation.summary));
+                    break;
+                case 'move':
+                    SendMessageComposer(new CatalogAdminMovePageComposer(
+                        mutation.pageId, mutation.newParentId, mutation.newIndex, mutation.catalogType,
+                        studio.session.draftVersionId, studio.revision, lock.token, mutation.summary));
+                    break;
+                case 'toggleEnabled':
+                    SendMessageComposer(new CatalogAdminSetPageEnabledComposer(
+                        mutation.pageId, mutation.enabled, mutation.catalogType, studio.session.draftVersionId,
+                        studio.revision, lock.token, mutation.summary));
+                    break;
+                case 'toggleVisible':
+                    SendMessageComposer(new CatalogAdminSetPageVisibleComposer(
+                        mutation.pageId, mutation.visible, mutation.catalogType, studio.session.draftVersionId,
+                        studio.revision, lock.token, mutation.summary));
+                    break;
+            }
+        },
+        [beginAdminAction, studio.acquireLock, studio.locks, studio.refresh, studio.revision, studio.session]
+    );
+
+    useEffect(() => {
+        const queued = queuedPageMutationRef.current;
+        if (!queued || !studio.session) return;
+
+        const lock = studio.locks[studioLockKey('PAGE', queued.pageId, queued.catalogType)];
+        if (!lock) {
+            studio.acquireLock('PAGE', queued.pageId, toStudioCatalogType(queued.catalogType));
+            return;
+        }
+
+        queuedPageMutationRef.current = null;
+        performPageMutation(queued);
+    }, [performPageMutation, studio.acquireLock, studio.locks, studio.session]);
+
+    const deletePage = useCallback(
+        (pageId: number, summary?: string) => {
+            performPageMutation({
+                kind: 'delete',
+                pageId,
+                catalogType: currentType,
+                summary: summary || `Deleted page #${pageId}`
+            });
+        },
+        [currentType, performPageMutation]
     );
 
     const reorderPage = useCallback(
         (pageId: number, newParentId: number, newIndex: number, summary?: string) => {
-            if (!beginAdminAction('movePage', summary || `Moved page #${pageId}`)) return;
-            SendMessageComposer(new CatalogAdminMovePageComposer(pageId, newParentId, newIndex, currentType));
+            performPageMutation({
+                kind: 'move',
+                pageId,
+                catalogType: currentType,
+                newParentId,
+                newIndex,
+                summary: summary || `Moved page #${pageId}`
+            });
         },
-        [currentType, beginAdminAction]
+        [currentType, performPageMutation]
     );
 
     const togglePageEnabled = useCallback(
         (pageId: number, enabled: boolean, summary?: string) => {
-            if (!beginAdminAction('toggleEnabled', summary || `Toggled enabled state for page #${pageId}`)) return;
-            SendMessageComposer(new CatalogAdminSetPageEnabledComposer(pageId, enabled, currentType));
+            performPageMutation({
+                kind: 'toggleEnabled',
+                pageId,
+                catalogType: currentType,
+                enabled,
+                summary: summary || `Toggled enabled state for page #${pageId}`
+            });
         },
-        [currentType, beginAdminAction]
+        [currentType, performPageMutation]
     );
 
     const togglePageVisible = useCallback(
         (pageId: number, visible: boolean, summary?: string) => {
-            if (!beginAdminAction('toggleVisible', summary || `Toggled visibility for page #${pageId}`)) return;
-            SendMessageComposer(new CatalogAdminSetPageVisibleComposer(pageId, visible, currentType));
+            performPageMutation({
+                kind: 'toggleVisible',
+                pageId,
+                catalogType: currentType,
+                visible,
+                summary: summary || `Toggled visibility for page #${pageId}`
+            });
         },
-        [currentType, beginAdminAction]
+        [currentType, performPageMutation]
     );
 
-    const publishCatalog = useCallback(() => {
-        if (!beginAdminAction('publish', 'Published catalog')) return;
-        SendMessageComposer(new CatalogAdminPublishComposer());
-    }, [beginAdminAction]);
+    const publishCatalog = useCallback(() => studio.publish(), [studio]);
 
     return (
         <CatalogAdminContext
@@ -542,9 +722,10 @@ export const CatalogAdminProvider: FC<{ children: ReactNode }> = ({ children }) 
                 creatingPage,
                 setCreatingPage,
                 loading,
-                lastError,
-                hasPendingChanges,
-                pendingChanges,
+                lastError: lastError || studio.lastError,
+                studioSessionReady: !!studio.session,
+                ensurePageLock,
+                hasPageLock,
                 savePage,
                 createPage,
                 deletePage,

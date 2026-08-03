@@ -5,6 +5,7 @@ import { CatalogType, GetConfigurationValue, LocalizeShortNumber, LocalizeText, 
 import { LayoutCurrencyIcon, NitroCardContentView, NitroCardHeaderView, NitroCardTabsItemView, NitroCardTabsView, NitroCardView } from '../../common';
 import { useCatalogActions, useCatalogData, useCatalogUiState, useHasPermission, usePurse } from '../../hooks';
 import { CatalogAdminProvider, useCatalogAdmin } from './CatalogAdminContext';
+import { CatalogStudioProvider } from './admin/studio/CatalogStudioProvider';
 import { parseCatalogTabLabel, useCatalogWindowWidth } from './useCatalogWindowWidth';
 import { CatalogAdminManagerView } from './views/admin/CatalogAdminManagerView';
 import { CatalogAdminOfferEditView } from './views/admin/CatalogAdminOfferEditView';
@@ -281,9 +282,11 @@ export const CatalogView: FC<{}> = () => {
     const { catalogLocalizationVersion = 0 } = useCatalogData();
 
     return (
-        <CatalogAdminProvider>
-            <div className="hidden" data-catalog-localization-version={catalogLocalizationVersion} />
-            <CatalogViewInner />
-        </CatalogAdminProvider>
+        <CatalogStudioProvider active>
+            <CatalogAdminProvider>
+                <div className="hidden" data-catalog-localization-version={catalogLocalizationVersion} />
+                <CatalogViewInner />
+            </CatalogAdminProvider>
+        </CatalogStudioProvider>
     );
 };

@@ -2,7 +2,8 @@ import { FC, useEffect, useState } from 'react';
 import { FaLanguage, FaSave, FaSpinner, FaTrash } from 'react-icons/fa';
 import { CatalogType, LocalizeText, localizeWithFallback } from '../../../../api';
 import { useCatalogData, useCatalogUiState, useTranslationActions, useTranslationState } from '../../../../hooks';
-import { IEditingPageDetails, IPageEditData, useCatalogAdmin } from '../../CatalogAdminContext';
+import { CATALOG_ROOT_LOCK_ID, IEditingPageDetails, IPageEditData, useCatalogAdmin } from '../../CatalogAdminContext';
+import { parseCatalogTabLabel } from '../../useCatalogWindowWidth';
 import { CatalogIconView } from '../catalog-icon/CatalogIconView';
 import { CatalogAdminModalView } from './CatalogAdminModalView';
 
@@ -60,6 +61,34 @@ const MODE_OPTIONS = [
     { value: 'BUILDER', label: 'Builder' },
     { value: 'BOTH', label: 'Both' }
 ];
+
+export const resolveCatalogAdminPageDisplayName = (
+    formCaption: string,
+    detailsCaption: string | undefined,
+    nodeLocalization: string,
+    nodePageName: string,
+    fallback: string
+) =>
+    formCaption?.trim() ||
+    detailsCaption?.trim() ||
+    parseCatalogTabLabel(nodeLocalization).name ||
+    nodePageName?.trim() ||
+    fallback;
+
+export const resolveCatalogAdminPageInteraction = (
+    sessionReady: boolean,
+    detailsReady: boolean,
+    lockReady: boolean,
+    loading: boolean,
+    error: string | null
+) => {
+    if (error) return { canSave: false, message: error };
+    if (!sessionReady) return { canSave: false, message: 'Connecting to Catalog Studio...' };
+    if (!detailsReady) return { canSave: false, message: 'Loading page details...' };
+    if (!lockReady) return { canSave: false, message: 'Waiting for the edit lock...' };
+    if (loading) return { canSave: false, message: 'Saving page...' };
+    return { canSave: true, message: null };
+};
 
 export const createCatalogAdminPageFormState = (details: IEditingPageDetails): IPageEditData => ({
     pageId: details.pageId,
@@ -129,6 +158,10 @@ export const CatalogAdminPageEditView: FC<{}> = () => {
     const creatingPage = catalogAdmin?.creatingPage ?? false;
     const requestPageDetails = catalogAdmin?.requestPageDetails;
     const loading = catalogAdmin?.loading ?? false;
+    const lastError = catalogAdmin?.lastError ?? null;
+    const studioSessionReady = catalogAdmin?.studioSessionReady ?? false;
+    const ensurePageLock = catalogAdmin?.ensurePageLock;
+    const hasPageLock = catalogAdmin?.hasPageLock;
 
     const [caption, setCaption] = useState('');
     const [captionSave, setCaptionSave] = useState('');
@@ -162,6 +195,9 @@ export const CatalogAdminPageEditView: FC<{}> = () => {
 
     const targetPageId = targetNode?.pageId ?? currentPage?.pageId;
     const isRoot = editingRootPage;
+    const lockPageId = creatingPage
+        ? targetNode && targetNode.pageId > 0 ? targetNode.pageId : CATALOG_ROOT_LOCK_ID
+        : targetPageId;
 
     const closeForm = () => {
         catalogAdmin?.setEditingPageData(false);
@@ -226,6 +262,11 @@ export const CatalogAdminPageEditView: FC<{}> = () => {
     }, [editingPageData, creatingPage, targetNode, currentPage, currentType, targetPageId, requestPageDetails]);
 
     useEffect(() => {
+        if (!editingPageData || lockPageId == null || lockPageId < 0) return;
+        ensurePageLock?.(lockPageId);
+    }, [editingPageData, lockPageId, ensurePageLock]);
+
+    useEffect(() => {
         if (!editingPageDetails) return;
         if (targetPageId != null && editingPageDetails.pageId !== targetPageId) return;
 
@@ -257,8 +298,16 @@ export const CatalogAdminPageEditView: FC<{}> = () => {
     if (!editingPageData || !targetNode) return null;
 
     const inputClass = 'nitro-catalog-admin-input';
-    const previewName = caption || editingPageDetails?.caption || localizeWithFallback('catalog.admin.page.untitled', 'Untitled page');
+    const previewName = resolveCatalogAdminPageDisplayName(
+        caption,
+        editingPageDetails?.caption,
+        targetNode.localization,
+        targetNode.pageName,
+        localizeWithFallback('catalog.admin.page.untitled', 'Untitled page')
+    );
     const detailsReady = creatingPage || editingPageDetails?.pageId === targetPageId;
+    const lockReady = lockPageId != null && lockPageId >= 0 && (hasPageLock?.(lockPageId) ?? false);
+    const interaction = resolveCatalogAdminPageInteraction(studioSessionReady, detailsReady, lockReady, loading, lastError);
     const formData: IPageEditData = {
         pageId: creatingPage ? undefined : targetPageId,
         caption,
@@ -287,7 +336,7 @@ export const CatalogAdminPageEditView: FC<{}> = () => {
     const validationError = detailsReady ? validateCatalogAdminPageForm(formData) : null;
 
     const handleSave = async () => {
-        if (!catalogAdmin?.savePage || !catalogAdmin.createPage || !detailsReady) return;
+        if (!catalogAdmin?.savePage || !catalogAdmin.createPage || !interaction.canSave) return;
         if (validationError) return;
 
         if (creatingPage) catalogAdmin.createPage(formData);
@@ -619,7 +668,12 @@ export const CatalogAdminPageEditView: FC<{}> = () => {
                     </div>
 
                     <div className="nitro-catalog-admin-form-actions">
-                        {validationError && <span className="nitro-catalog-admin-translate-error">{validationError}</span>}
+                        {(validationError || lastError) && (
+                            <span className="nitro-catalog-admin-translate-error">{validationError || lastError}</span>
+                        )}
+                        {!validationError && !lastError && interaction.message && (
+                            <span className="nitro-catalog-admin-form-status">{interaction.message}</span>
+                        )}
                         {!isRoot && !creatingPage ? (
                             <button className="nitro-catalog-admin-button is-danger" onClick={handleDelete}>
                                 <FaTrash className="text-[8px]" /> {LocalizeText('catalog.admin.delete')}
@@ -627,7 +681,7 @@ export const CatalogAdminPageEditView: FC<{}> = () => {
                         ) : (
                             <div />
                         )}
-                        <button className="nitro-catalog-admin-button is-primary" disabled={loading || !detailsReady || !!validationError} onClick={handleSave}>
+                        <button className="nitro-catalog-admin-button is-primary" disabled={!interaction.canSave || !!validationError} onClick={handleSave}>
                             {loading ? <FaSpinner className="text-[8px] animate-spin" /> : <FaSave className="text-[8px]" />}{' '}
                             {creatingPage ? LocalizeText('catalog.admin.create') : LocalizeText('catalog.admin.save')}
                         </button>

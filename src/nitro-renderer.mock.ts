@@ -392,6 +392,46 @@ export class GroupJoinComposer extends StubClass {}
 export class GroupUnfavoriteComposer extends StubClass {}
 export class UserProfileComposer extends StubClass {}
 
+// Catalog Studio — keep request arguments observable so provider tests can
+// verify the renderer/emulator field order without loading Pixi.
+class CatalogStudioComposerStub {
+    private readonly data: unknown[];
+    constructor(...args: unknown[]) { this.data = args; }
+    public getMessageArray() { return this.data; }
+}
+
+export class CatalogStudioOpenSessionComposer extends CatalogStudioComposerStub {}
+export class CatalogStudioAcquireLockComposer extends CatalogStudioComposerStub {}
+export class CatalogStudioRenewLockComposer extends CatalogStudioComposerStub {}
+export class CatalogStudioReleaseLockComposer extends CatalogStudioComposerStub {}
+export class CatalogStudioHistoryComposer extends CatalogStudioComposerStub {}
+export class CatalogStudioUndoComposer extends CatalogStudioComposerStub {}
+export class CatalogStudioValidateComposer extends CatalogStudioComposerStub {}
+export class CatalogStudioPublishComposer extends CatalogStudioComposerStub {}
+export class CatalogStudioDiscardComposer extends CatalogStudioComposerStub {}
+export class CatalogStudioRestoreComposer extends CatalogStudioComposerStub {}
+export class CatalogStudioPreviewComposer extends CatalogStudioComposerStub {}
+export class CatalogStudioExportComposer extends CatalogStudioComposerStub {}
+export class CatalogStudioDocumentDryRunComposer extends CatalogStudioComposerStub {}
+export class CatalogStudioDocumentApplyComposer extends CatalogStudioComposerStub {}
+export class CatalogAdminDeletePageComposer extends CatalogStudioComposerStub {}
+export class CatalogAdminMovePageComposer extends CatalogStudioComposerStub {}
+export class CatalogAdminSetPageEnabledComposer extends CatalogStudioComposerStub {}
+export class CatalogAdminSetPageVisibleComposer extends CatalogStudioComposerStub {}
+
+export class CatalogStudioSessionEvent extends MessageEvent {}
+export class CatalogStudioAcquireLockEvent extends MessageEvent {}
+export class CatalogStudioRenewLockEvent extends MessageEvent {}
+export class CatalogStudioReleaseLockEvent extends MessageEvent {}
+export class CatalogStudioHistoryEvent extends MessageEvent {}
+export class CatalogStudioUndoEvent extends MessageEvent {}
+export class CatalogStudioValidationEvent extends MessageEvent {}
+export class CatalogStudioPublishEvent extends MessageEvent {}
+export class CatalogStudioDiscardEvent extends MessageEvent {}
+export class CatalogStudioRestoreEvent extends MessageEvent {}
+export class CatalogStudioPreviewEvent extends MessageEvent {}
+export class CatalogStudioDocumentResultEvent extends MessageEvent {}
+
 // `ChooserSelectionFilter` is used as a string enum in some call sites.
 export const ChooserSelectionFilter = makeEnumProxy('ChooserSelectionFilter');
 
