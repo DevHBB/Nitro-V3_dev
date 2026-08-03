@@ -28,7 +28,7 @@ import {
 } from '@nitrots/nitro-renderer';
 import { FC, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { SendMessageComposer } from '../../../../api';
-import { useMessageEvent } from '../../../../hooks';
+import { useConnectionState, useMessageEvent } from '../../../../hooks';
 import { CatalogStudioDocumentResult, CatalogStudioHistoryGroup, CatalogStudioLock, CatalogStudioPreviewState, CatalogStudioSession, CatalogStudioValidationState } from './CatalogStudioTypes';
 import { CatalogPreviewPersona } from './CatalogPreviewPersona';
 import { CatalogStudioContext, CatalogStudioContextValue } from './useCatalogStudio';
@@ -38,8 +38,16 @@ const lockKey = (entityType: string, entityId: number, catalogType: string = 'NO
 let operationSequence = 0;
 const nextOperationId = (action: string) => `${action}-${Date.now()}-${++operationSequence}`;
 const CATALOG_ROOT_LOCK_ID = 2147483647;
+type PendingDocumentApply = {
+    format: 'JSONC' | 'SQL' | 'BULK';
+    document: string;
+    fingerprint: string;
+    summary: string;
+};
 
 export const CatalogStudioProvider: FC<{ active: boolean; children: ReactNode }> = ({ active, children }) => {
+    const connectionState = useConnectionState();
+    const authenticated = connectionState.authenticated;
     const [session, setSession] = useState<CatalogStudioSession | null>(null);
     const [history, setHistory] = useState<CatalogStudioHistoryGroup[]>([]);
     const [historyTotalCount, setHistoryTotalCount] = useState(0);
@@ -52,6 +60,7 @@ export const CatalogStudioProvider: FC<{ active: boolean; children: ReactNode }>
     const sessionRef = useRef<CatalogStudioSession | null>(null);
     const locksRef = useRef<Record<string, CatalogStudioLock>>({});
     const pendingLockKeysRef = useRef<Set<string>>(new Set());
+    const pendingDocumentApplyRef = useRef<PendingDocumentApply | null>(null);
 
     const replaceSession = useCallback((next: CatalogStudioSession) => {
         sessionRef.current = next;
@@ -59,10 +68,10 @@ export const CatalogStudioProvider: FC<{ active: boolean; children: ReactNode }>
     }, []);
 
     const refresh = useCallback(() => {
-        if (!active) return;
+        if (!active || !authenticated) return;
         setLoading(true);
         SendMessageComposer(new CatalogStudioOpenSessionComposer());
-    }, [active]);
+    }, [active, authenticated]);
 
     const updateRevision = useCallback((revision: number) => {
         setSession((current) => {
@@ -96,9 +105,11 @@ export const CatalogStudioProvider: FC<{ active: boolean; children: ReactNode }>
     const handleLock = useCallback((event: CatalogStudioAcquireLockEvent | CatalogStudioRenewLockEvent) => {
         const parser = event.getParser();
         const parsedCatalogType = parser.catalogType === 'BUILDER' ? 'BUILDER' : 'NORMAL';
+        const isCatalogRootLock = parser.entityType === 'PAGE' && parser.entityId === CATALOG_ROOT_LOCK_ID && parsedCatalogType === 'NORMAL';
         pendingLockKeysRef.current.delete(lockKey(parser.entityType, parser.entityId, parsedCatalogType));
         setLoading(false);
         if (!parser.success) {
+            if(isCatalogRootLock) pendingDocumentApplyRef.current = null;
             setLastError(parser.message || parser.code);
             return;
         }
@@ -112,12 +123,28 @@ export const CatalogStudioProvider: FC<{ active: boolean; children: ReactNode }>
             token: parser.token,
             expiresAt: parser.expiresAt
         };
+        const current = sessionRef.current;
+        if(!current || current.draftVersionId !== nextLock.draftVersionId) {
+            if(isCatalogRootLock) pendingDocumentApplyRef.current = null;
+            setLastError('The catalog draft changed while the edit lock was opening. Refresh and try again.');
+            return;
+        }
         setLocks((current) => {
             const next = { ...current, [lockKey(nextLock.entityType, nextLock.entityId, nextLock.catalogType)]: nextLock };
             locksRef.current = next;
             return next;
         });
         setLastError(null);
+
+        const pendingApply = isCatalogRootLock ? pendingDocumentApplyRef.current : null;
+        if(pendingApply) {
+            pendingDocumentApplyRef.current = null;
+            setLoading(true);
+            SendMessageComposer(new CatalogStudioDocumentApplyComposer(
+                nextOperationId('apply'), current.draftVersionId, current.revision, nextLock.token,
+                pendingApply.format, pendingApply.document, pendingApply.fingerprint, pendingApply.summary
+            ));
+        }
     }, []);
 
     useMessageEvent<CatalogStudioAcquireLockEvent>(CatalogStudioAcquireLockEvent, handleLock);
@@ -181,7 +208,11 @@ export const CatalogStudioProvider: FC<{ active: boolean; children: ReactNode }>
             revision: parser.revision,
             pages: parser.pages.map((page) => ({ ...page })),
             offers: parser.offers.map((entry) => ({
-                offer: { ...entry.offer }, eligible: entry.eligible, reasons: [ ...entry.reasons ]
+                offer: { ...entry.offer },
+                eligible: entry.eligible,
+                reasons: [ ...entry.reasons ],
+                products: entry.products.map(product => ({ ...product })),
+                giftable: entry.giftable
             }))
         });
         setLoading(false);
@@ -208,17 +239,21 @@ export const CatalogStudioProvider: FC<{ active: boolean; children: ReactNode }>
     });
 
     useEffect(() => {
-        if (!active) {
+        if (!active || !authenticated) {
             setSession(null);
             sessionRef.current = null;
+            locksRef.current = {};
+            setLocks({});
             pendingLockKeysRef.current.clear();
+            pendingDocumentApplyRef.current = null;
+            setLoading(false);
             return;
         }
         refresh();
-    }, [active, refresh]);
+    }, [active, authenticated, refresh]);
 
     useEffect(() => {
-        if (!active) return;
+        if (!active || !authenticated) return;
         const timer = window.setInterval(() => {
             Object.values(locksRef.current).forEach((lock) => {
                 SendMessageComposer(new CatalogStudioRenewLockComposer(
@@ -228,7 +263,7 @@ export const CatalogStudioProvider: FC<{ active: boolean; children: ReactNode }>
             });
         }, 30_000);
         return () => window.clearInterval(timer);
-    }, [active]);
+    }, [active, authenticated]);
 
     const acquireLock = useCallback((entityType: string, entityId: number, catalogType: 'NORMAL' | 'BUILDER' = 'NORMAL') => {
         const current = sessionRef.current;
@@ -317,7 +352,9 @@ export const CatalogStudioProvider: FC<{ active: boolean; children: ReactNode }>
         if(!current) return;
         const rootLock = locksRef.current[lockKey('PAGE', CATALOG_ROOT_LOCK_ID)];
         if(!rootLock) {
-            setLastError('Acquire the catalog root lock before applying a bulk or import operation.');
+            pendingDocumentApplyRef.current = { format, document, fingerprint, summary };
+            setLastError(null);
+            acquireLock('PAGE', CATALOG_ROOT_LOCK_ID);
             return;
         }
         setLoading(true);
@@ -325,7 +362,7 @@ export const CatalogStudioProvider: FC<{ active: boolean; children: ReactNode }>
             nextOperationId('apply'), current.draftVersionId, current.revision, rootLock.token,
             format, document, fingerprint, summary
         ));
-    }, []);
+    }, [acquireLock]);
 
     const value = useMemo<CatalogStudioContextValue>(() => ({
         session,

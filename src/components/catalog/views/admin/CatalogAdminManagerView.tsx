@@ -32,7 +32,12 @@ import { CatalogStudioPreview } from '../../admin/studio/CatalogStudioPreview';
 import { useCatalogStudio } from '../../admin/studio/useCatalogStudio';
 import { parseCatalogTabLabel } from '../../useCatalogWindowWidth';
 import { CatalogIconView } from '../catalog-icon/CatalogIconView';
-import { buildCatalogAdminDraftTree } from './CatalogAdminDraftTree';
+import {
+    buildCatalogAdminDraftTree,
+    CatalogAdminPageDropPosition,
+    planCatalogAdminPageDrop,
+    resolveCatalogAdminPageDropPosition
+} from './CatalogAdminDraftTree';
 import { CatalogAdminOfferPriceView } from './CatalogAdminOfferPriceView';
 
 type CatalogAdminOffer = Parameters<NonNullable<ReturnType<typeof useCatalogAdmin>>['setEditingOffer']>[0];
@@ -93,7 +98,8 @@ export const CatalogAdminManagerView: FC<{}> = () => {
     const [activeTab, setActiveTab] = useState<ManagerTab>('pages');
     const [expanded, setExpanded] = useState<Set<number>>(new Set());
     const [search, setSearch] = useState('');
-    const [dragOverPageId, setDragOverPageId] = useState<number | null>(null);
+    const [pageDropTarget, setPageDropTarget] = useState<{ pageId: number; position: CatalogAdminPageDropPosition } | null>(null);
+    const [rootDropActive, setRootDropActive] = useState(false);
     const [dragOverOfferIndex, setDragOverOfferIndex] = useState<number | null>(null);
     const [selectedPageId, setSelectedPageId] = useState(currentPage?.pageId ?? -1);
 
@@ -135,7 +141,7 @@ export const CatalogAdminManagerView: FC<{}> = () => {
 
     const handlePageDragStart = useCallback((event: React.DragEvent, node: ICatalogNode) => {
         event.stopPropagation();
-        event.dataTransfer.setData('text/plain', JSON.stringify({ pageId: node.pageId, parentId: node.parent?.pageId ?? -1 }));
+        event.dataTransfer.setData('text/plain', JSON.stringify({ pageId: node.pageId }));
         event.dataTransfer.effectAllowed = 'move';
     }, []);
 
@@ -143,36 +149,72 @@ export const CatalogAdminManagerView: FC<{}> = () => {
         event.preventDefault();
         event.stopPropagation();
         event.dataTransfer.dropEffect = 'move';
-        setDragOverPageId(node.pageId);
+        const bounds = event.currentTarget.getBoundingClientRect();
+        const position = resolveCatalogAdminPageDropPosition(event.clientY, bounds.top, bounds.height);
+        setRootDropActive(false);
+        setPageDropTarget({ pageId: node.pageId, position });
     }, []);
 
     const handlePageDragLeave = useCallback(() => {
-        setDragOverPageId(null);
+        setPageDropTarget(null);
     }, []);
 
     const handlePageDrop = useCallback(
         (event: React.DragEvent, node: ICatalogNode) => {
             event.preventDefault();
             event.stopPropagation();
-            setDragOverPageId(null);
+            setPageDropTarget(null);
 
-            if (!catalogAdmin) return;
+            if (!catalogAdmin || !draftRootNode) return;
 
             try {
                 const data = JSON.parse(event.dataTransfer.getData('text/plain'));
+                const dragged = findNodeByPageId(draftRootNode, Number(data.pageId));
+                const bounds = event.currentTarget.getBoundingClientRect();
+                const position = resolveCatalogAdminPageDropPosition(event.clientY, bounds.top, bounds.height);
+                const plan = planCatalogAdminPageDrop(dragged, node, position, draftRootNode);
+                if (!plan) return;
 
-                if (!data.pageId || data.pageId === node.pageId) return;
-
-                const targetParentId = node.isBranch ? node.pageId : (node.parent?.pageId ?? -1);
-                const targetIndex = node.isBranch ? 0 : (node.parent?.children?.indexOf(node) ?? 0);
-
-                catalogAdmin.reorderPage(data.pageId, targetParentId, targetIndex, `Moved page #${data.pageId} under ${nodeName(node)}`);
+                if (position === 'inside') {
+                    setExpanded((current) => new Set(current).add(node.pageId));
+                }
+                catalogAdmin.reorderPage(
+                    plan.pageId,
+                    plan.newParentId,
+                    plan.newIndex,
+                    `Moved page #${plan.pageId} ${position} ${nodeName(node)}`
+                );
             } catch {
                 // Invalid drag payload
             }
         },
-        [catalogAdmin]
+        [catalogAdmin, draftRootNode]
     );
+
+    const handleRootDragOver = useCallback((event: React.DragEvent) => {
+        event.preventDefault();
+        event.stopPropagation();
+        event.dataTransfer.dropEffect = 'move';
+        setPageDropTarget(null);
+        setRootDropActive(true);
+    }, []);
+
+    const handleRootDrop = useCallback((event: React.DragEvent) => {
+        event.preventDefault();
+        event.stopPropagation();
+        setRootDropActive(false);
+        if (!catalogAdmin || !draftRootNode) return;
+
+        try {
+            const data = JSON.parse(event.dataTransfer.getData('text/plain'));
+            const dragged = findNodeByPageId(draftRootNode, Number(data.pageId));
+            const plan = planCatalogAdminPageDrop(dragged, null, 'root', draftRootNode);
+            if (!plan) return;
+            catalogAdmin.reorderPage(plan.pageId, plan.newParentId, plan.newIndex, `Moved page #${plan.pageId} to catalog root`);
+        } catch {
+            // Invalid drag payload
+        }
+    }, [catalogAdmin, draftRootNode]);
 
     const reorderOffersToIndex = useCallback(
         (fromIndex: number, toIndex: number) => {
@@ -316,23 +358,38 @@ export const CatalogAdminManagerView: FC<{}> = () => {
         const isSelected = node.pageId === selectedPageId && selectedPageId > -1;
         const isHidden = !node.isVisible;
         const hasChildren = node.children.length > 0;
+        const dropPosition = pageDropTarget?.pageId === node.pageId ? pageDropTarget.position : null;
 
         return (
             <div key={node.pageId} className="nitro-catalog-admin-tree-branch">
                 <div
-                    className={`nitro-catalog-admin-tree-row ${isSelected ? 'is-selected' : ''} ${isHidden ? 'is-hidden' : ''} ${dragOverPageId === node.pageId ? 'is-drag-over' : ''}`}
+                    className={`nitro-catalog-admin-tree-row ${isSelected ? 'is-selected' : ''} ${isHidden ? 'is-hidden' : ''} ${dropPosition ? `is-drop-${dropPosition}` : ''}`}
                     draggable
+                    role="treeitem"
+                    tabIndex={0}
+                    aria-expanded={hasChildren ? isOpen : undefined}
+                    aria-selected={isSelected}
                     style={{ paddingLeft: `${4 + depth * 14}px` }}
                     onClick={() => selectNode(node)}
+                    onKeyDown={(event) => {
+                        if (event.key !== 'Enter' && event.key !== ' ') return;
+                        event.preventDefault();
+                        selectNode(node);
+                    }}
                     onDragLeave={handlePageDragLeave}
                     onDragOver={(event) => handlePageDragOver(event, node)}
                     onDragStart={(event) => handlePageDragStart(event, node)}
+                    onDragEnd={() => {
+                        setPageDropTarget(null);
+                        setRootDropActive(false);
+                    }}
                     onDrop={(event) => handlePageDrop(event, node)}
                 >
                     <FaArrowsAlt className="nitro-catalog-admin-tree-drag" title="Drag to reorder or reparent" />
                     <span className="nitro-catalog-admin-tree-caret">
                         {hasChildren ? (
                             <button
+                                aria-label={`${isOpen ? 'Collapse' : 'Expand'} ${nodeName(node)}`}
                                 onClick={(event) => {
                                     event.stopPropagation();
                                     toggleExpand(node.pageId);
@@ -549,7 +606,7 @@ export const CatalogAdminManagerView: FC<{}> = () => {
                 <div className="nitro-catalog-admin-search-row">
                     <span className="nitro-catalog-admin-search">
                         <FaSearch />
-                        <input placeholder="Search pages..." value={search} onChange={(event) => setSearch(event.target.value)} />
+                        <input aria-label="Search catalog pages" placeholder="Search pages..." value={search} onChange={(event) => setSearch(event.target.value)} />
                     </span>
                     <button
                         className="nitro-catalog-admin-add"
@@ -560,7 +617,16 @@ export const CatalogAdminManagerView: FC<{}> = () => {
                         <FaPlus />
                     </button>
                 </div>
-                <div className="nitro-catalog-admin-tree">
+                <div className="nitro-catalog-admin-tree" role="tree" aria-label="Catalog pages">
+                    <div
+                        className={`nitro-catalog-admin-root-drop ${rootDropActive ? 'is-active' : ''}`}
+                        onDragLeave={() => setRootDropActive(false)}
+                        onDragOver={handleRootDragOver}
+                        onDrop={handleRootDrop}
+                    >
+                        <FaSitemap />
+                        <span>Drop here to move to catalog root</span>
+                    </div>
                     {!draftRootNode || draftRootNode.children.length === 0 ? (
                         <div className="nitro-catalog-admin-placeholder is-small">No categories</div>
                     ) : (
@@ -628,6 +694,7 @@ export const CatalogAdminManagerView: FC<{}> = () => {
                 {commandState.phase === 'draft' && 'The draft has unpublished changes and must be validated.'}
                 {commandState.phase === 'blocked' && `${commandState.validationLabel} must be resolved before publication.`}
                 {commandState.phase === 'ready' && 'The draft is validated and ready to publish.'}
+                {commandState.phase === 'loading' && 'Opening the shared Catalog Studio session...'}
                 {commandState.phase === 'offline' && 'Catalog Studio session is not ready.'}
             </div>
             <p className="nitro-catalog-admin-publish-text">
@@ -726,10 +793,14 @@ export const CatalogAdminManagerView: FC<{}> = () => {
                         <span>{catalogAdmin.lastError}</span>
                     </div>
                 )}
-                <div className="nitro-catalog-admin-tabs">
+                <div className="nitro-catalog-admin-tabs" role="tablist" aria-label="Catalog Studio sections">
                     {tabs.map((tab) => (
                         <button
                             key={tab.id}
+                            id={`catalog-studio-tab-${tab.id}`}
+                            role="tab"
+                            aria-selected={activeTab === tab.id}
+                            aria-controls="catalog-studio-active-panel"
                             className={`nitro-catalog-admin-tab ${activeTab === tab.id ? 'is-active' : ''} ${
                                 tab.id === 'publish' && hasPendingChanges ? 'has-pending' : ''
                             }`}
@@ -742,7 +813,7 @@ export const CatalogAdminManagerView: FC<{}> = () => {
                     ))}
                 </div>
 
-                <div className="nitro-catalog-admin-panel">
+                <div id="catalog-studio-active-panel" className="nitro-catalog-admin-panel" role="tabpanel" aria-labelledby={`catalog-studio-tab-${activeTab}`}>
                     {activeTab === 'pages' && renderPagesTab()}
                     {activeTab === 'preview' && <CatalogStudioPreview />}
                     {activeTab === 'bulk' && <CatalogStudioBulkPanel />}

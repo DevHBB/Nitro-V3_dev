@@ -51,6 +51,17 @@ const Probe = ({ action }: { action: PageMutationAction }) => {
     return <button onClick={mutate}>{action}</button>;
 };
 
+const OfferProbe = () => {
+    const admin = useCatalogAdmin();
+
+    return (
+        <div>
+            <button onClick={() => admin.setEditingOffer({ offerId: 99 } as any)}>open-offer</button>
+            <span data-testid="offer-name">{admin.editingOfferDetails?.catalogName ?? ''}</span>
+        </div>
+    );
+};
+
 const session = {
     activeVersionId: 11,
     draftVersionId: 12,
@@ -160,5 +171,43 @@ describe('CatalogAdminProvider page mutations', () => {
 
         await waitFor(() => expect(mocks.acquireLock).toHaveBeenCalledWith('PAGE', 42, 'NORMAL'));
         expect(mocks.sendMessage).not.toHaveBeenCalled();
+    });
+
+    it('retries an offer inspector read after the studio session becomes ready', async () => {
+        studio = { ...studio, session: null };
+        const view = render(<CatalogAdminProvider><OfferProbe /></CatalogAdminProvider>);
+
+        act(() => screen.getByText('open-offer').click());
+        expect(mocks.sendMessage).not.toHaveBeenCalled();
+
+        studio = {
+            ...studio,
+            session: {
+                ...session,
+                offers: [ {
+                    catalogType: 'NORMAL',
+                    offerId: 99,
+                    itemIds: '100',
+                    pageId: 42,
+                    catalogName: 'studio_offer',
+                    costCredits: 5,
+                    costPoints: 0,
+                    pointsType: 0,
+                    amount: 1,
+                    limitedStack: 0,
+                    orderNumber: -1,
+                    offerIdClient: 77,
+                    songId: 321,
+                    extradata: '',
+                    haveOffer: true,
+                    clubOnly: false
+                } ]
+            }
+        };
+        view.rerender(<CatalogAdminProvider><OfferProbe /></CatalogAdminProvider>);
+
+        await waitFor(() => expect(mocks.sendMessage).toHaveBeenCalledTimes(1));
+        expect(mocks.sendMessage.mock.calls[0][0].constructor.name).toBe('CatalogAdminLoadOfferComposer');
+        expect(screen.getByTestId('offer-name')).toHaveTextContent('studio_offer');
     });
 });

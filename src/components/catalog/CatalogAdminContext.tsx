@@ -68,6 +68,7 @@ export interface IOfferEditData {
     extradata: string;
     haveOffer: string;
     offerId_group: number;
+    songId: number;
     limitedStack: number;
     orderNumber: number;
 }
@@ -85,6 +86,7 @@ export interface IEditingOfferDetails {
     extradata: string;
     haveOffer: boolean;
     offerIdGroup: number;
+    songId: number;
     limitedStack: number;
     limitedSells: number;
     orderNumber: number;
@@ -181,6 +183,7 @@ export const CatalogAdminProvider: FC<{ children: ReactNode }> = ({ children }) 
     const [lastError, setLastError] = useState<string | null>(null);
     const queuedPageMutationRef = useRef<QueuedPageMutation | null>(null);
     const queuedOfferDeleteRef = useRef<{ offerId: number; summary: string } | null>(null);
+    const requestedOfferKeyRef = useRef<string | null>(null);
     const pendingActionRef = useRef<string | null>(null);
     const { simpleAlert = null } = useNotification();
 
@@ -197,22 +200,57 @@ export const CatalogAdminProvider: FC<{ children: ReactNode }> = ({ children }) 
         (offer: IPurchasableOffer | null) => {
             setEditingOfferState(offer);
             setEditingOfferDetails(null);
-
-            if (offer && offer.offerId !== -1) {
-                if (!studio.session) {
-                    setLastError('Catalog Studio session is not ready');
-                    return;
-                }
-                SendMessageComposer(new CatalogAdminLoadOfferComposer(
-                    offer.offerId,
-                    currentType,
-                    studio.session.draftVersionId,
-                    studio.revision
-                ));
-            }
+            requestedOfferKeyRef.current = null;
+            setLastError(null);
         },
-        [currentType, studio.session, studio.revision]
+        []
     );
+
+    useEffect(() => {
+        if (!editingOffer || editingOffer.offerId === -1) return;
+        if (!studio.session) {
+            setLastError('Catalog Studio session is not ready');
+            studio.refresh();
+            return;
+        }
+
+        const requestKey = `${studio.session.draftVersionId}:${editingOffer.offerId}:${toStudioCatalogType(currentType)}`;
+        if (requestedOfferKeyRef.current === requestKey) return;
+        requestedOfferKeyRef.current = requestKey;
+
+        const catalogType = toStudioCatalogType(currentType);
+        const snapshot = studio.session.offers.find((offer) =>
+            offer.offerId === editingOffer.offerId && offer.catalogType === catalogType);
+        if (snapshot) {
+            setEditingOfferDetails({
+                offerId: snapshot.offerId,
+                pageId: snapshot.pageId,
+                itemIds: snapshot.itemIds,
+                catalogName: snapshot.catalogName,
+                costCredits: snapshot.costCredits,
+                costPoints: snapshot.costPoints,
+                pointsType: snapshot.pointsType,
+                amount: snapshot.amount,
+                clubOnly: snapshot.clubOnly,
+                extradata: snapshot.extradata,
+                haveOffer: snapshot.haveOffer,
+                offerIdGroup: snapshot.offerIdClient,
+                songId: snapshot.songId,
+                limitedStack: snapshot.limitedStack,
+                limitedSells: 0,
+                orderNumber: snapshot.orderNumber,
+                catalogMode: catalogType
+            });
+        }
+
+        setLastError(null);
+        SendMessageComposer(new CatalogAdminLoadOfferComposer(
+            editingOffer.offerId,
+            currentType,
+            studio.session.draftVersionId,
+            studio.revision
+        ));
+    }, [currentType, editingOffer, studio.refresh, studio.revision, studio.session]);
 
     useMessageEvent(CatalogAdminOfferDetailsEvent, (event: CatalogAdminOfferDetailsEvent) => {
         const parser = event.getParser();
@@ -230,6 +268,7 @@ export const CatalogAdminProvider: FC<{ children: ReactNode }> = ({ children }) 
             extradata: parser.extradata,
             haveOffer: parser.haveOffer,
             offerIdGroup: parser.offerIdGroup,
+            songId: parser.songId,
             limitedStack: parser.limitedStack,
             limitedSells: parser.limitedSells,
             orderNumber: parser.orderNumber,
@@ -495,6 +534,7 @@ export const CatalogAdminProvider: FC<{ children: ReactNode }> = ({ children }) 
                     data.offerId_group,
                     data.limitedStack,
                     data.orderNumber,
+                    data.songId,
                     currentType,
                     studio.session.draftVersionId,
                     studio.revision,
@@ -530,6 +570,7 @@ export const CatalogAdminProvider: FC<{ children: ReactNode }> = ({ children }) 
                     data.offerId_group,
                     data.limitedStack,
                     data.orderNumber,
+                    data.songId,
                     currentType,
                     studio.session.draftVersionId,
                     studio.revision,

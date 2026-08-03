@@ -1,4 +1,4 @@
-import { FC, useEffect, useState } from 'react';
+import { FC, useEffect, useRef, useState } from 'react';
 import { FaLanguage, FaSave, FaSpinner, FaTrash } from 'react-icons/fa';
 import { CatalogType, LocalizeText, localizeWithFallback } from '../../../../api';
 import { useCatalogData, useCatalogUiState, useTranslationActions, useTranslationState } from '../../../../hooks';
@@ -6,6 +6,8 @@ import { CATALOG_ROOT_LOCK_ID, IEditingPageDetails, IPageEditData, useCatalogAdm
 import { parseCatalogTabLabel } from '../../useCatalogWindowWidth';
 import { CatalogIconView } from '../catalog-icon/CatalogIconView';
 import { CatalogAdminModalView } from './CatalogAdminModalView';
+import { useCatalogStudio } from '../../admin/studio/useCatalogStudio';
+import { claimCatalogAdminHydration } from './CatalogAdminFormHydration';
 
 const LAYOUT_OPTIONS = [
     'default_3x3',
@@ -116,7 +118,7 @@ export const createCatalogAdminPageFormState = (details: IEditingPageDetails): I
     includes: details.includes
 });
 
-export const createCatalogAdminNewPageFormState = (parentId: number, catalogMode: string): IPageEditData => ({
+export const createCatalogAdminNewPageFormState = (parentId: number, catalogMode: string, orderNum = 0): IPageEditData => ({
     pageId: undefined,
     caption: '',
     captionSave: '',
@@ -126,7 +128,7 @@ export const createCatalogAdminNewPageFormState = (parentId: number, catalogMode
     iconColor: 1,
     iconImage: 0,
     minRank: 1,
-    orderNum: 0,
+    orderNum,
     visible: '1',
     enabled: '1'
 });
@@ -136,7 +138,6 @@ export const validateCatalogAdminPageForm = (data: IPageEditData): string | null
     if (!LAYOUT_OPTIONS.includes(data.pageLayout)) return 'Select a valid page layout.';
     if (data.minRank < 1) return 'Minimum rank must be at least 1.';
     if (data.iconImage < 0 || data.iconColor < 0) return 'Icon values cannot be negative.';
-    if (data.orderNum < 0) return 'Order cannot be negative.';
     if (data.parentId < -1) return 'Parent page ID is invalid.';
     if ((data.roomId || 0) < 0) return 'Room ID cannot be negative.';
 
@@ -151,6 +152,7 @@ export const CatalogAdminPageEditView: FC<{}> = () => {
     const { currentPage = null, rootNode = null } = useCatalogData();
     const { activeNodes = [], currentType = CatalogType.NORMAL } = useCatalogUiState();
     const catalogAdmin = useCatalogAdmin();
+    const studio = useCatalogStudio();
     const editingPageData = catalogAdmin?.editingPageData ?? false;
     const editingRootPage = catalogAdmin?.editingRootPage ?? false;
     const editingPageNode = catalogAdmin?.editingPageNode ?? null;
@@ -189,12 +191,19 @@ export const CatalogAdminPageEditView: FC<{}> = () => {
     const [translateTargetLanguage, setTranslateTargetLanguage] = useState('en');
     const [isTranslating, setIsTranslating] = useState(false);
     const [translateError, setTranslateError] = useState<string | null>(null);
+    const initializationClaimRef = useRef({ current: null as string | null });
+    const detailsClaimRef = useRef({ current: null as string | null });
+    const requestClaimRef = useRef({ current: null as string | null });
     const { supportedLanguages = [], languagesLoading = false } = useTranslationState();
     const { translateText, ensureSupportedLanguagesLoaded } = useTranslationActions();
     const targetNode = editingPageNode ? editingPageNode : editingRootPage ? rootNode : activeNodes.length > 0 ? activeNodes[activeNodes.length - 1] : null;
 
     const targetPageId = targetNode?.pageId ?? currentPage?.pageId;
     const isRoot = editingRootPage;
+    const pageCatalogMode = currentType === CatalogType.BUILDER ? 'BUILDER' : 'NORMAL';
+    const formTargetKey = editingPageData && targetNode
+        ? `page:${pageCatalogMode}:${creatingPage ? 'new' : 'edit'}:${creatingPage ? targetNode.pageId : targetPageId}`
+        : null;
     const lockPageId = creatingPage
         ? targetNode && targetNode.pageId > 0 ? targetNode.pageId : CATALOG_ROOT_LOCK_ID
         : targetPageId;
@@ -207,11 +216,27 @@ export const CatalogAdminPageEditView: FC<{}> = () => {
     };
 
     useEffect(() => {
-        if (!editingPageData || !targetNode) return;
+        if (!editingPageData || !targetNode) {
+            claimCatalogAdminHydration(initializationClaimRef.current, null);
+            claimCatalogAdminHydration(detailsClaimRef.current, null);
+            claimCatalogAdminHydration(requestClaimRef.current, null);
+            return;
+        }
+
+        if (creatingPage && !studio.session) return;
+        if (!claimCatalogAdminHydration(initializationClaimRef.current, formTargetKey)) return;
+
+        claimCatalogAdminHydration(detailsClaimRef.current, null);
+        claimCatalogAdminHydration(requestClaimRef.current, null);
 
         if (creatingPage) {
-            const mode = currentType === CatalogType.BUILDER ? 'BUILDER' : 'NORMAL';
-            const form = createCatalogAdminNewPageFormState(targetNode.pageId, mode);
+            const mode = pageCatalogMode;
+            const parentId = targetNode.pageId > 0 ? targetNode.pageId : -1;
+            const siblingOrders = (studio.session?.pages ?? [])
+                .filter((page) => page.catalogType === mode && page.parentId === parentId)
+                .map((page) => page.orderNum);
+            const nextOrder = siblingOrders.length ? Math.max(...siblingOrders) + 1 : 0;
+            const form = createCatalogAdminNewPageFormState(parentId, mode, nextOrder);
             setCaption(form.caption);
             setCaptionSave(form.captionSave);
             setCatalogMode(form.catalogMode);
@@ -246,7 +271,7 @@ export const CatalogAdminPageEditView: FC<{}> = () => {
         setOrderNum(0);
         setEnabled('1');
 
-        setCatalogMode(currentType === CatalogType.BUILDER ? 'BUILDER' : 'NORMAL');
+        setCatalogMode(pageCatalogMode);
         setPageLayout('default_3x3');
         setIconImage(targetNode.iconId ?? 0);
         setVisible(targetNode.isVisible ? '1' : '0');
@@ -258,8 +283,24 @@ export const CatalogAdminPageEditView: FC<{}> = () => {
         const wireParentId = targetNode.parentId;
         setParentId(typeof wireParentId === 'number' && wireParentId !== -1 ? wireParentId : targetNode.parent ? targetNode.parent.pageId : -1);
 
-        if (targetPageId != null && targetPageId >= 0) requestPageDetails?.(targetPageId);
-    }, [editingPageData, creatingPage, targetNode, currentPage, currentType, targetPageId, requestPageDetails]);
+    }, [editingPageData, creatingPage, targetNode, formTargetKey, pageCatalogMode, studio.session]);
+
+    useEffect(() => {
+        if (!editingPageData || creatingPage || targetPageId == null || targetPageId < 0) {
+            claimCatalogAdminHydration(requestClaimRef.current, null);
+            return;
+        }
+
+        if (!studio.session) {
+            claimCatalogAdminHydration(requestClaimRef.current, null);
+            return;
+        }
+
+        const requestKey = `${studio.session.draftVersionId}:${pageCatalogMode}:${targetPageId}`;
+        if (!claimCatalogAdminHydration(requestClaimRef.current, requestKey)) return;
+
+        requestPageDetails?.(targetPageId);
+    }, [creatingPage, editingPageData, pageCatalogMode, requestPageDetails, studio.session, targetPageId]);
 
     useEffect(() => {
         if (!editingPageData || lockPageId == null || lockPageId < 0) return;
@@ -269,6 +310,7 @@ export const CatalogAdminPageEditView: FC<{}> = () => {
     useEffect(() => {
         if (!editingPageDetails) return;
         if (targetPageId != null && editingPageDetails.pageId !== targetPageId) return;
+        if (!claimCatalogAdminHydration(detailsClaimRef.current, `${formTargetKey}:details`)) return;
 
         const form = createCatalogAdminPageFormState(editingPageDetails);
         setCaption(form.caption);
@@ -293,7 +335,7 @@ export const CatalogAdminPageEditView: FC<{}> = () => {
         setPageTextTeaser(form.pageTextTeaser || '');
         setRoomId(form.roomId || 0);
         setIncludes(form.includes || '');
-    }, [editingPageDetails, targetPageId]);
+    }, [editingPageDetails, formTargetKey, targetPageId]);
 
     if (!editingPageData || !targetNode) return null;
 
@@ -491,7 +533,6 @@ export const CatalogAdminPageEditView: FC<{}> = () => {
                                     <label className="nitro-catalog-admin-label is-field">{LocalizeText('catalog.admin.order')}</label>
                                     <input
                                         className={inputClass}
-                                        min={0}
                                         type="number"
                                         value={orderNum}
                                         onChange={(e) => setOrderNum(parseInt(e.target.value) || 0)}

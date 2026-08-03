@@ -1,7 +1,9 @@
 import type { ICatalogNode } from '../../../../api';
 import { describe, expect, it } from 'vitest';
 import type { CatalogStudioPageSnapshot } from '../../admin/studio/CatalogStudioTypes';
-import { buildCatalogAdminDraftTree } from './CatalogAdminDraftTree';
+import * as DraftTree from './CatalogAdminDraftTree';
+
+const { buildCatalogAdminDraftTree } = DraftTree;
 
 const liveNode = (pageId: number, parent: ICatalogNode | null = null): ICatalogNode => ({
     activate: () => undefined,
@@ -67,5 +69,61 @@ describe('buildCatalogAdminDraftTree', () => {
 
         expect(draft?.children[0].pageId).toBe(99);
         expect(draft?.children[0].localization).toBe('Page 99');
+    });
+
+    it('plans an explicit move from a nested category to the catalog root', () => {
+        const draft = buildCatalogAdminDraftTree(
+            liveNode(-1),
+            [ page(1, -1, 0), page(2, -1, 1), page(3, 2, 0) ],
+            'NORMAL'
+        );
+        const nested = draft?.children[1].children[0];
+        const planDrop = (DraftTree as any).planCatalogAdminPageDrop;
+
+        expect(planDrop(nested, null, 'root', draft)).toEqual({ pageId: 3, newParentId: -1, newIndex: 2 });
+    });
+
+    it('distinguishes before, inside and after drops and corrects same-parent indexes', () => {
+        const draft = buildCatalogAdminDraftTree(
+            liveNode(-1),
+            [ page(1, -1, 0), page(2, -1, 1), page(3, -1, 2) ],
+            'NORMAL'
+        );
+        const planDrop = (DraftTree as any).planCatalogAdminPageDrop;
+
+        expect(planDrop(draft?.children[0], draft?.children[1], 'after', draft)).toEqual({
+            pageId: 1,
+            newParentId: -1,
+            newIndex: 1
+        });
+        expect(planDrop(draft?.children[2], draft?.children[1], 'before', draft)).toEqual({
+            pageId: 3,
+            newParentId: -1,
+            newIndex: 1
+        });
+        expect(planDrop(draft?.children[2], draft?.children[0], 'inside', draft)).toEqual({
+            pageId: 3,
+            newParentId: 1,
+            newIndex: 0
+        });
+    });
+
+    it('rejects drops that would move a category into one of its descendants', () => {
+        const draft = buildCatalogAdminDraftTree(
+            liveNode(-1),
+            [ page(1, -1, 0), page(2, 1, 0) ],
+            'NORMAL'
+        );
+        const planDrop = (DraftTree as any).planCatalogAdminPageDrop;
+
+        expect(planDrop(draft?.children[0], draft?.children[0].children[0], 'inside', draft)).toBeNull();
+    });
+
+    it('maps pointer position to clear before, inside and after zones', () => {
+        const resolvePosition = (DraftTree as any).resolveCatalogAdminPageDropPosition;
+
+        expect(resolvePosition(102, 100, 40)).toBe('before');
+        expect(resolvePosition(120, 100, 40)).toBe('inside');
+        expect(resolvePosition(138, 100, 40)).toBe('after');
     });
 });
