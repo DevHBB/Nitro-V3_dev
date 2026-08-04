@@ -206,8 +206,8 @@
     background: transparent !important;
     box-shadow: none !important;
     border-radius: 0 !important;
-    color: #ffffff !important;
-    text-shadow: 1px 1px 0 #003a00 !important;
+    color: #000000 !important;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4) !important;
 }
 
 .nitro-catalog-window .nitro-catalog-swf-buy-button:hover,
@@ -227,6 +227,6 @@
 .nitro-catalog-window .nitro-catalog-swf-confirm-button:disabled,
 .nitro-catalog-window .nitro-catalog-swf-confirm-button.pointer-events-none {
     border-image-source: var(--habbo-skin-shiny-disabled) !important;
-    color: #eeeeee !important;
+    color: #555555 !important;
     opacity: 1 !important;
 }
