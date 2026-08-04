@@ -439,7 +439,6 @@ export class CatalogStudioDiscardEvent extends MessageEvent {}
 export class CatalogStudioRestoreEvent extends MessageEvent {}
 export class CatalogStudioPreviewEvent extends MessageEvent {}
 export class CatalogStudioDocumentResultEvent extends MessageEvent {}
-
 // `ChooserSelectionFilter` is used as a string enum in some call sites.
 export const ChooserSelectionFilter = makeEnumProxy('ChooserSelectionFilter');
 
@@ -624,6 +623,13 @@ export const GetLocalizationManager = vi.fn(stubManager);
 export const GetRoomEngine = vi.fn(stubManager);
 export const GetRoomMessageHandler = vi.fn(stubManager);
 export const GetRoomSessionManager = vi.fn(stubManager);
+
+// RoomGeometry — only the discrete zoom scale constants the room-zoom helper
+// reads (SCALE_ZOOMED_IN = 64, SCALE_ZOOMED_OUT = 32).
+export class RoomGeometry {
+    static readonly SCALE_ZOOMED_IN = 64;
+    static readonly SCALE_ZOOMED_OUT = 32;
+}
 
 // RoomPreviewer — only the bits the editor's FloorplanRoomPreview
 // component touches. PREVIEW_COUNTER is a static field that the
