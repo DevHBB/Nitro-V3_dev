@@ -16,8 +16,8 @@ export const HOUSEKEEPING_MODE_KEY = 'housekeeping.mode';
 export const isHousekeepingEnabled = (): boolean => GetConfigurationValue<boolean>(HOUSEKEEPING_ENABLED_KEY, false) === true;
 
 /**
- * `full` (default) exposes the five-tab layout: dashboard, users,
- * rooms, economy, audit. `light` strips the panel down to the
+ * `full` (default) exposes the six-tab layout: dashboard, users,
+ * rooms, economy, audit, and Soundboard. `light` strips the panel down to the
  * essentials — Users + Rooms only — for operators who want the
  * in-client HK only for live moderation, not for economy
  * management. Anything else than `'light'` resolves to `'full'`
@@ -46,7 +46,8 @@ export const housekeepingTabsForMode = (mode: HousekeepingMode): HousekeepingTab
         HousekeepingTabId.USERS,
         HousekeepingTabId.ROOMS,
         HousekeepingTabId.ECONOMY,
-        HousekeepingTabId.AUDIT
+        HousekeepingTabId.AUDIT,
+        HousekeepingTabId.SOUNDBOARD
     ];
 
     return all.filter((tab) => isHousekeepingTabAvailable(tab, mode));

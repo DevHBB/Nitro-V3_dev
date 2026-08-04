@@ -16,16 +16,18 @@ interface Props {
     initialY: number;
     initialZ: number;
     initialScale: number;
+    initialAlpha: number;
     onClose: () => void;
-    onSave: (x: number, y: number, z: number, scale: number) => void;
+    onSave: (x: number, y: number, z: number, scale: number, alpha: number) => void;
 }
 
 export const ImagePositionEditorView: FC<Props> = (props) => {
-    const { roomId, objectId, isWallItem, initialX, initialY, initialZ, initialScale, onClose, onSave } = props;
+    const { roomId, objectId, isWallItem, initialX, initialY, initialZ, initialScale, initialAlpha, onClose, onSave } = props;
     const [x, setX] = useState(initialX);
     const [y, setY] = useState(initialY);
     const [z, setZ] = useState(initialZ);
     const [scale, setScale] = useState(initialScale || 100);
+    const [alpha, setAlpha] = useState(initialAlpha ?? 100);
     const padRef = useRef<HTMLDivElement>(null);
     const draggingRef = useRef(false);
 
@@ -35,7 +37,7 @@ export const ImagePositionEditorView: FC<Props> = (props) => {
     // bumps its update counter so the visualization re-renders next frame.
     // Nothing is sent to the server until Save.
     const applyLive = useCallback(
-        (nx: number, ny: number, nz: number, nScale: number) => {
+        (nx: number, ny: number, nz: number, nScale: number, nAlpha: number) => {
             const roomObject = GetRoomEngine().getRoomObject(roomId, objectId, category);
             if (!roomObject?.model) return;
 
@@ -43,13 +45,14 @@ export const ImagePositionEditorView: FC<Props> = (props) => {
             roomObject.model.setValue(RoomObjectVariable.FURNITURE_BRANDING_OFFSET_Y, ny);
             roomObject.model.setValue(RoomObjectVariable.FURNITURE_BRANDING_OFFSET_Z, nz);
             roomObject.model.setValue(RoomObjectVariable.FURNITURE_BRANDING_SCALE, nScale);
+            roomObject.model.setValue(RoomObjectVariable.FURNITURE_BRANDING_ALPHA, nAlpha);
         },
         [roomId, objectId, category]
     );
 
     useEffect(() => {
-        applyLive(x, y, z, scale);
-    }, [x, y, z, scale, applyLive]);
+        applyLive(x, y, z, scale, alpha);
+    }, [x, y, z, scale, alpha, applyLive]);
 
     const setFromPointer = useCallback((clientX: number, clientY: number) => {
         const rect = padRef.current?.getBoundingClientRect();
@@ -78,12 +81,12 @@ export const ImagePositionEditorView: FC<Props> = (props) => {
     };
 
     const cancel = () => {
-        applyLive(initialX, initialY, initialZ, initialScale || 100);
+        applyLive(initialX, initialY, initialZ, initialScale || 100, initialAlpha ?? 100);
         onClose();
     };
 
     const save = () => {
-        onSave(x, y, z, scale);
+        onSave(x, y, z, scale, alpha);
         onClose();
     };
 
@@ -128,6 +131,20 @@ export const ImagePositionEditorView: FC<Props> = (props) => {
                             className="grow"
                         />
                         <span className="w-12 text-right text-[11px] tabular-nums text-black/70">{(scale / 100).toFixed(2)}x</span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <span className="w-12 text-[11px] text-black/70">{LocalizeText('image.position.editor.opacity')}</span>
+                        <input
+                            type="range"
+                            min={0}
+                            max={100}
+                            step={1}
+                            value={alpha}
+                            onChange={(e) => setAlpha(Number.isFinite(e.target.valueAsNumber) ? e.target.valueAsNumber : 100)}
+                            className="grow"
+                        />
+                        <span className="w-12 text-right text-[11px] tabular-nums text-black/70">{alpha}%</span>
                     </div>
 
                     <div className="grid grid-cols-3 gap-2">

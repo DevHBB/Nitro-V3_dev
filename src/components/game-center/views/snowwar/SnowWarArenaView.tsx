@@ -1,16 +1,36 @@
-import { FC, MouseEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { GetSessionDataManager, LocalizeText } from '../../../../api';
+import { FC, MouseEvent, PointerEvent as ReactPointerEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { GetConfigurationValue, GetSessionDataManager, LocalizeText } from '../../../../api';
 import {
+    INITIAL_SNOWBALL_COUNT,
+    LONG_LOB_MAX_RANGE_WORLD,
+    QUICK_THROW_MAX_RANGE_WORLD,
+    SHORT_LOB_MAX_RANGE_WORLD,
+    SNOWWAR_SNOWBALL_IMAGE,
+    SNOWWAR_SNOWBALL_SHADOW,
+    SNOWWAR_SPLASH_FRAMES,
+    SNOWWAR_STATE_CREATING,
     SNOWWAR_STATE_INVINCIBLE,
     SNOWWAR_STATE_STUNNED,
-    THROW_RANGE_LONG,
-    THROW_RANGE_NORMAL,
+    STUN_TIME,
+    SUBTURN_MS,
     TILE_SIZE_WORLD,
+    TRAJECTORY_DEFAULT,
+    TRAJECTORY_LONG_LOB,
+    TRAJECTORY_QUICK,
+    TRAJECTORY_SHORT_LOB,
     tileToWorld,
 } from '../../../../api/snowwar';
-import { LayoutFurniImageView } from '../../../../common';
+import snowballPileImage from '../../../../assets/images/snowstorm/original/snst_ballpile.png';
+import { LayoutAvatarImageView, LayoutFurniImageView } from '../../../../common';
 import { useSnowWar } from '../../../../hooks';
+import { FloorplanEditorView } from '../../../floorplan-editor/FloorplanEditorView';
 import { SnowWarAvatarView } from './SnowWarAvatarView';
+import {
+    canPlaceSnowWarEditorItem,
+    getSnowWarEditorArea,
+    isSnowWarFloorTile,
+    SnowWarEditorTile,
+} from './SnowWarEditorTools';
 
 const localizeWithFallback = (key: string, fallback: string) =>
 {
@@ -18,8 +38,13 @@ const localizeWithFallback = (key: string, fallback: string) =>
     return text && text !== key ? text : fallback;
 };
 
-const TILE_HALF_W = 12;
-const TILE_HALF_H = 6;
+// RoomDesktop creates every AIR game session at RoomEngine scale 32 (normal
+// rooms use 64). Keep the DOM layer at 2x for crisp pixel rendering, but author
+// every world coordinate and sprite at the matching half-size underneath it.
+const AIR_GAME_CANVAS_SCALE = 32;
+const ZOOM = 2;
+const TILE_HALF_W = AIR_GAME_CANVAS_SCALE / (2 * ZOOM);
+const TILE_HALF_H = TILE_HALF_W / 2;
 
 // Furni images come from getFurnitureFloorImage at geometry scale 64, i.e.
 // authored for a 64px-wide tile (half-width 32). The SnowWar tile is only
@@ -27,99 +52,14 @@ const TILE_HALF_H = 6;
 // arena tile - a 2x2 grid furni then lines up with the 2x2 floor tiles instead
 // of overhanging them.
 const SNOWWAR_FURNI_SCALE = TILE_HALF_W / 32;
+// SnowWar's embedded game sprites are already authored for the 32px game
+// canvas, unlike normal RoomEngine furniture and LARGE avatar renders (64px).
+const SNOWWAR_GAME_SPRITE_SCALE = 1 / ZOOM;
 
-// Draws a small snowy tree on the arena canvas. `blue` picks the blue winter
-// theme over red; `bushy` picks the round, snow-capped shape over the pointed
-// tiered pine - so the four tree props read as two red + two blue, each pair
-// with a distinct silhouette. Trunk is brown with a dab of snow.
-const drawSnowTree = (context: CanvasRenderingContext2D, sx: number, centerY: number, blue: boolean, bushy: boolean): void =>
-{
-    const leaf = blue ? '#2f77c2' : '#c1392b';
-    const leafDark = blue ? '#1f5490' : '#8f271d';
-    const snow = '#f4fbff';
-
-    // Trunk: brown, a touch of shadow on the right + snow at its base.
-    context.fillStyle = '#6b4626';
-    context.fillRect(sx - 2, centerY - 9, 4, 10);
-    context.fillStyle = '#583920';
-    context.fillRect(sx + 0.5, centerY - 9, 1.5, 10);
-    context.fillStyle = snow;
-    context.fillRect(sx - 3, centerY - 1, 6, 2);
-
-    if (!bushy)
-    {
-        // Pointed pine: three stacked tiers (widest at the bottom), each with a
-        // snow line, plus a snow cap on the tip.
-        const tiers = [
-            { base: centerY - 8, w: 13, h: 12 },
-            { base: centerY - 17, w: 10, h: 11 },
-            { base: centerY - 25, w: 7, h: 11 },
-        ];
-        for (const t of tiers)
-        {
-            context.beginPath();
-            context.moveTo(sx, t.base - t.h);
-            context.lineTo(sx + t.w, t.base);
-            context.lineTo(sx - t.w, t.base);
-            context.closePath();
-            context.fillStyle = leaf;
-            context.fill();
-            context.strokeStyle = leafDark;
-            context.lineWidth = 1;
-            context.stroke();
-            // Snow resting on the tier.
-            context.strokeStyle = snow;
-            context.lineWidth = 2;
-            context.beginPath();
-            context.moveTo(sx - t.w + 1, t.base - 1);
-            context.lineTo(sx - t.w * 0.3, t.base - 3);
-            context.lineTo(sx + t.w * 0.25, t.base - 1);
-            context.lineTo(sx + t.w - 1, t.base - 3);
-            context.stroke();
-        }
-        context.fillStyle = snow;
-        context.beginPath();
-        context.arc(sx, centerY - 36, 2, 0, Math.PI * 2);
-        context.fill();
-    }
-    else
-    {
-        // Bushy round tree: overlapping blobs, each with a snow cap on top.
-        const blobs = [
-            { x: sx, y: centerY - 12, r: 9 },
-            { x: sx - 7, y: centerY - 9, r: 6 },
-            { x: sx + 7, y: centerY - 9, r: 6 },
-            { x: sx, y: centerY - 22, r: 7 },
-        ];
-        context.lineWidth = 1;
-        for (const b of blobs)
-        {
-            context.beginPath();
-            context.arc(b.x, b.y, b.r, 0, Math.PI * 2);
-            context.fillStyle = leaf;
-            context.fill();
-            context.strokeStyle = leafDark;
-            context.stroke();
-        }
-        context.fillStyle = snow;
-        for (const b of blobs)
-        {
-            context.beginPath();
-            context.arc(b.x, b.y - (b.r * 0.45), b.r * 0.62, Math.PI, Math.PI * 2);
-            context.fill();
-        }
-    }
-};
-
-// Footprint (in tiles) of the flat floor-tile props. These are drawn as N×N
-// isometric floor diamonds and are walkable / height-0 (a snowball flies over).
-const CLASSIC_SIZES: Record<string, { w: number; l: number }> = {
-    block_basic: { w: 1, l: 1 },
-    block_basic2: { w: 2, l: 2 },
-    block_basic3: { w: 4, l: 4 },
-    block_ice: { w: 1, l: 1 },
-    block_ice2: { w: 2, l: 2 },
-    block_ice3: { w: 4, l: 4 },
+// Duckie's water tiles are an additive editor feature. The original
+// block_basic/block_ice suffixes describe progressively taller one-tile
+// obstacles, not wider floor footprints.
+const CUSTOM_FLOOR_SIZES: Record<string, { w: number; l: number }> = {
     block_water1: { w: 1, l: 1 },
     block_water2: { w: 2, l: 2 },
     block_water3: { w: 3, l: 3 },
@@ -183,142 +123,76 @@ const drawFloorDiamond = (context: CanvasRenderingContext2D, tsx: number, tsy: n
     }
 };
 
-// Draws a classic SnowWar prop (tree / snowman / floor tile / block) by
-// classname, anchored at the tile whose top vertex is (sx, sy). Shared by the
-// placed-item pass and the editor placement preview so the ghost matches
-// exactly what gets placed.
-const drawClassicProp = (context: CanvasRenderingContext2D, name: string, sx: number, sy: number, rotation = 0): void =>
+interface OfficialSnowWarSprite
+{
+    image: string;
+    shadow?: string;
+}
+
+// Original hh_game_snowwar_room artwork. Comet itself resolves these classnames
+// through RoomEngine; it never paints substitute trees or snowmen.
+const OFFICIAL_SNOWWAR_SPRITES: Record<string, OfficialSnowWarSprite> = {
+    sw_tree1: { image: 'sw_tree1.png', shadow: 'sw_tree1_shadow.png' },
+    sw_tree2: { image: 'sw_tree2.png', shadow: 'sw_tree2_shadow.png' },
+    sw_tree3: { image: 'sw_tree3.png', shadow: 'sw_tree3_shadow.png' },
+    sw_tree4: { image: 'sw_tree4.png', shadow: 'sw_tree4_shadow.png' },
+    obst_snowman: { image: 'obst_snowman.png' },
+    obst_duck: { image: 'obst_duck.png' },
+    block_basic: { image: 'block_basic.png' },
+    block_basic2: { image: 'block_basic2.png' },
+    block_basic3: { image: 'block_basic3.png' },
+    block_ice: { image: 'block_ice.png' },
+    block_ice2: { image: 'block_ice2.png' },
+    block_small: { image: 'block_small.png' },
+    // The a/b arch variants are distinct official pieces (different collision
+    // heights server-side), not rotations of one classname.
+    block_arch1: { image: 'block_arch1.png' },
+    block_arch2: { image: 'block_arch2.png' },
+    block_arch3: { image: 'block_arch3.png' },
+    block_arch1b: { image: 'block_arch1b.png' },
+    block_arch2b: { image: 'block_arch2b.png' },
+    block_arch3b: { image: 'block_arch3b.png' },
+};
+
+const getArenaPropAssetUrl = (fileName: string): string =>
+{
+    const imageLibraryUrl = GetConfigurationValue<string>('image.library.url', '');
+    const baseUrl = imageLibraryUrl && !imageLibraryUrl.endsWith('/') ? `${imageLibraryUrl}/` : imageLibraryUrl;
+    return `${baseUrl}snowstorm_client/arena_props/${fileName}?v=official-2`;
+};
+
+const getOfficialSnowWarAssetUrl = (fileName: string): string =>
+{
+    const imageLibraryUrl = GetConfigurationValue<string>('image.library.url', '');
+    const baseUrl = imageLibraryUrl && !imageLibraryUrl.endsWith('/') ? `${imageLibraryUrl}/` : imageLibraryUrl;
+    return `${baseUrl}snowstorm_client/official/${fileName}?v=air-room-2`;
+};
+
+const getOfficialSnowWarSprite = (name: string, rotation: number): OfficialSnowWarSprite | null =>
+{
+    if (name === 'sw_fence' || name === 'sw_fence2')
+    {
+        const alternate = (rotation === 2 || rotation === 6) !== (name === 'sw_fence2');
+        return { image: alternate ? 'sw_fence_dir2.png' : 'sw_fence_dir4.png' };
+    }
+    return OFFICIAL_SNOWWAR_SPRITES[name] ?? null;
+};
+
+const loadSnowWarImage = (url: string): Promise<HTMLImageElement> => new Promise((resolve, reject) =>
+{
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error(`Unable to load SnowStorm asset: ${url}`));
+    image.src = url;
+});
+
+// Draws Duckie's additive water tiles and a neutral fallback for newer editor
+// pieces that do not exist in the archived original asset library.
+const drawCustomProp = (context: CanvasRenderingContext2D, name: string, sx: number, sy: number, _rotation = 0): void =>
 {
     const centerY = sy + TILE_HALF_H;
 
-    if (name.startsWith('sw_fence'))
-    {
-        // A low wooden fence running along one tile axis, centred so adjacent
-        // fences of the same orientation join up edge-to-edge. sw_fence2 defaults
-        // to the other diagonal; rotating (2/6) flips whichever it is.
-        const orientB = (name === 'sw_fence2') !== (rotation === 2 || rotation === 6);
-        const hw = TILE_HALF_W / 2;
-        const hh = TILE_HALF_H / 2;
-        const p0 = orientB ? { x: sx + hw, y: centerY - hh } : { x: sx - hw, y: centerY - hh };
-        const p1 = orientB ? { x: sx - hw, y: centerY + hh } : { x: sx + hw, y: centerY + hh };
-        const fh = 13;
-
-        // Two horizontal rails.
-        context.strokeStyle = '#caa063';
-        context.lineWidth = 1.6;
-        for (const ry of [fh * 0.4, fh * 0.85])
-        {
-            context.beginPath();
-            context.moveTo(p0.x, p0.y - ry);
-            context.lineTo(p1.x, p1.y - ry);
-            context.stroke();
-        }
-        // Posts (back to front), each with a small cap.
-        context.lineWidth = 2;
-        for (const t of [0, 0.5, 1])
-        {
-            const px = p0.x + ((p1.x - p0.x) * t);
-            const py = p0.y + ((p1.y - p0.y) * t);
-            context.strokeStyle = '#8a6436';
-            context.beginPath();
-            context.moveTo(px, py);
-            context.lineTo(px, py - fh);
-            context.stroke();
-            context.fillStyle = '#a87c48';
-            context.fillRect(px - 1, py - fh - 1, 2, 2);
-        }
-        return;
-    }
-
-    if (name.startsWith('sw_tree'))
-    {
-        const blue = name === 'sw_tree3' || name === 'sw_tree4';
-        const bushy = name === 'sw_tree2' || name === 'sw_tree4';
-        drawSnowTree(context, sx, centerY, blue, bushy);
-        return;
-    }
-
-    if (name.startsWith('obst_snowman'))
-    {
-        const outline = '#a9bccb';
-        // Three stacked snow balls (bottom, middle, head), each shaded with a
-        // radial gradient for a rounded 3D look.
-        const balls = [
-            { cy: centerY - 6, r: 8 },
-            { cy: centerY - 17, r: 6 },
-            { cy: centerY - 26, r: 4.5 },
-        ];
-        for (const b of balls)
-        {
-            const g = context.createRadialGradient(sx - (b.r * 0.35), b.cy - (b.r * 0.35), b.r * 0.2, sx, b.cy, b.r);
-            g.addColorStop(0, '#ffffff');
-            g.addColorStop(1, '#d5e2ec');
-            context.fillStyle = g;
-            context.beginPath();
-            context.arc(sx, b.cy, b.r, 0, Math.PI * 2);
-            context.fill();
-            context.strokeStyle = outline;
-            context.lineWidth = 1;
-            context.stroke();
-        }
-
-        const mid = balls[1];
-        const head = balls[2];
-
-        // Twig arms from the middle ball.
-        context.strokeStyle = '#7a5230';
-        context.lineWidth = 1;
-        context.beginPath();
-        context.moveTo(sx - 5, mid.cy - 1);
-        context.lineTo(sx - 11, mid.cy - 5);
-        context.moveTo(sx - 8, mid.cy - 3);
-        context.lineTo(sx - 10, mid.cy - 6);
-        context.moveTo(sx + 5, mid.cy - 1);
-        context.lineTo(sx + 11, mid.cy - 5);
-        context.moveTo(sx + 8, mid.cy - 3);
-        context.lineTo(sx + 10, mid.cy - 6);
-        context.stroke();
-
-        // Coal buttons on the middle ball.
-        context.fillStyle = '#3a4652';
-        for (const dy of [-2, 1.5])
-        {
-            context.beginPath();
-            context.arc(sx, mid.cy + dy, 0.9, 0, Math.PI * 2);
-            context.fill();
-        }
-
-        // Red scarf between head and middle.
-        context.fillStyle = '#c0392b';
-        context.fillRect(sx - 4, head.cy + head.r - 1.5, 8, 2.5);
-        context.fillRect(sx + 2, head.cy + head.r, 2.5, 4);
-
-        // Eyes + carrot nose.
-        context.fillStyle = '#2b333b';
-        context.beginPath();
-        context.arc(sx - 1.6, head.cy - 0.6, 0.9, 0, Math.PI * 2);
-        context.fill();
-        context.beginPath();
-        context.arc(sx + 1.6, head.cy - 0.6, 0.9, 0, Math.PI * 2);
-        context.fill();
-        context.fillStyle = '#e8912f';
-        context.beginPath();
-        context.moveTo(sx, head.cy + 0.4);
-        context.lineTo(sx + 5, head.cy + 1);
-        context.lineTo(sx, head.cy + 1.8);
-        context.closePath();
-        context.fill();
-
-        // Small black top hat.
-        context.fillStyle = '#2b333b';
-        context.fillRect(sx - 5, head.cy - head.r - 1, 10, 1.6);
-        context.fillRect(sx - 3, head.cy - head.r - 6, 6, 5);
-        return;
-    }
-
-    // Flat floor tiles (basic / ice): a walkable N×N patch drawn as isometric
-    // diamonds over the footprint, matching the arena tile shape.
-    const size = CLASSIC_SIZES[name];
+    const size = CUSTOM_FLOOR_SIZES[name];
     if (size)
     {
         const kind = name.includes('ice') ? 'ice' : name.includes('water') ? 'water' : 'stone';
@@ -351,20 +225,15 @@ const drawClassicProp = (context: CanvasRenderingContext2D, name: string, sx: nu
     context.stroke();
 };
 
-// A flat floor tile stays on the shared floor canvas (below avatars); every
-// other classic prop (trees/snowman/fences/blocks) is a standalone sprite that
-// depth-sorts with the avatars.
-const isFlatFloorProp = (name: string) => !!CLASSIC_SIZES[name];
+const isFlatFloorProp = (name: string) => !!CUSTOM_FLOOR_SIZES[name];
 
-// Per-prop sprite box: big enough for the tallest prop (trees ~ 40px up) plus
-// the tile's lower half. PROP_ANCHOR_Y is the tile top-vertex inside the box.
-const PROP_BOX_W = 40;
-const PROP_BOX_H = 54;
-const PROP_ANCHOR_Y = 40;
+// v26 sprites use a ~30px isometric tile; the arena's authored tile is 24px.
+const OFFICIAL_SNOWWAR_SPRITE_SCALE = (TILE_HALF_W * 2) / 30;
+const PROP_BOX_W = 64;
+const PROP_BOX_H = 112;
+const PROP_ANCHOR_Y = 100;
 
-// One tall classic prop drawn into its own little canvas, so it can sit in the
-// DOM at a per-tile z-index and be occluded by / occlude avatars just like a
-// hotel furni. Redraws only when the prop or its rotation changes.
+// Paint the original bitmap and its original shadow into a per-tile canvas.
 const ClassicPropSprite: FC<{ name: string; rotation: number; opacity?: number }> = ({ name, rotation, opacity }) =>
 {
     const ref = useRef<HTMLCanvasElement>(null);
@@ -372,68 +241,81 @@ const ClassicPropSprite: FC<{ name: string; rotation: number; opacity?: number }
     {
         const context = ref.current?.getContext('2d');
         if (!context) return;
-        context.clearRect(0, 0, PROP_BOX_W, PROP_BOX_H);
-        drawClassicProp(context, name, PROP_BOX_W / 2, PROP_ANCHOR_Y, rotation);
+
+        let cancelled = false;
+        const fallback = () =>
+        {
+            context.clearRect(0, 0, PROP_BOX_W, PROP_BOX_H);
+            drawCustomProp(context, name, PROP_BOX_W / 2, PROP_ANCHOR_Y, rotation);
+        };
+        const sprite = getOfficialSnowWarSprite(name, rotation);
+        if (!sprite)
+        {
+            fallback();
+            return;
+        }
+
+        const render = async () =>
+        {
+            try
+            {
+                const [image, shadow] = await Promise.all([
+                    loadSnowWarImage(getArenaPropAssetUrl(sprite.image)),
+                    sprite.shadow ? loadSnowWarImage(getArenaPropAssetUrl(sprite.shadow)) : Promise.resolve(null),
+                ]);
+                if (cancelled) return;
+
+                context.clearRect(0, 0, PROP_BOX_W, PROP_BOX_H);
+                context.imageSmoothingEnabled = false;
+                const baseY = PROP_ANCHOR_Y + TILE_HALF_H;
+                if (shadow)
+                {
+                    const shadowWidth = Math.round(shadow.naturalWidth * OFFICIAL_SNOWWAR_SPRITE_SCALE);
+                    const shadowHeight = Math.round(shadow.naturalHeight * OFFICIAL_SNOWWAR_SPRITE_SCALE);
+                    context.drawImage(
+                        shadow,
+                        Math.round((PROP_BOX_W - shadowWidth) / 2),
+                        Math.round(baseY + 4 - shadowHeight),
+                        shadowWidth,
+                        shadowHeight);
+                }
+
+                const width = Math.round(image.naturalWidth * OFFICIAL_SNOWWAR_SPRITE_SCALE);
+                const height = Math.round(image.naturalHeight * OFFICIAL_SNOWWAR_SPRITE_SCALE);
+                context.drawImage(
+                    image,
+                    Math.round((PROP_BOX_W - width) / 2),
+                    Math.round(baseY - height),
+                    width,
+                    height);
+            }
+            catch
+            {
+                if (!cancelled) fallback();
+            }
+        };
+        void render();
+        return () =>
+        {
+            cancelled = true;
+        };
     }, [name, rotation]);
     return <canvas ref={ref} width={PROP_BOX_W} height={PROP_BOX_H} className="snowwar-classic-prop-canvas" style={opacity != null ? { opacity } : undefined} />;
 };
 
 const TEAM_COLORS = ['#e64545', '#4577e6', '#3fb550', '#e6c245'];
 
-// Fixed "normal" zoom - the middle of the old 0/1/2 levels. The selectable
-// zoom was removed; the arena always renders at this scale, in game and edit.
-const ZOOM = 2;
-
-// Vertical screen offset (px) of a snowball above its tile. The ball leaves the
-// avatar's hand at SNOWWAR_THROW_HAND_RISE; above that sits the visible arc =
-// how far the sim height rises ABOVE that trajectory's own baseline. A quick
-// throw (traj 0) has sim baseline 4000, the lob/long throws 3000, so measuring
-// each against its own baseline keeps a flat quick throw pinned at hand level
-// instead of floating over the avatar's head. A long/curved throw (traj 2) arcs
-// twice as high in the sim, so it renders at half scale - it lands near the
-// ground rather than "hitting" in the air. Used for both the ball sprite and
-// its splash so the two never drift apart.
 // How long (ms) an avatar holds the SnowWarThrow arm-out pose after throwing.
 const SNOWWAR_THROW_POSE_MS = 450;
-// How long a tree's canopy shakes after a snowball hits it (matches the CSS
-// shake keyframe duration).
-const TREE_SHAKE_MS = 500;
-// How long the snowman squash-bounces after a snowball hits it (matches the CSS
-// bonk keyframe duration).
-const SNOWMAN_BONK_MS = 450;
-const SNOWWAR_THROW_HAND_RISE = 34;
-// A normal (straight, non-shift) throw skims flat, ~0.5 tile above the ground,
-// rather than arcing up. Lob/long throws keep their arc.
-const SNOWWAR_FLAT_RISE = 10;
-const snowballRise = (height: number, trajectory: number): number =>
-{
-    if (trajectory === 0) return SNOWWAR_FLAT_RISE;
-    const arc = Math.min(120, Math.max(0, height - 3000) / 60);
-    return SNOWWAR_THROW_HAND_RISE + (trajectory === 2 ? 0.5 : 1) * arc;
-};
-
-// Screen-space nudge (px) leading the ball along its travel direction, so it
-// appears to leave the avatar's extended hand toward the target for any facing.
-// dH/dV are the ball's per-step world velocity; converted to the iso screen
-// direction and scaled to a fixed reach.
-const SNOWWAR_HAND_REACH = 9;
-const travelOffset = (dH: number, dV: number): { x: number; y: number } =>
-{
-    const sdx = (dH - dV) * TILE_HALF_W;
-    const sdy = (dH + dV) * TILE_HALF_H;
-    const len = Math.hypot(sdx, sdy);
-    if (!len) return { x: 0, y: 0 };
-    return { x: (sdx / len) * SNOWWAR_HAND_REACH, y: (sdy / len) * SNOWWAR_HAND_REACH };
-};
-
-// Snowball-pile layout: each ball's top-left offset (px) from the machine tile
-// anchor, plus stacking order (front/lower balls drawn on top). Rendered as
-// real elements so every ball gets the same shaded, rimmed 3D snowball look.
-const SNOWWAR_PILE: { left: number; top: number; z: number }[] = [
-    { left: -14, top: 3, z: 3 }, { left: -5, top: 3, z: 3 }, { left: 4, top: 3, z: 3 },
-    { left: -10, top: -2, z: 2 }, { left: 0, top: -2, z: 2 },
-    { left: -5, top: -6, z: 1 },
-];
+// Official AIR snowball height rendering: the simulated z (world units) maps
+// linearly to screen pixels exactly like room-engine z — roomZ = worldZ / 1600
+// (Tile.TILE_HALFWIDTH), drawn at 16px per z unit on the 32px game canvas.
+// That is worldZ / 100 screen px here. No per-trajectory baselines or caps: a
+// resting ball sits at z=3000 (hand height), quick throws fly flat there and
+// lobs follow the full parabola. The splash shares the mapping so flight and
+// impact never drift apart.
+const SNOWWAR_WORLD_Z_TO_PX = (TILE_HALF_W * ZOOM) / 1600;
+const snowballRise = (height: number): number => height * SNOWWAR_WORLD_Z_TO_PX;
 
 // Design base: the arena is authored for a 1920x1080 stage. Larger screens
 // centre this stage; smaller screens cap the viewport to the screen and follow
@@ -450,6 +332,15 @@ const CAMERA_DEADZONE = 0.2;
 const CAMERA_EASE = 0.15;
 
 interface EditItem { name: string; x: number; y: number; rotation: number; imageUrl: string; offsetZ: number; width?: number; length?: number; state: number; stateCount?: number; walkableHeight?: number }
+
+const SNOWWAR_EDITOR_MAX_ITEMS = 2048;
+
+interface EditorGesture
+{
+    mode: 'paint' | 'area';
+    start: SnowWarEditorTile;
+    end: SnowWarEditorTile;
+}
 
 // Editor preview walker: a purely client-side avatar you can stroll around the
 // arena while editing (no server / game simulation involved), to test the
@@ -474,12 +365,12 @@ const tileDirection = (dx: number, dy: number): number =>
     return 4;
 };
 
-// Breadth-first shortest walk over the '0' (walkable) heightmap tiles, 8-way but
+// Breadth-first shortest walk over every non-void floor-plan height, 8-way but
 // never cutting a diagonal through a void corner. Returns the tile path
 // (including the start) or null when the target is void / unreachable.
 const findEditorPath = (rows: string[], from: { x: number; y: number }, to: { x: number; y: number }, width: number, height: number, blocked?: Set<number>): { x: number; y: number }[] | null =>
 {
-    const walkable = (x: number, y: number) => x >= 0 && y >= 0 && x < width && y < height && rows[y]?.charAt(x) === '0' && !(blocked?.has((y * width) + x));
+    const walkable = (x: number, y: number) => x >= 0 && y >= 0 && x < width && y < height && isSnowWarFloorTile(rows[y]?.charAt(x)) && !(blocked?.has((y * width) + x));
     if (!walkable(from.x, from.y) || !walkable(to.x, to.y)) return null;
     if (from.x === to.x && from.y === to.y) return [from];
 
@@ -532,19 +423,58 @@ const findEditorPath = (rows: string[], from: { x: number; y: number }, to: { x:
 // SnowWarItemProperties registry.
 const EDITOR_PALETTE = [
     'sw_tree1', 'sw_tree2', 'sw_tree3', 'sw_tree4',
-    'block_basic', 'block_basic2', 'block_basic3',
-    'block_ice', 'block_ice2', 'block_ice3',
+    'block_basic', 'block_basic2', 'block_basic3', 'block_small',
+    'block_ice', 'block_ice2',
+    'block_arch1', 'block_arch2', 'block_arch3',
+    'block_arch1b', 'block_arch2b', 'block_arch3b',
     'block_water1', 'block_water2', 'block_water3',
-    'obst_snowman', 'sw_fence', 'sw_fence2',
+    'obst_snowman', 'obst_duck', 'sw_fence', 'sw_fence2',
 ];
 
-/** Server rule: normal throws reach 5 tiles, long throws 15. */
+/** AIR projectile caps, expressed in world coordinates like the emulator. */
 const isThrowInRange = (fromX: number, fromY: number, toX: number, toY: number, trajectory: number) =>
 {
-    const maxRange = (trajectory === 2) ? THROW_RANGE_LONG : THROW_RANGE_NORMAL;
+    const maxRange = trajectory === TRAJECTORY_QUICK
+        ? QUICK_THROW_MAX_RANGE_WORLD
+        : trajectory === TRAJECTORY_SHORT_LOB
+            ? SHORT_LOB_MAX_RANGE_WORLD
+            : LONG_LOB_MAX_RANGE_WORLD;
     const dx = toX - fromX;
     const dy = toY - fromY;
     return ((dx * dx) + (dy * dy)) <= (maxRange * maxRange);
+};
+
+/** Original AIR modifier mapping; opponent clicks default to adaptive aim. */
+const getAirTrajectory = (altKey: boolean, shiftKey: boolean, opponent: boolean): number | null =>
+{
+    if (altKey && shiftKey) return TRAJECTORY_SHORT_LOB;
+    if (altKey) return TRAJECTORY_LONG_LOB;
+    if (shiftKey) return TRAJECTORY_QUICK;
+    return opponent ? TRAJECTORY_DEFAULT : null;
+};
+
+/** Exact isometric direction mapping from AIR's KeyboardControl. */
+const getKeyboardDirection = (keys: Set<string>): { x: number; y: number } | null =>
+{
+    if (keys.has('ArrowUp') && keys.has('ArrowLeft')) return { x: -1, y: 0 };
+    if (keys.has('ArrowUp') && keys.has('ArrowRight')) return { x: 0, y: -1 };
+    if (keys.has('ArrowDown') && keys.has('ArrowLeft')) return { x: 0, y: 1 };
+    if (keys.has('ArrowDown') && keys.has('ArrowRight')) return { x: 1, y: 0 };
+    if (keys.has('ArrowUp')) return { x: -1, y: -1 };
+    if (keys.has('ArrowDown')) return { x: 1, y: 1 };
+    if (keys.has('ArrowLeft')) return { x: -1, y: 1 };
+    if (keys.has('ArrowRight')) return { x: 1, y: -1 };
+
+    const letterDirections: [string, number, number][] = [
+        ['KeyQ', -1, 0], ['KeyW', -1, -1], ['KeyE', 0, -1],
+        ['KeyA', -1, 1], ['KeyD', 1, -1],
+        ['KeyZ', 0, 1], ['KeyX', 1, 1], ['KeyC', 1, 0],
+    ];
+    for (const [code, x, y] of letterDirections)
+    {
+        if (keys.has(code)) return { x, y };
+    }
+    return null;
 };
 
 /** Classic SnowWar props drawn as canvas shapes; everything else is furni. */
@@ -564,6 +494,7 @@ export const SnowWarArenaView: FC = () =>
         walkTo,
         throwAtLocation,
         throwAtPlayer,
+        createSnowball,
         exitGame,
         startEditing,
         saveArena,
@@ -589,24 +520,19 @@ export const SnowWarArenaView: FC = () =>
     // Set when a throw is blocked for being out of range; shows a short hint.
     const [rangeWarningAt, setRangeWarningAt] = useState(0);
     const ownUserId = GetSessionDataManager()?.userId ?? 0;
+    const submitChat = useCallback(() =>
+    {
+        const message = chatInput.trim();
 
-    // Snow-burst splashes: a short CSS animation spawned wherever a snowball
-    // vanishes (server-authoritative removal = a hit on furni/another player,
-    // or the ball landing). ballScreenRef holds last frame's on-screen ball
-    // positions so we can diff against this frame and splash the ones that went.
+        if (!message) return;
+
+        sendChat(message);
+        setChatInput('');
+    }, [chatInput, sendChat]);
+
+    // Exact AIR splash frames, positioned from the authoritative collision event.
     const [splashes, setSplashes] = useState<{ id: number; x: number; y: number }[]>([]);
     const ballScreenRef = useRef<Map<number, { x: number; y: number; tx: number; ty: number }>>(new Map());
-    const splashIdRef = useRef(0);
-    // Tree hit reaction: tileKey -> frameNow deadline until which that tree's
-    // canopy shakes, plus a small pool of falling snowflakes spawned on the hit.
-    const treeShakeUntilRef = useRef<Map<string, number>>(new Map());
-    const [treeSnow, setTreeSnow] = useState<{ id: number; x: number; y: number }[]>([]);
-    const snowIdRef = useRef(0);
-    // Ball objectIds that have already produced a splash. A ball can vanish,
-    // get re-added by a full-status resync, then vanish again - this makes sure
-    // each ball splashes at most once (object ids are unique per game, and the
-    // arena remounts between games, so the set never needs manual pruning).
-    const splashedBallsRef = useRef<Set<number>>(new Set());
     // avatar objectId -> frameNow timestamp until which that avatar holds the
     // SnowWarThrow pose. Set when a new snowball appears (that ball's thrower).
     const throwPoseUntilRef = useRef<Map<number, number>>(new Map());
@@ -615,15 +541,20 @@ export const SnowWarArenaView: FC = () =>
     const [editItems, setEditItems] = useState<EditItem[]>([]);
     const [editHeightmap, setEditHeightmap] = useState<string[]>([]);
     const [selectedIndex, setSelectedIndex] = useState(-1);
-    // Palette selection: a classname to place, 'floor'/'walk' to paint tiles,
-    // or null for select/move mode. Spawns aren't placed by hand - the game
-    // picks them automatically from walkable tiles at match start.
+    // Palette selection: a classname to place, an explicit floor-plan tool,
+    // 'walk' to test routes, or null for select/move mode. Spawns aren't placed
+    // by hand - the game picks them automatically from walkable tiles.
     const [paletteSel, setPaletteSel] = useState<string | null>(null);
     const [furniSearch, setFurniSearch] = useState('');
+    const [editorArenaName, setEditorArenaName] = useState('');
     const [savedAt, setSavedAt] = useState(0);
     // Tile under the cursor while editing - drives the 80%-opacity placement
     // ghost. Only updated when it changes, so it doesn't churn renders.
     const [hoverTile, setHoverTile] = useState<{ x: number; y: number } | null>(null);
+    const [editorArea, setEditorArea] = useState<{ start: SnowWarEditorTile; end: SnowWarEditorTile } | null>(null);
+    const [floorplanEditorVisible, setFloorplanEditorVisible] = useState(false);
+    const editorGestureRef = useRef<EditorGesture | null>(null);
+    const suppressEditorClickRef = useRef(false);
 
     // Editor preview walker (client-side only). Held in a ref and animated off
     // the RAF frameNow clock; the current interpolated position is computed in
@@ -654,7 +585,7 @@ export const SnowWarArenaView: FC = () =>
             // Flat floor-tile props carry a fixed footprint client-side (the
             // server treats them as 1x1 non-blocking floor), so their selection
             // box + walkable band match how they're drawn.
-            const classicSize = CLASSIC_SIZES[item.name];
+            const classicSize = CUSTOM_FLOOR_SIZES[item.name];
             return {
                 name: item.name, x: item.x, y: item.y, rotation: item.rotation, imageUrl: item.imageUrl, offsetZ: item.offsetZ ?? 0,
                 width: classicSize?.w ?? item.width, length: classicSize?.l ?? item.length,
@@ -667,6 +598,10 @@ export const SnowWarArenaView: FC = () =>
         setSelectedIndex(-1);
         setPaletteSel(null);
         setFurniSearch('');
+        setEditorArea(null);
+        setFloorplanEditorVisible(false);
+        editorGestureRef.current = null;
+        setEditorArenaName(levelData?.arenaName || (levelData ? `Custom Arena ${levelData.mapId}` : 'Custom Arena'));
 
         // Drop the preview walker on the walkable tile nearest the arena centre.
         const rows = levelData?.heightmapRows ?? [];
@@ -678,14 +613,13 @@ export const SnowWarArenaView: FC = () =>
         {
             for (let x = 0; x < rows[y].length; x++)
             {
-                if (rows[y].charAt(x) !== '0') continue;
+                if (!isSnowWarFloorTile(rows[y].charAt(x))) continue;
                 const dist = ((x - (rowW / 2)) ** 2) + ((y - (rowH / 2)) ** 2);
                 if (dist < best) { best = dist; start = { x, y }; }
             }
         }
         editorWalkRef.current = start ? { path: [start], startMs: 0, endDir: 4 } : null;
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [editing]);
+    }, [editing, levelData?.mapId]);
 
     // Current walker tile (rounded) at call time - used to path from where it
     // stands right now, whether idle or mid-step.
@@ -726,6 +660,43 @@ export const SnowWarArenaView: FC = () =>
     const mapRows = editing ? editHeightmap : (levelData?.heightmapRows ?? []);
     const mapHeight = mapRows.length;
     const mapWidth = mapHeight > 0 ? mapRows[0].length : 0;
+    const walkableTileCount = useMemo(
+        () => editHeightmap.reduce(
+            (total, row) => total + Array.from(row).filter(isSnowWarFloorTile).length,
+            0),
+        [editHeightmap]);
+
+    const floorplanOccupiedTiles = useMemo(() =>
+    {
+        const occupied = editHeightmap.map(row => Array.from({ length: row.length }, () => false));
+        for (const item of editItems)
+        {
+            if (item.imageUrl) continue;
+            const rotated = item.rotation === 2 || item.rotation === 6;
+            const width = Math.max(1, (rotated ? item.length : item.width) ?? 1);
+            const length = Math.max(1, (rotated ? item.width : item.length) ?? 1);
+            for (let y = item.y; y < item.y + length; y++)
+            {
+                for (let x = item.x; x < item.x + width; x++)
+                {
+                    if (occupied[y]?.[x] !== undefined) occupied[y][x] = true;
+                }
+            }
+        }
+        return occupied;
+    }, [editHeightmap, editItems]);
+
+    const applyEditorFloorPlan = useCallback((raw: string) =>
+    {
+        const rows = raw.split(/\r\n|\r|\n/).filter(row => row.length > 0);
+        if (!rows.length) return;
+        setEditHeightmap(rows);
+        setPaletteSel(null);
+        setSelectedIndex(-1);
+        setHoverTile(null);
+        setEditorArea(null);
+        editorGestureRef.current = null;
+    }, []);
 
     // Path the preview walker to a tile (client-side only). Returns true if a
     // walk was started, so callers can tell a walk from a no-op empty click.
@@ -794,7 +765,7 @@ export const SnowWarArenaView: FC = () =>
             for (let x = 0; x < mapWidth; x++)
             {
                 const char = mapRows[y]?.charAt(x);
-                if (char !== '0') continue;
+                if (!isSnowWarFloorTile(char)) continue;
 
                 const { x: sx, y: sy } = toScreen(x, y);
                 context.beginPath();
@@ -828,7 +799,7 @@ export const SnowWarArenaView: FC = () =>
             if (!isFlatFloorProp(item.name)) continue;
 
             const { x: sx, y: sy } = toScreen(item.x, item.y);
-            drawClassicProp(propsContext, item.name, sx, sy, item.rotation);
+            drawCustomProp(propsContext, item.name, sx, sy, item.rotation);
         }
 
         // Placement preview for a flat floor tile (tall props get a DOM ghost).
@@ -837,7 +808,7 @@ export const SnowWarArenaView: FC = () =>
             const { x: sx, y: sy } = toScreen(hoverTile.x, hoverTile.y);
             propsContext.save();
             propsContext.globalAlpha = 0.55;
-            drawClassicProp(propsContext, paletteSel, sx, sy);
+            drawCustomProp(propsContext, paletteSel, sx, sy);
             propsContext.restore();
         }
     }, [displayItems, mapHeight, mapWidth, mapRows, toScreen, editing, paletteSel, hoverTile]);
@@ -887,7 +858,7 @@ export const SnowWarArenaView: FC = () =>
         return () => clearInterval(interval);
     }, [phase, requestFullStatus]);
 
-    const screenToTile = useCallback((event: MouseEvent<HTMLDivElement>) =>
+    const screenToTile = useCallback((event: { clientX: number; clientY: number }) =>
     {
         // Measure the floor canvas itself, NOT the viewport: the world is
         // centered inside a scrollable viewport, so the viewport rect is
@@ -906,6 +877,45 @@ export const SnowWarArenaView: FC = () =>
         return { tileX, tileY };
     }, [canvasWidth, originX]);
 
+    const placeEditItems = useCallback((tiles: SnowWarEditorTile[]) =>
+    {
+        if (!paletteSel || paletteSel === 'walk' || paletteSel === 'edit') return;
+
+        const fd = GetSessionDataManager()?.getFloorItemDataByName?.(paletteSel);
+        const classicSize = CUSTOM_FLOOR_SIZES[paletteSel];
+        const isBlocking = paletteSel.startsWith('block_water') || paletteSel.startsWith('sw_fence');
+        const walkable = !isBlocking && (!!(fd?.canStandOn || fd?.canLayOn) || !!classicSize);
+
+        setEditItems(items =>
+        {
+            const next = [...items];
+            let changed = false;
+
+            for (const tile of tiles)
+            {
+                if (next.length >= SNOWWAR_EDITOR_MAX_ITEMS) break;
+                const item: EditItem = {
+                    name: paletteSel,
+                    x: tile.x,
+                    y: tile.y,
+                    rotation: 0,
+                    imageUrl: '',
+                    offsetZ: 0,
+                    state: 0,
+                    stateCount: stateCountByName.get(paletteSel),
+                    width: fd?.tileSizeX ?? classicSize?.w,
+                    length: fd?.tileSizeY ?? classicSize?.l,
+                    walkableHeight: walkable ? 0 : 1,
+                };
+                if (!canPlaceSnowWarEditorItem(next, item, mapWidth, mapHeight)) continue;
+                next.push(item);
+                changed = true;
+            }
+
+            return changed ? next : items;
+        });
+    }, [mapHeight, mapWidth, paletteSel, stateCountByName]);
+
     const applyEditClick = useCallback((tileX: number, tileY: number) =>
     {
         if (paletteSel === 'walk')
@@ -915,40 +925,9 @@ export const SnowWarArenaView: FC = () =>
             return;
         }
 
-        if (paletteSel === 'floor')
-        {
-            // Toggle the tile between walkable ('0') and void ('x').
-            setEditHeightmap(rows => rows.map((row, ry) =>
-            {
-                if (ry !== tileY || tileX >= row.length) return row;
-                const cell = row.charAt(tileX);
-                const next = (cell === 'x' || cell === 'X') ? '0' : 'x';
-                return row.substring(0, tileX) + next + row.substring(tileX + 1);
-            }));
-            return;
-        }
-
         if (paletteSel && paletteSel !== 'edit')
         {
-            // Carry the real footprint (and walkable flag) from furnidata so the
-            // placed furni anchors exactly like the placement ghost - otherwise it
-            // defaults to 1x1 and jumps position the moment it's dropped.
-            const fd = GetSessionDataManager()?.getFloorItemDataByName?.(paletteSel);
-            const classicSize = CLASSIC_SIZES[paletteSel];
-            // Water and fences are NON-walkable (you'd fall in / can't cross);
-            // the flat floor tiles (basic/ice) are walkable.
-            const isBlocking = paletteSel.startsWith('block_water') || paletteSel.startsWith('sw_fence');
-            const walkable = !isBlocking && (!!(fd?.canStandOn || fd?.canLayOn) || !!classicSize);
-            setEditItems(items => [...items, {
-                name: paletteSel, x: tileX, y: tileY, rotation: 0, imageUrl: '', offsetZ: 0, state: 0,
-                stateCount: stateCountByName.get(paletteSel),
-                width: fd?.tileSizeX ?? classicSize?.w, length: fd?.tileSizeY ?? classicSize?.l,
-                // Solid furni (anything not a rug/floor-tile) must BLOCK: encode a
-                // positive walkableHeight, never undefined - the preview walker
-                // treats undefined as walkable and would walk through it. The saved
-                // arena still re-derives walkability server-side from the base item.
-                walkableHeight: walkable ? 0 : 1,
-            }]);
+            placeEditItems([{ x: tileX, y: tileY }]);
             // Keep the palette piece armed so you can drop several in a row; it
             // stays selected (ghost keeps following) until you pick it again to
             // toggle it off, or choose another piece / mode.
@@ -985,7 +964,11 @@ export const SnowWarArenaView: FC = () =>
         // piece where it is so you can't nudge it by accident while editing.
         if (paletteSel === null && selectedIndex >= 0)
         {
-            setEditItems(items => items.map((item, i) => (i === selectedIndex ? { ...item, x: tileX, y: tileY } : item)));
+            const selected = editItems[selectedIndex];
+            if (!selected) return;
+            const moved = { ...selected, x: tileX, y: tileY };
+            if (!canPlaceSnowWarEditorItem(editItems, moved, mapWidth, mapHeight, selectedIndex)) return;
+            setEditItems(items => items.map((item, index) => index === selectedIndex ? moved : item));
             // Dropped at the new tile - deselect so the moved furni shows at its
             // new spot and stops following the cursor.
             setSelectedIndex(-1);
@@ -998,7 +981,7 @@ export const SnowWarArenaView: FC = () =>
         // dedicated Walk mode.
         if (paletteSel === null || paletteSel === 'edit') walkPreviewTo(tileX, tileY);
         setSelectedIndex(-1);
-    }, [paletteSel, editItems, selectedIndex, stateCountByName, walkPreviewTo]);
+    }, [paletteSel, editItems, selectedIndex, mapHeight, mapWidth, placeEditItems, walkPreviewTo]);
 
     const onArenaClick = useCallback((event: MouseEvent<HTMLDivElement>) =>
     {
@@ -1008,19 +991,23 @@ export const SnowWarArenaView: FC = () =>
         if (editing)
         {
             event.preventDefault();
+            if (event.type === 'click' && suppressEditorClickRef.current)
+            {
+                suppressEditorClickRef.current = false;
+                return;
+            }
             applyEditClick(tileX, tileY);
             return;
         }
 
-        if (event.shiftKey || event.type === 'contextmenu')
+        if (event.type === 'contextmenu')
         {
             event.preventDefault();
-            // Plain right-click = straight throw (trajectory 0, max 10 tiles);
-            // hold Shift = curved lob that flies over obstacles (trajectory 2,
-            // max 20 tiles). Range is a circle around the thrower (isThrowInRange).
-            const trajectory = event.shiftKey ? 2 : 0;
+            // Duckie's convenient right-click gestures remain additive to AIR:
+            // right-click is quick and Shift+right-click is a long lob.
+            const trajectory = event.shiftKey ? TRAJECTORY_LONG_LOB : TRAJECTORY_QUICK;
             const own = simulation.getAvatarByUserId(ownUserId);
-            if (own && !isThrowInRange(own.tileX, own.tileY, tileX, tileY, trajectory))
+            if (own && !isThrowInRange(own.worldX, own.worldY, tileToWorld(tileX), tileToWorld(tileY), trajectory))
             {
                 setRangeWarningAt(Date.now());
                 return;
@@ -1029,8 +1016,120 @@ export const SnowWarArenaView: FC = () =>
             return;
         }
 
+        const trajectory = getAirTrajectory(event.altKey, event.shiftKey, false);
+        if (trajectory !== null)
+        {
+            event.preventDefault();
+            const own = simulation.getAvatarByUserId(ownUserId);
+            if (own && !isThrowInRange(own.worldX, own.worldY, tileToWorld(tileX), tileToWorld(tileY), trajectory))
+            {
+                setRangeWarningAt(Date.now());
+                return;
+            }
+            throwAtLocation(tileToWorld(tileX), tileToWorld(tileY), trajectory);
+            return;
+        }
+
+        const tile = mapRows[tileY]?.charAt(tileX);
+        if (tile === 'x' || tile === 'X') return;
         walkTo(tileToWorld(tileX), tileToWorld(tileY));
-    }, [editing, applyEditClick, mapHeight, mapWidth, screenToTile, simulation, ownUserId, throwAtLocation, walkTo]);
+    }, [editing, applyEditClick, mapHeight, mapRows, mapWidth, screenToTile, simulation, ownUserId, throwAtLocation, walkTo]);
+
+    const editorBrushActive = !!paletteSel && paletteSel !== 'edit' && paletteSel !== 'walk';
+
+    const updateEditorHover = useCallback((event: { clientX: number; clientY: number }) =>
+    {
+        const { tileX, tileY } = screenToTile(event);
+        const inBounds = tileX >= 0 && tileY >= 0 && tileX < mapWidth && tileY < mapHeight;
+        setHoverTile(previous =>
+            (previous && previous.x === tileX && previous.y === tileY) || (!previous && !inBounds)
+                ? previous
+                : (inBounds ? { x: tileX, y: tileY } : null));
+        return inBounds ? { x: tileX, y: tileY } : null;
+    }, [mapHeight, mapWidth, screenToTile]);
+
+    const onEditorPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) =>
+    {
+        if (!editing || !editorBrushActive || event.button !== 0) return;
+        const tile = updateEditorHover(event);
+        if (!tile) return;
+
+        const mode = event.shiftKey ? 'area' : (event.ctrlKey || event.metaKey) ? 'paint' : null;
+        if (!mode) return;
+
+        event.preventDefault();
+        suppressEditorClickRef.current = true;
+        try { event.currentTarget.setPointerCapture(event.pointerId); } catch {}
+
+        const gesture: EditorGesture = {
+            mode,
+            start: tile,
+            end: tile,
+        };
+        editorGestureRef.current = gesture;
+
+        if (mode === 'area')
+        {
+            setEditorArea({ start: tile, end: tile });
+            return;
+        }
+
+        placeEditItems([tile]);
+    }, [editing, editorBrushActive, placeEditItems, updateEditorHover]);
+
+    const onEditorPointerMove = useCallback((event: ReactPointerEvent<HTMLDivElement>) =>
+    {
+        if (!editing) return;
+        const tile = updateEditorHover(event);
+        const gesture = editorGestureRef.current;
+        if (!gesture || !tile || (gesture.end.x === tile.x && gesture.end.y === tile.y)) return;
+
+        gesture.end = tile;
+        if (gesture.mode === 'area')
+        {
+            setEditorArea({ start: gesture.start, end: tile });
+            return;
+        }
+
+        placeEditItems([tile]);
+    }, [editing, placeEditItems, updateEditorHover]);
+
+    const onEditorPointerUp = useCallback((event: ReactPointerEvent<HTMLDivElement>) =>
+    {
+        const gesture = editorGestureRef.current;
+        if (!gesture) return;
+
+        editorGestureRef.current = null;
+        setEditorArea(null);
+        try { event.currentTarget.releasePointerCapture(event.pointerId); } catch {}
+
+        if (gesture.mode === 'area')
+        {
+            const tiles = getSnowWarEditorArea(gesture.start, gesture.end);
+            placeEditItems(tiles);
+        }
+
+        window.setTimeout(() => { suppressEditorClickRef.current = false; }, 0);
+    }, [placeEditItems]);
+
+    const onEditorPointerCancel = useCallback((event: ReactPointerEvent<HTMLDivElement>) =>
+    {
+        editorGestureRef.current = null;
+        suppressEditorClickRef.current = false;
+        setEditorArea(null);
+        try { event.currentTarget.releasePointerCapture(event.pointerId); } catch {}
+    }, []);
+
+    const fireRayGun = useCallback((event: MouseEvent<HTMLButtonElement>, x: number, y: number, rotation: number, width: number, length: number) =>
+    {
+        event.stopPropagation();
+        const direction = ((rotation % 8) + 8) % 8;
+        const horizontalSize = (direction === 2 || direction === 6) ? length : width;
+        const verticalSize = (direction === 2 || direction === 6) ? width : length;
+        walkTo(
+            tileToWorld(x + (direction === 6 ? horizontalSize : direction === 2 ? -1 : 0)),
+            tileToWorld(y + (direction === 0 ? verticalSize : direction === 4 ? -1 : 0)));
+    }, [walkTo]);
 
     const rotateSelected = useCallback(() =>
         setEditItems(items => items.map((item, i) => (i === selectedIndex ? { ...item, rotation: (item.rotation + 2) % 8 } : item))),
@@ -1081,17 +1180,82 @@ export const SnowWarArenaView: FC = () =>
     {
         if (!levelData) return;
         // Spawns are auto-generated server-side, so none are sent from the editor.
-        saveArena(levelData.mapId, editItems, [], editHeightmap);
+        saveArena(levelData.mapId, editItems, [], editHeightmap, editorArenaName);
         setSavedAt(Date.now());
-    }, [levelData, editItems, editHeightmap, saveArena]);
+    }, [levelData, editItems, editHeightmap, editorArenaName, saveArena]);
 
     const ownAvatar = simulation.getAvatarByUserId(ownUserId);
     const alpha = simulation.interpolationAlpha;
 
-    // Detect snowballs that disappeared since the last frame and spawn a splash
-    // at their last on-screen spot. Runs every animation frame (frameNow tick).
-    // A bulk vanish (round end / arena reset) is ignored so we don't spray the
-    // whole map with splashes.
+    // AIR supports arrows and the isometric QWE/AD/ZXC cluster. While a key is
+    // held it sends a target two tiles away once per 300 ms game turn.
+    useEffect(() =>
+    {
+        if (editing || phase !== 'playing') return;
+
+        const keys = new Set<string>();
+        let interval: ReturnType<typeof setInterval> | null = null;
+        const movementCodes = new Set([
+            'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
+            'KeyQ', 'KeyW', 'KeyE', 'KeyA', 'KeyD', 'KeyZ', 'KeyX', 'KeyC',
+        ]);
+        const isEditableTarget = (target: EventTarget | null): boolean =>
+        {
+            const element = target as HTMLElement | null;
+            if (!element) return false;
+            return element.isContentEditable || element.tagName === 'INPUT' || element.tagName === 'TEXTAREA' || element.tagName === 'SELECT';
+        };
+        const move = () =>
+        {
+            const direction = getKeyboardDirection(keys);
+            const avatar = simulation.getAvatarByUserId(ownUserId);
+            if (!direction || !avatar) return;
+            const targetX = Math.max(0, Math.min(mapWidth - 1, avatar.tileX + (direction.x * 2)));
+            const targetY = Math.max(0, Math.min(mapHeight - 1, avatar.tileY + (direction.y * 2)));
+            walkTo(tileToWorld(targetX), tileToWorld(targetY));
+        };
+        const stopTimerIfIdle = () =>
+        {
+            if (getKeyboardDirection(keys) || interval === null) return;
+            clearInterval(interval);
+            interval = null;
+        };
+        const onKeyDown = (event: KeyboardEvent) =>
+        {
+            if (!movementCodes.has(event.code) || isEditableTarget(event.target)) return;
+            event.preventDefault();
+            const wasMoving = getKeyboardDirection(keys) !== null;
+            keys.add(event.code);
+            if (!wasMoving) move();
+            if (interval === null) interval = setInterval(move, 300);
+        };
+        const onKeyUp = (event: KeyboardEvent) =>
+        {
+            if (!movementCodes.has(event.code)) return;
+            keys.delete(event.code);
+            stopTimerIfIdle();
+        };
+        const onBlur = () =>
+        {
+            keys.clear();
+            stopTimerIfIdle();
+        };
+
+        window.addEventListener('keydown', onKeyDown);
+        window.addEventListener('keyup', onKeyUp);
+        window.addEventListener('blur', onBlur);
+        return () =>
+        {
+            window.removeEventListener('keydown', onKeyDown);
+            window.removeEventListener('keyup', onKeyUp);
+            window.removeEventListener('blur', onBlur);
+            if (interval !== null) clearInterval(interval);
+        };
+    }, [editing, mapHeight, mapWidth, ownUserId, phase, simulation, walkTo]);
+
+    // Track newly launched balls for the throw pose and drain authoritative
+    // impact positions. The server sends the post-movement x/y/z, avoiding the
+    // old one-subturn-early splash and nearest-prop guessing.
     useEffect(() =>
     {
         const prev = ballScreenRef.current;
@@ -1100,14 +1264,8 @@ export const SnowWarArenaView: FC = () =>
         {
             const lx = ball.prevLocH + (ball.locH - ball.prevLocH) * alpha;
             const ly = ball.prevLocV + (ball.locV - ball.prevLocV) * alpha;
-            const lh = Math.max(0, ball.prevHeight + (ball.height - ball.prevHeight) * alpha);
             const { x, y } = worldToScreen(lx, ly);
-            // Splash marks the actual hit spot: use the ball's true position
-            // (only lifted by the arc), WITHOUT the travel-lead offset. That
-            // offset makes the ball leave the hand, but on a hit it would push
-            // the burst a few px past the avatar/furni it struck.
-            const rise = snowballRise(lh, ball.trajectory);
-            next.set(ball.objectId, { x, y: y - rise, tx: Math.round(lx / TILE_SIZE_WORLD), ty: Math.round(ly / TILE_SIZE_WORLD) });
+            next.set(ball.objectId, { x, y, tx: Math.round(lx / TILE_SIZE_WORLD), ty: Math.round(ly / TILE_SIZE_WORLD) });
 
             // A newly-appeared ball means its thrower just threw - flash that
             // avatar into the SnowWarThrow pose for a short window.
@@ -1117,56 +1275,32 @@ export const SnowWarArenaView: FC = () =>
             }
         }
 
-        // A ball is "gone" only the first time its objectId disappears; a
-        // resync that clears then re-adds the same ball must not splash twice.
-        const gone: { ballId: number; x: number; y: number; tx: number; ty: number }[] = [];
-        prev.forEach((pos, id) =>
-        {
-            if (!next.has(id) && !splashedBallsRef.current.has(id))
-            {
-                gone.push({ ballId: id, x: pos.x, y: pos.y, tx: pos.tx, ty: pos.ty });
-            }
-        });
         ballScreenRef.current = next;
 
-        // A bulk vanish (round end / arena reset) is ignored so we don't spray
-        // the whole map with splashes.
-        if (gone.length > 0 && gone.length <= 3)
+        const impacts = simulation.drainImpacts();
+        if (impacts.length)
         {
-            gone.forEach(g => splashedBallsRef.current.add(g.ballId));
-            setSplashes(list => [...list, ...gone.map(g => ({ id: ++splashIdRef.current, x: g.x, y: g.y }))]);
-
-            // If a ball vanished on (or next to) a tree or the snowman, react:
-            // trees sway their canopy, the snowman does a little squash-bounce -
-            // and both puff a few snowflakes loose.
-            const flakes: { id: number; x: number; y: number }[] = [];
-            for (const g of gone)
+            setSplashes(list => [...list, ...impacts.map(impact =>
             {
-                const prop = displayItems.find(item => (item.name.startsWith('sw_tree') || item.name.startsWith('obst_snowman'))
-                    && Math.abs(item.x - g.tx) <= 1 && Math.abs(item.y - g.ty) <= 1);
-                if (!prop) continue;
-                const snowman = prop.name.startsWith('obst_snowman');
-                treeShakeUntilRef.current.set(`${prop.x},${prop.y}`, frameNow + (snowman ? SNOWMAN_BONK_MS : TREE_SHAKE_MS));
-                const { x: cx, y: cy } = toScreen(prop.x, prop.y);
-                // Snowman is shorter than a tree, so puff from lower down.
-                const puffY = snowman ? -12 : -22;
-                for (const ox of [-7, -3, 1, 5, 9])
-                {
-                    flakes.push({ id: ++snowIdRef.current, x: cx + ox, y: cy + puffY + ((ox + 7) % 6) });
-                }
-            }
-            if (flakes.length) setTreeSnow(list => [...list, ...flakes]);
+                const point = worldToScreen(impact.worldX, impact.worldY);
+                return {
+                    id: impact.id,
+                    x: point.x,
+                    y: point.y - snowballRise(Math.max(0, impact.height)),
+                };
+            })]);
         }
-    }, [frameNow, alpha, worldToScreen, toScreen, simulation, displayItems]);
+    }, [frameNow, alpha, worldToScreen, simulation]);
 
     // First room-ad furni's image is the arena backdrop. offsetZ doubles as an
     // overlay flag: 0 = drawn behind the arena (full-screen), 1 = overlaid on
     // top of the floor tiles (hiding them, but they stay walkable) while still
     // sitting under the furni and avatars. Edit-aware so it previews live.
     const arenaBackdrop = displayItems.find(item => item.imageUrl) ?? null;
-    const backdropOverlay = !!(arenaBackdrop && (arenaBackdrop.offsetZ ?? 0) > 0);
+    const officialArcticBackdrop = !!arenaBackdrop?.imageUrl.includes('snst_bg_1_a_big');
+    const backdropOverlay = !!(arenaBackdrop && !officialArcticBackdrop && (arenaBackdrop.offsetZ ?? 0) > 0);
     const selectedItem = (editing && selectedIndex >= 0 && editItems[selectedIndex]) ? editItems[selectedIndex] : null;
-    const placingFurni = (editing && paletteSel && paletteSel !== 'floor' && paletteSel !== 'edit')
+    const placingFurni = (editing && paletteSel && paletteSel !== 'edit' && paletteSel !== 'walk')
         ? GetSessionDataManager()?.getFloorItemDataByName?.(paletteSel) : null;
     const selectedFurni = selectedItem ? GetSessionDataManager()?.getFloorItemDataByName?.(selectedItem.name) : null;
     const backdropItem = editing ? (editItems.find(item => item.imageUrl) ?? null) : null;
@@ -1189,6 +1323,34 @@ export const SnowWarArenaView: FC = () =>
     // old spot, float the move ghost, and suppress the selection box. Edit mode
     // (paletteSel === 'edit') never moves, so it keeps the piece + selection box.
     const movingSelected = editing && paletteSel === null && !!selectedItem && !!hoverTile;
+
+    const editorAreaOutline = useMemo(() =>
+    {
+        if (!editorArea) return null;
+        const minX = Math.min(editorArea.start.x, editorArea.end.x);
+        const maxX = Math.max(editorArea.start.x, editorArea.end.x);
+        const minY = Math.min(editorArea.start.y, editorArea.end.y);
+        const maxY = Math.max(editorArea.start.y, editorArea.end.y);
+        const top = toScreen(minX, minY);
+        const right = toScreen(maxX, minY);
+        const bottom = toScreen(maxX, maxY);
+        const left = toScreen(minX, maxY);
+        const corners = [
+            top,
+            { x: right.x + TILE_HALF_W, y: right.y + TILE_HALF_H },
+            { x: bottom.x, y: bottom.y + (TILE_HALF_H * 2) },
+            { x: left.x - TILE_HALF_W, y: left.y + TILE_HALF_H },
+        ];
+        const leftPx = Math.min(...corners.map(corner => corner.x));
+        const topPx = Math.min(...corners.map(corner => corner.y));
+        return {
+            left: leftPx,
+            top: topPx,
+            width: Math.max(...corners.map(corner => corner.x)) - leftPx,
+            height: Math.max(...corners.map(corner => corner.y)) - topPx,
+            points: corners.map(corner => `${corner.x - leftPx},${corner.y - topPx}`).join(' '),
+        };
+    }, [editorArea, toScreen]);
 
     // Editor preview walker: current interpolated tile position + facing, derived
     // purely from the walk plan + the RAF frameNow clock (recomputed each frame).
@@ -1307,7 +1469,6 @@ export const SnowWarArenaView: FC = () =>
             scores.set(avatar.teamId, (scores.get(avatar.teamId) ?? 0) + avatar.score);
         }
         return [...scores.entries()].sort((a, b) => a[0] - b[0]);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [simulation, simulation.subturnCount]);
 
     const formatClock = (totalSeconds: number) =>
@@ -1316,6 +1477,26 @@ export const SnowWarArenaView: FC = () =>
         const seconds = Math.max(0, totalSeconds) % 60;
         return `${minutes}:${seconds.toString().padStart(2, '0')}`;
     };
+    const redScore = teamScores.find(([teamId]) => teamId === 0)?.[1] ?? 0;
+    const blueScore = teamScores.find(([teamId]) => teamId === 1)?.[1] ?? 0;
+    const healthFrame = Math.max(0, Math.min(5, ownAvatar?.health ?? 0));
+    const visibleChatMessages = chatMessages
+        .filter(message => (frameNow - message.receivedAt) < 10000)
+        .slice(-8)
+        .flatMap(message =>
+        {
+            const avatar = simulation.avatars.get(message.objectId);
+
+            return avatar ? [{ avatar, message, stackIndex: 0 }] : [];
+        });
+    const chatStackCounts = new Map<number, number>();
+
+    for (let index = visibleChatMessages.length - 1; index >= 0; index--)
+    {
+        const entry = visibleChatMessages[index];
+        entry.stackIndex = chatStackCounts.get(entry.avatar.teamId) ?? 0;
+        chatStackCounts.set(entry.avatar.teamId, entry.stackIndex + 1);
+    }
 
     if (!levelData)
     {
@@ -1328,57 +1509,132 @@ export const SnowWarArenaView: FC = () =>
 
     return (
         <div className="snowwar-arena">
-            <div className="snowwar-hud">
-                <div className="snowwar-hud__clock">{formatClock(secondsLeft)}</div>
-                <div className="snowwar-hud__teams">
-                    {teamScores.map(([teamId, score]) => (
-                        <div key={teamId} className="snowwar-hud__team" style={{ borderColor: TEAM_COLORS[teamId % TEAM_COLORS.length] }}>
-                            <span className="snowwar-hud__team-dot" style={{ background: TEAM_COLORS[teamId % TEAM_COLORS.length] }} />
-                            {score}
-                        </div>
-                    ))}
-                </div>
-                {ownAvatar && (
-                    <div className="snowwar-hud__self">
-                        <span title={localizeWithFallback('snowwar.hud.health', 'Health')}>
-                            {'❤'.repeat(Math.max(0, ownAvatar.health))}
-                            <span className="snowwar-hud__hearts-empty">{'❤'.repeat(Math.max(0, 4 - ownAvatar.health))}</span>
-                        </span>
-                        <span title={localizeWithFallback('snowwar.hud.snowballs', 'Snowballs')}>
-                            {'⚪'.repeat(Math.max(0, ownAvatar.snowballCount))}
-                        </span>
-                        <span>{localizeWithFallback('snowwar.hud.score', 'Score')}: {ownAvatar.score}</span>
+            {editing ? (
+                <div className="snowwar-hud snowwar-hud--editor">
+                    <div className="snowwar-hud__clock">{formatClock(secondsLeft)}</div>
+                    <div className="snowwar-hud__actions">
+                        <input
+                            type="text"
+                            className="snowwar-hud__arena-name"
+                            value={editorArenaName}
+                            maxLength={64}
+                            aria-label={localizeWithFallback('snowwar.editor.name', 'Arena name')}
+                            onChange={event => setEditorArenaName(event.target.value)}
+                        />
+                        <button type="button" className="snowwar-button" onClick={() => saveEditor()}>
+                            {localizeWithFallback('snowwar.editor.publish', 'Publish arena')}
+                        </button>
+                        <button type="button" className="snowwar-button snowwar-button--danger" onClick={() => stopEditing()}>
+                            {localizeWithFallback('snowwar.editor.exit', 'Exit editor')}
+                        </button>
                     </div>
-                )}
-                <div className="snowwar-hud__actions">
-                    {editing ? (
+                </div>
+            ) : (
+                <div className="snowwar-official-hud">
+                    <button
+                        type="button"
+                        className="snowwar-official-hud__quit"
+                        onClick={() => exitGame()}
+                    >
+                        {localizeWithFallback('snowwar.leave', 'Quit Menu')}
+                    </button>
+
+                    {ownAvatar && (
                         <>
-                            <button type="button" className="snowwar-button" onClick={() => saveEditor()}>
-                                {localizeWithFallback('snowwar.editor.save', 'Save arena')}
-                            </button>
-                            <button type="button" className="snowwar-button snowwar-button--danger" onClick={() => stopEditing()}>
-                                {localizeWithFallback('snowwar.editor.exit', 'Exit editor')}
-                            </button>
-                        </>
-                    ) : (
-                        <>
-                            {levelData.canEditRoom && (
-                                <button type="button" className="snowwar-button" onClick={() => startEditing()}>
-                                    {localizeWithFallback('snowwar.edit_room', 'Edit Room')}
-                                </button>
-                            )}
-                            <button type="button" className="snowwar-button snowwar-button--danger" onClick={() => exitGame()}>
-                                {localizeWithFallback('snowwar.leave', 'Leave game')}
-                            </button>
+                            <div
+                                className="snowwar-official-hud__ammo"
+                                title={localizeWithFallback('snowwar.hud.snowballs', 'Snowball inventory')}
+                            >
+                                <img
+                                    alt=""
+                                    className="snowwar-official-hud__ammo-bg"
+                                    draggable={false}
+                                    src={getOfficialSnowWarAssetUrl('ui_ball_indicator_bg.png')}
+                                />
+                                {Array.from({ length: INITIAL_SNOWBALL_COUNT }, (_, index) => (
+                                    <img
+                                        key={index}
+                                        alt=""
+                                        className="snowwar-official-hud__ammo-ball"
+                                        draggable={false}
+                                        src={getOfficialSnowWarAssetUrl('ui_ball.png')}
+                                        style={{ top: 10 + (index * 37), visibility: index < ownAvatar.snowballCount ? 'visible' : 'hidden' }}
+                                    />
+                                ))}
+                                <button
+                                    type="button"
+                                    className="snowwar-official-hud__make-ball"
+                                    disabled={phase !== 'playing' || ownAvatar.snowballCount >= INITIAL_SNOWBALL_COUNT}
+                                    title={localizeWithFallback('snowwar.make_snowball', 'Scoop up a snowball')}
+                                    onClick={() => createSnowball()}
+                                />
+                            </div>
+
+                            <div
+                                className="snowwar-official-hud__personal"
+                                title={localizeWithFallback('snowwar.hud.health', 'Energy and personal score')}
+                            >
+                                <img
+                                    alt=""
+                                    className="snowwar-official-hud__personal-bg"
+                                    draggable={false}
+                                    src={getOfficialSnowWarAssetUrl('ui_me_bg.png')}
+                                />
+                                <img
+                                    alt=""
+                                    className="snowwar-official-hud__health"
+                                    draggable={false}
+                                    src={getOfficialSnowWarAssetUrl(`ui_me_health_${healthFrame}.png`)}
+                                />
+                                <div className="snowwar-official-hud__head">
+                                    <LayoutAvatarImageView
+                                        compactHead
+                                        compactHeadPadding={0}
+                                        compactHeadSize={52}
+                                        direction={2}
+                                        figure={ownAvatar.figure}
+                                        gender={ownAvatar.gender}
+                                        headOnly
+                                    />
+                                </div>
+                                <div className="snowwar-official-hud__personal-score">{ownAvatar.score}</div>
+                            </div>
                         </>
                     )}
+
+                    <div className="snowwar-official-hud__scores">
+                        <img
+                            alt=""
+                            className="snowwar-official-hud__scores-bg"
+                            draggable={false}
+                            src={getOfficialSnowWarAssetUrl('ui_timer_and_points.png')}
+                        />
+                        <div className="snowwar-official-hud__score snowwar-official-hud__score--blue">{blueScore}</div>
+                        <div className="snowwar-official-hud__score snowwar-official-hud__score--red">{redScore}</div>
+                        <div className="snowwar-official-hud__timer">{formatClock(secondsLeft)}</div>
+                        <div className="snowwar-official-hud__time-label">{localizeWithFallback('snowwar.hud.time_left', 'Time left')}</div>
+                    </div>
+
+                    {levelData.canEditRoom && (
+                        <button type="button" className="snowwar-button snowwar-official-hud__edit" onClick={() => startEditing()}>
+                            {localizeWithFallback('snowwar.editor.build_custom', 'Build Custom Arena')}
+                        </button>
+                    )}
                 </div>
-            </div>
+            )}
 
             {editing && (
                 <div className="snowwar-editor">
+                    <div className="snowwar-editor__title">
+                        <span className="snowwar-editor__title-ball" />
+                        {localizeWithFallback('snowwar.editor.title', 'SnowStorm Arena Workshop')}
+                    </div>
                     <div className="snowwar-editor__hint">
-                        {localizeWithFallback('snowwar.editor.hint', 'Pick a piece (or search furniture) then click a tile to place it. Floor tile paints/erases the arena floor. Select/Move: click a piece then an empty tile to move it. Edit: click a piece to rotate / change its state / delete it without moving it. Walk: stroll a preview avatar around to test the layout.')}
+                        {localizeWithFallback('snowwar.editor.hint', 'Pick a piece, floor tile, or hotel furni and build directly on the arena. Select / Move and Edit let you refine placed pieces; Walk tests the finished routes.')}
+                    </div>
+                    <div className="snowwar-editor__shortcuts">
+                        <span><kbd>Ctrl / ⌘</kbd> + drag <b>Paint line</b></span>
+                        <span><kbd>Shift</kbd> + drag <b>Fill area</b></span>
                     </div>
                     {/* Function controls (modes + tools), grouped and separated
                         from the furni palette below - these are actions, not furni. */}
@@ -1404,16 +1660,23 @@ export const SnowWarArenaView: FC = () =>
                         >
                             {localizeWithFallback('snowwar.editor.walk', 'Walk')}
                         </button>
-                        <button
-                            type="button"
-                            className={'snowwar-editor__chip snowwar-editor__chip--floor' + (paletteSel === 'floor' ? ' snowwar-editor__chip--active' : '')}
-                            onClick={() => { setPaletteSel('floor'); setSelectedIndex(-1); }}
-                        >
-                            {localizeWithFallback('snowwar.editor.floor', 'Floor tile')}
-                        </button>
                         <button type="button" className="snowwar-button snowwar-button--danger" onClick={() => clearAllItems()}>
                             {localizeWithFallback('snowwar.editor.clear', 'Clear all furni')}
                         </button>
+                    </div>
+                    <div className="snowwar-editor__floor-plan">
+                        <div className="snowwar-editor__floor-plan-heading">
+                            <strong>{localizeWithFallback('snowwar.editor.floor_plan', 'Floor plan')}</strong>
+                            <span>{walkableTileCount} {localizeWithFallback('snowwar.editor.walkable_tiles', 'walkable tiles')}</span>
+                        </div>
+                        <div className="snowwar-editor__hint">
+                            {localizeWithFallback('snowwar.editor.floor_plan_hint', 'Open the full floor plan editor to shape the playable snowfield with its canvas, height tools, selection, undo and redo.')}
+                        </div>
+                        <div className="snowwar-editor__tools">
+                            <button type="button" className="snowwar-button" onClick={() => setFloorplanEditorVisible(true)}>
+                                {localizeWithFallback('snowwar.editor.floor_open', 'Edit floor plan')}
+                            </button>
+                        </div>
                     </div>
                     {EDITOR_PALETTE.length > 0 && (
                         <div className="snowwar-editor__palette">
@@ -1523,9 +1786,20 @@ export const SnowWarArenaView: FC = () =>
                     </div>
                 </div>
             )}
+            {editing && floorplanEditorVisible && (
+                <FloorplanEditorView
+                    externalSession={{
+                        tilemap: editHeightmap.join('\r'),
+                        occupiedTiles: floorplanOccupiedTiles,
+                        title: localizeWithFallback('snowwar.editor.floor_title', 'SnowStorm Floor Plan Editor'),
+                        onClose: () => setFloorplanEditorVisible(false),
+                        onSave: applyEditorFloorPlan,
+                    }}
+                />
+            )}
             {(frameNow - savedAt) < 2500 && savedAt > 0 && (
                 <div className="snowwar-banner snowwar-banner--saved">
-                    {localizeWithFallback('snowwar.editor.saved', 'Arena saved! The next game uses the new layout.')}
+                    {localizeWithFallback('snowwar.editor.published', 'Custom arena published to the game pool!')}
                 </div>
             )}
 
@@ -1551,15 +1825,10 @@ export const SnowWarArenaView: FC = () =>
                 className="snowwar-viewport"
                 onClick={onArenaClick}
                 onContextMenu={onArenaClick}
-                onMouseMove={editing ? (event) =>
-                {
-                    const { tileX, tileY } = screenToTile(event);
-                    const inBounds = tileX >= 0 && tileY >= 0 && tileX < mapWidth && tileY < mapHeight;
-                    setHoverTile(prev =>
-                        (prev && prev.x === tileX && prev.y === tileY) || (!prev && !inBounds)
-                            ? prev
-                            : (inBounds ? { x: tileX, y: tileY } : null));
-                } : undefined}
+                onPointerDown={editing ? onEditorPointerDown : undefined}
+                onPointerMove={editing ? onEditorPointerMove : undefined}
+                onPointerUp={editing ? onEditorPointerUp : undefined}
+                onPointerCancel={editing ? onEditorPointerCancel : undefined}
                 onMouseLeave={editing ? () => setHoverTile(null) : undefined}
             >
                 <div
@@ -1571,7 +1840,15 @@ export const SnowWarArenaView: FC = () =>
                     // between pixels and looks blurry / shimmers while the camera moves.
                     style={{ width: stageW, height: stageH, transform: `translate(${Math.round(cameraX)}px, ${Math.round(cameraY)}px)`, transformOrigin: '0 0' }}
                 >
-                    {arenaBackdrop && !backdropOverlay && (
+                    {officialArcticBackdrop && (
+                        <img
+                            alt=""
+                            className="snowwar-official-arctic-backdrop"
+                            draggable={false}
+                            src={getOfficialSnowWarAssetUrl('snst_bg_1_a_big.png')}
+                        />
+                    )}
+                    {arenaBackdrop && !officialArcticBackdrop && !backdropOverlay && (
                         <img
                             alt=""
                             className="snowwar-arena-bg"
@@ -1583,9 +1860,14 @@ export const SnowWarArenaView: FC = () =>
                         className="snowwar-floor-layer"
                         style={{ left: floorOffsetX, top: floorOffsetY, width: canvasWidth, height: canvasHeight, transform: `scale(${zoom})`, transformOrigin: '0 0' }}
                     >
-                        <canvas ref={canvasRef} width={canvasWidth} height={canvasHeight} className="snowwar-floor" />
+                        <canvas
+                            ref={canvasRef}
+                            width={canvasWidth}
+                            height={canvasHeight}
+                            className={`snowwar-floor${officialArcticBackdrop ? ' snowwar-floor--official-arctic' : ''}`}
+                        />
 
-                    {arenaBackdrop && backdropOverlay && (
+                    {arenaBackdrop && !officialArcticBackdrop && backdropOverlay && (
                         <img
                             alt=""
                             className="snowwar-arena-bg-overlay"
@@ -1597,6 +1879,18 @@ export const SnowWarArenaView: FC = () =>
 
                     {/* Classic props, above the overlay so they aren't hidden. */}
                     <canvas ref={propsCanvasRef} width={canvasWidth} height={canvasHeight} className="snowwar-floor snowwar-floor--props" />
+
+                    {editorAreaOutline && (
+                        <svg
+                            aria-hidden="true"
+                            className="snowwar-edit-area"
+                            width={editorAreaOutline.width}
+                            height={editorAreaOutline.height}
+                            style={{ left: editorAreaOutline.left, top: editorAreaOutline.top }}
+                        >
+                            <polygon points={editorAreaOutline.points} />
+                        </svg>
+                    )}
 
                     {displayItems
                         .filter(item => !isClassicItem(item.name) && !item.imageUrl)
@@ -1629,7 +1923,12 @@ export const SnowWarArenaView: FC = () =>
                         // half-tile offset the furni sorted half a tile behind where it
                         // should, which tipped the overlay the wrong way for an avatar
                         // standing right at a corner.
-                        const originY = toScreen(item.x, item.y).y + TILE_HALF_H;
+                        // AIR stores furni altitude in 1600 world units per room
+                        // floor. Convert that to one rendered tile-height so the
+                        // stacked Arctic Island snow blocks keep their original
+                        // elevation instead of collapsing onto each other.
+                        const altitudePx = Math.max(0, item.offsetZ ?? 0) / 1600 * (TILE_HALF_H * 2);
+                        const originY = toScreen(item.x, item.y).y + TILE_HALF_H - altitudePx;
 
                         // A walkable furni (walkableHeight 0 - a rug/floor tile you
                         // stand ON) is flat on the ground and must NEVER occlude an
@@ -1650,19 +1949,85 @@ export const SnowWarArenaView: FC = () =>
                         const zIndex = flat
                             ? 3 + Math.min(80, Math.max(0, Math.round(originY / 8)))
                             : 100 + Math.round(originY);
+                        const tree = simulation.trees.get(`${item.x},${item.y}`);
+                        const pile = simulation.piles.get(`${item.x},${item.y}`);
+                        const state = tree
+                            ? Math.min(tree.maximumHits - 1, tree.hits)
+                            : pile
+                                ? pile.maxSnowballs - pile.snowballCount
+                                : (item.state ?? 0);
 
                         return (
                             <div
                                 key={`furni-${index}`}
                                 className="snowwar-furni"
-                                style={{ left: front.x, top: front.y + (TILE_HALF_H * 2), zIndex }}
+                                data-snowwar-item={item.name}
+                                data-snowwar-x={item.x}
+                                data-snowwar-y={item.y}
+                                data-snowwar-count={pile?.snowballCount}
+                                style={{ left: front.x, top: front.y + (TILE_HALF_H * 2) - altitudePx, zIndex }}
+                                title={pile ? localizeWithFallback('snowwar.pile.hint', `${pile.snowballCount} snowballs left`) : undefined}
+                                onClick={pile ? event =>
+                                {
+                                    event.stopPropagation();
+                                    const candidates = [
+                                        { x: item.x, y: item.y - 1 },
+                                        { x: item.x + 1, y: item.y },
+                                        { x: item.x, y: item.y + 1 },
+                                        { x: item.x - 1, y: item.y },
+                                    ].filter(candidate =>
+                                    {
+                                        const tile = mapRows[candidate.y]?.charAt(candidate.x);
+                                        if (!tile || tile === 'x' || tile === 'X') return false;
+                                        if (levelData.machines.some(machine =>
+                                            candidate.y === machine.y && candidate.x >= machine.x && candidate.x <= machine.x + 2)) return false;
+                                        return !displayItems.some(other =>
+                                        {
+                                            if (other === item || (other.walkableHeight ?? 0) <= 0) return false;
+                                            const rotated = other.rotation === 2 || other.rotation === 6;
+                                            const width = Math.max(1, (rotated ? other.length : other.width) ?? 1);
+                                            const length = Math.max(1, (rotated ? other.width : other.length) ?? 1);
+                                            return candidate.x >= other.x && candidate.x < other.x + width
+                                                && candidate.y >= other.y && candidate.y < other.y + length;
+                                        });
+                                    });
+                                    candidates.sort((a, b) =>
+                                        (Math.abs(a.x - (ownAvatar?.tileX ?? a.x)) + Math.abs(a.y - (ownAvatar?.tileY ?? a.y)))
+                                        - (Math.abs(b.x - (ownAvatar?.tileX ?? b.x)) + Math.abs(b.y - (ownAvatar?.tileY ?? b.y))));
+                                    if (candidates[0]) walkTo(tileToWorld(candidates[0].x), tileToWorld(candidates[0].y));
+                                } : undefined}
                             >
-                                {furniData
+                                {item.name === 'ads_igorraygun' && !editing && (
+                                    <button
+                                        type="button"
+                                        className="snowwar-raygun-hitbox"
+                                        aria-label={localizeWithFallback('snowwar.raygun.use', 'Use Ray Gun')}
+                                        title={localizeWithFallback('snowwar.raygun.use', 'Use Ray Gun')}
+                                        onClick={event => fireRayGun(event, item.x, item.y, item.rotation, item.width ?? 1, item.length ?? 1)}
+                                    />
+                                )}
+                                {item.name === 'snst_ballpile'
+                                    ? furniData
+                                        ? <LayoutFurniImageView
+                                            direction={item.rotation}
+                                            productClassId={furniData.id}
+                                            productType="s"
+                                            state={state}
+                                            style={{ position: 'absolute', transformOrigin: 'center bottom', transform: `translate(-50%, -100%) scale(${SNOWWAR_GAME_SPRITE_SCALE})` }}
+                                        />
+                                        : <img
+                                            alt=""
+                                            className="snowwar-official-ballpile"
+                                            draggable={false}
+                                            src={snowballPileImage}
+                                            style={{ position: 'absolute', width: 23, height: 18, maxWidth: 'none', transformOrigin: 'center bottom', transform: `translate(-50%, -100%) scale(${SNOWWAR_GAME_SPRITE_SCALE})` }}
+                                        />
+                                    : furniData
                                     ? <LayoutFurniImageView
                                         direction={item.rotation}
                                         productClassId={furniData.id}
                                         productType="s"
-                                        state={item.state ?? 0}
+                                        state={state}
                                         style={{ position: 'absolute', transformOrigin: 'center bottom', transform: `translate(-50%, -100%) scale(${SNOWWAR_FURNI_SCALE})` }}
                                     />
                                     : <div className="snowwar-furni__fallback" />}
@@ -1701,16 +2066,13 @@ export const SnowWarArenaView: FC = () =>
                         .map((item, index) =>
                         {
                             const { x: screenX, y: screenY } = toScreen(item.x, item.y);
-                            const hitActive = (treeShakeUntilRef.current.get(`${item.x},${item.y}`) ?? 0) > frameNow;
-                            // Trees sway their canopy; the snowman does a squash-bounce.
-                            const hitClass = !hitActive ? ''
-                                : item.name.startsWith('obst_snowman') ? ' snowwar-classic-prop--bonk'
-                                : item.name.startsWith('sw_tree') ? ' snowwar-classic-prop--shake'
-                                : '';
                             return (
                                 <div
                                     key={`classic-${index}`}
-                                    className={'snowwar-classic-prop' + hitClass}
+                                    className="snowwar-classic-prop"
+                                    data-snowwar-item={item.name}
+                                    data-snowwar-x={item.x}
+                                    data-snowwar-y={item.y}
                                     style={{ left: screenX - (PROP_BOX_W / 2), top: screenY - PROP_ANCHOR_Y, zIndex: 100 + Math.round(screenY + TILE_HALF_H) }}
                                 >
                                     <ClassicPropSprite name={item.name} rotation={item.rotation} />
@@ -1735,17 +2097,20 @@ export const SnowWarArenaView: FC = () =>
                     {
                         const state = simulation.machines.get(machine.objectId);
                         const { x, y } = toScreen(machine.x, machine.y);
+                        const snowballCount = Math.max(0, Math.min(5, state?.snowballCount ?? 0));
+                        const indicatorFrame = Math.floor(frameNow / 250) % 2;
+
                         return (
                             <div
                                 key={machine.objectId}
-                                // Depth-sort the pile like a floor furni (origin-tile
+                                // Depth-sort the original machine like a floor furni (origin-tile
                                 // anchor, same formula as avatars/furni) so it draws in
                                 // front of anyone behind it and behind anyone in front,
                                 // and sorts correctly against normal furniture too.
                                 className="snowwar-machine"
                                 // Depth anchor = tile CENTRE (+ TILE_HALF_H) to match the
-                                // avatar reference, so the pile sorts cleanly at corners.
-                                style={{ left: x, top: y, zIndex: 100 + Math.round(y + TILE_HALF_H) }}
+                                // avatar reference, so the machine sorts cleanly at corners.
+                                style={{ left: x, top: y + (TILE_HALF_H * 2), zIndex: 100 + Math.round(y + TILE_HALF_H), transform: `scale(${SNOWWAR_GAME_SPRITE_SCALE})` }}
                                 title={localizeWithFallback('snowwar.machine.hint', 'Walk here to collect snowballs')}
                                 // Clicking the machine walks you to its pickup tile (the
                                 // tile in front of its left cell), where the server's
@@ -1757,14 +2122,30 @@ export const SnowWarArenaView: FC = () =>
                                     walkTo(tileToWorld(machine.x), tileToWorld(machine.y + 1));
                                 }}
                             >
-                                <div className="snowwar-machine__shadow" />
-                                {SNOWWAR_PILE.map((ball, index) => (
-                                    <span
-                                        key={index}
-                                        className="snowwar-machine__ball"
-                                        style={{ left: ball.left, top: ball.top, zIndex: ball.z }}
-                                    />
-                                ))}
+                                <img
+                                    alt=""
+                                    className="snowwar-machine__official-shadow"
+                                    draggable={false}
+                                    height={26}
+                                    src={getOfficialSnowWarAssetUrl('s_snowball_machine_32_sd.png')}
+                                    width={56}
+                                />
+                                <img
+                                    alt=""
+                                    className="snowwar-machine__official-body"
+                                    draggable={false}
+                                    height={57}
+                                    src={getOfficialSnowWarAssetUrl(`s_snowball_machine_32_a_0_${snowballCount}.png`)}
+                                    width={41}
+                                />
+                                <img
+                                    alt=""
+                                    className="snowwar-machine__official-indicator"
+                                    draggable={false}
+                                    height={38}
+                                    src={getOfficialSnowWarAssetUrl(`s_snowball_machine_32_b_0_${indicatorFrame}.png`)}
+                                    width={32}
+                                />
                                 <div className="snowwar-machine__count">{state?.snowballCount ?? 0}</div>
                             </div>
                         );
@@ -1819,21 +2200,15 @@ export const SnowWarArenaView: FC = () =>
                         const ly = ball.prevLocV + (ball.locV - ball.prevLocV) * alpha;
                         const lh = Math.max(0, ball.prevHeight + (ball.height - ball.prevHeight) * alpha);
                         const { x, y } = worldToScreen(lx, ly);
-                        // Rendered arc = height above the throwing hand (world
-                        // 3000). snowballRise raises the origin to the hand and
-                        // halves the long-throw arc so it lands near the ground;
-                        // the ball also grows near its peak.
-                        const rise = snowballRise(lh, ball.trajectory);
-                        const off = travelOffset(ball.locH - ball.prevLocH, ball.locV - ball.prevLocV);
-                        const peakScale = 1 + Math.min(0.8, Math.max(0, lh - 3000) / 8000);
+                        const rise = snowballRise(lh);
                         return (
                             <div
                                 key={ball.objectId}
-                                className={'snowwar-snowball' + (ball.trajectory === 2 ? ' snowwar-snowball--long' : '')}
-                                style={{ left: x + off.x, top: y + off.y }}
+                                className="snowwar-snowball"
+                                style={{ left: x, top: y, transform: `scale(${SNOWWAR_GAME_SPRITE_SCALE})` }}
                             >
-                                <div className="snowwar-snowball__shadow" />
-                                <div className="snowwar-snowball__ball" style={{ transform: `translateY(${-rise}px) scale(${peakScale})` }} />
+                                <img alt="" className="snowwar-snowball__shadow" src={SNOWWAR_SNOWBALL_SHADOW} />
+                                <img alt="" className="snowwar-snowball__ball" src={SNOWWAR_SNOWBALL_IMAGE} style={{ transform: `translateY(${-rise}px)` }} />
                             </div>
                         );
                     })}
@@ -1842,18 +2217,12 @@ export const SnowWarArenaView: FC = () =>
                         <div
                             key={splash.id}
                             className="snowwar-splash"
-                            style={{ left: splash.x, top: splash.y }}
+                            style={{ left: splash.x, top: splash.y, transform: `translate(-50%, -50%) scale(${SNOWWAR_GAME_SPRITE_SCALE})` }}
                             onAnimationEnd={() => setSplashes(list => list.filter(item => item.id !== splash.id))}
-                        />
-                    )}
-
-                    {treeSnow.map(flake =>
-                        <div
-                            key={flake.id}
-                            className="snowwar-treesnow"
-                            style={{ left: flake.x, top: flake.y }}
-                            onAnimationEnd={() => setTreeSnow(list => list.filter(item => item.id !== flake.id))}
-                        />
+                        >
+                            {SNOWWAR_SPLASH_FRAMES.map((frame, index) =>
+                                <img alt="" className={`snowwar-splash__frame snowwar-splash__frame--${index + 1}`} key={frame} src={frame} />)}
+                        </div>
                     )}
 
                     {!editing && [...simulation.avatars.values()].map(avatar =>
@@ -1868,9 +2237,18 @@ export const SnowWarArenaView: FC = () =>
                         const throwProgress = throwing ? 1 - (throwUntil - frameNow) / SNOWWAR_THROW_POSE_MS : 0;
                         const stunned = avatar.activityState === SNOWWAR_STATE_STUNNED;
                         const invincible = avatar.activityState === SNOWWAR_STATE_INVINCIBLE;
-                        const hit = simulation.subturnCount < avatar.hitFlashUntilSubturn;
-                        const chat = chatMessages.filter(message => message.objectId === avatar.objectId).slice(-1)[0];
-                        const showChat = chat && (frameNow - chat.receivedAt) < 5000;
+                        const throwAtOpponent = (event: MouseEvent<HTMLDivElement>, trajectory: number) =>
+                        {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            if (!ownAvatar || avatar.teamId === ownAvatar.teamId) return;
+                            if (!isThrowInRange(ownAvatar.worldX, ownAvatar.worldY, avatar.worldX, avatar.worldY, trajectory))
+                            {
+                                setRangeWarningAt(Date.now());
+                                return;
+                            }
+                            throwAtPlayer(avatar.objectId, trajectory);
+                        };
 
                         return (
                             <div
@@ -1878,44 +2256,53 @@ export const SnowWarArenaView: FC = () =>
                                 className={
                                     'snowwar-avatar' +
                                     (stunned ? ' snowwar-avatar--stunned' : '') +
-                                    (invincible ? ' snowwar-avatar--invincible' : '') +
-                                    (hit ? ' snowwar-avatar--hit' : '')
+                                    (invincible ? ' snowwar-avatar--invincible' : '')
                                 }
                                 style={{ left: x, top: y, zIndex: 100 + Math.round(y) }}
                                 onClick={event =>
                                 {
-                                    if (isOwn || !ownAvatar || avatar.teamId === ownAvatar.teamId) return;
-                                    event.stopPropagation();
-                                    // Plain click = straight (traj 0, 10 tiles); Shift = curved (traj 2, 20 tiles).
-                                    const trajectory = event.shiftKey ? 2 : 0;
-                                    if (!isThrowInRange(ownAvatar.tileX, ownAvatar.tileY, avatar.tileX, avatar.tileY, trajectory))
+                                    if (isOwn)
                                     {
-                                        setRangeWarningAt(Date.now());
+                                        event.stopPropagation();
+                                        createSnowball();
                                         return;
                                     }
-                                    throwAtPlayer(avatar.objectId, trajectory);
+                                    throwAtOpponent(event, getAirTrajectory(event.altKey, event.shiftKey, true) ?? TRAJECTORY_DEFAULT);
+                                }}
+                                onContextMenu={event =>
+                                {
+                                    if (isOwn)
+                                    {
+                                        event.preventDefault();
+                                        event.stopPropagation();
+                                        return;
+                                    }
+                                    throwAtOpponent(event, getAirTrajectory(event.altKey, event.shiftKey, true) ?? TRAJECTORY_DEFAULT);
                                 }}
                             >
-                                {showChat && <div className="snowwar-avatar__chat">{chat.message}</div>}
+                                <div aria-hidden="true" className="snowwar-avatar__hitbox" />
                                 <div
                                     className={'snowwar-avatar__name' + (isOwn ? ' snowwar-avatar__name--own' : '')}
                                     style={{ color: TEAM_COLORS[avatar.teamId % TEAM_COLORS.length] }}
                                 >
                                     {avatar.name}
                                 </div>
-                                <span className={'snowwar-avatar__body' + (hit ? ' snowwar-avatar__body--hit' : '')}>
+                                <span className="snowwar-avatar__body">
                                     <SnowWarAvatarView
                                         figure={avatar.figure}
                                         gender={avatar.gender}
+                                        teamId={avatar.teamId}
                                         direction={avatar.rotation}
                                         walking={walking && !stunned}
+                                        stunned={stunned}
+                                        stunElapsedMs={(STUN_TIME - avatar.activityTimer) * SUBTURN_MS}
+                                        picking={avatar.activityState === SNOWWAR_STATE_CREATING}
                                         throwing={throwing && !stunned}
                                         throwProgress={throwProgress}
                                         frameNow={frameNow}
-                                        scale={0.5}
+                                        scale={SNOWWAR_FURNI_SCALE}
                                     />
                                 </span>
-                                {stunned && <div className="snowwar-avatar__stars">{'⭐⭐⭐'}</div>}
                             </div>
                         );
                     })}
@@ -1940,7 +2327,7 @@ export const SnowWarArenaView: FC = () =>
                                         throwing={false}
                                         throwProgress={0}
                                         frameNow={frameNow}
-                                        scale={0.5}
+                                        scale={SNOWWAR_FURNI_SCALE}
                                     />
                                 </span>
                             </div>
@@ -1951,36 +2338,58 @@ export const SnowWarArenaView: FC = () =>
             </div>
             </div>
 
-            {!editing && (
-            <div className="snowwar-chat">
-                <div className="snowwar-chat__log">
-                    {chatMessages.slice(-4).map(message => (
-                        <div key={message.id} className="snowwar-chat__line">
-                            <b>{message.name}:</b> {message.message}
-                        </div>
-                    ))}
+            {!editing && visibleChatMessages.map(({ avatar, message, stackIndex }) => (
+                <div
+                    key={message.id}
+                    className={`snowwar-chat-bubble snowwar-chat-bubble--${avatar.teamId === 1 ? 'blue' : 'red'}`}
+                    style={{
+                        left: `calc(50% + ${avatar.teamId === 1 ? -300 : 300}px)`,
+                        top: `calc(25% - ${stackIndex * 36}px)`,
+                    }}
+                >
+                    <div className="snowwar-chat-bubble__face">
+                        <LayoutAvatarImageView
+                            compactHead
+                            compactHeadPadding={0}
+                            compactHeadSize={22}
+                            direction={2}
+                            figure={avatar.figure}
+                            gender={avatar.gender}
+                            headOnly
+                        />
+                    </div>
+                    <span className="snowwar-chat-bubble__text"><b>{avatar.name}: </b>{message.message}</span>
                 </div>
+            ))}
+
+            {!editing && (
+            <form
+                className="snowwar-chat"
+                onSubmit={event =>
+                {
+                    event.preventDefault();
+                    submitChat();
+                }}
+            >
                 <input
                     type="text"
                     className="snowwar-chat__input"
                     value={chatInput}
                     maxLength={100}
-                    placeholder={localizeWithFallback('snowwar.chat.placeholder', 'Say something...')}
+                    aria-label={localizeWithFallback('widgets.chatinput.default', 'Click here to chat')}
+                    placeholder={localizeWithFallback('widgets.chatinput.default', 'Click here to chat')}
                     onChange={event => setChatInput(event.target.value)}
-                    onKeyDown={event =>
-                    {
-                        if (event.key !== 'Enter') return;
-                        sendChat(chatInput);
-                        setChatInput('');
-                    }}
                 />
-            </div>
+                <button type="submit" className="snowwar-chat__send">
+                    {localizeWithFallback('widgets.chatinput.say', 'Say')}
+                </button>
+            </form>
             )}
 
             <div className="snowwar-help">
                 {editing
-                    ? localizeWithFallback('snowwar.editor.help', 'Editor: pick a piece then click a tile • click a piece to select, then an empty tile to move • Floor paints tiles')
-                    : localizeWithFallback('snowwar.help', 'Click: walk • Click enemy: throw • Shift+click: lob • Right-click: long throw')}
+                    ? localizeWithFallback('snowwar.editor.help', 'Editor: click to place • Ctrl/Cmd + drag paints • Shift + drag fills an area • one piece per occupied tile')
+                    : localizeWithFallback('snowwar.help', 'Click: walk • Enemy: adaptive throw • Shift: quick • Alt: long lob • Alt+Shift: short lob • Arrows/QWEADZXC: move • Right-click: quick')}
             </div>
         </div>
     );

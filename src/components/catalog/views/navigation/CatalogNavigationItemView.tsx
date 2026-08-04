@@ -1,7 +1,7 @@
 import { FC, useCallback, useRef, useState } from 'react';
 import { FaArrowsAlt, FaCaretDown, FaCaretUp, FaPlus, FaTrash } from 'react-icons/fa';
-import { CatalogType, ICatalogNode, LocalizeText } from '../../../../api';
-import { useCatalogActions, useCatalogUiState } from '../../../../hooks';
+import { ICatalogNode, LocalizeText } from '../../../../api';
+import { useCatalogActions } from '../../../../hooks';
 import { useCatalogAdmin } from '../../CatalogAdminContext';
 import { CatalogIconView } from '../catalog-icon/CatalogIconView';
 import { CatalogNavigationSetView } from './CatalogNavigationSetView';
@@ -14,7 +14,6 @@ export interface CatalogNavigationItemViewProps {
 export const CatalogNavigationItemView: FC<CatalogNavigationItemViewProps> = (props) => {
     const { node = null, child = false } = props;
     const { activateNode = null } = useCatalogActions();
-    const { currentType = CatalogType.NORMAL } = useCatalogUiState();
     const catalogAdmin = useCatalogAdmin();
     const adminMode = catalogAdmin?.adminMode ?? false;
     const [isDragOver, setIsDragOver] = useState(false);
@@ -101,18 +100,10 @@ export const CatalogNavigationItemView: FC<CatalogNavigationItemViewProps> = (pr
                             title={LocalizeText('catalog.admin.create.subpage')}
                             onClick={(e) => {
                                 e.stopPropagation();
-                                catalogAdmin.createPage({
-                                    caption: 'New Page',
-                                    captionSave: 'New Page',
-                                    catalogMode: currentType,
-                                    pageLayout: 'default_3x3',
-                                    iconImage: 0,
-                                    minRank: 1,
-                                    visible: '1',
-                                    enabled: '1',
-                                    orderNum: 0,
-                                    parentId: node.pageId
-                                });
+                                catalogAdmin.setCreatingPage(true);
+                                catalogAdmin.setEditingRootPage(false);
+                                catalogAdmin.setEditingPageNode(node);
+                                catalogAdmin.setEditingPageData(true);
                             }}
                         />
                         <FaTrash

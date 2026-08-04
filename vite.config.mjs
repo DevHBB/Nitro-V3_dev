@@ -3,9 +3,10 @@ import { existsSync, readFileSync } from 'fs';
 import { resolve } from 'path';
 import { defineConfig } from 'vite';
 import sirv from 'sirv';
+import { isValidJsonMode } from './scripts/json-mode.mjs';
 
-const legacyRendererRoot = resolve(__dirname, '..', 'renderer');
-const currentRendererRoot = resolve(__dirname, '..', 'Nitro_Render_V3');
+const legacyRendererRoot = resolve(import.meta.dirname, '..', 'renderer');
+const currentRendererRoot = resolve(import.meta.dirname, '..', 'Nitro_Render_V3');
 const rendererRoot = existsSync(currentRendererRoot) ? currentRendererRoot : legacyRendererRoot;
 
 // Game assets live outside the repo, in a sibling directory next to Nitro-V3.
@@ -13,7 +14,7 @@ const rendererRoot = existsSync(currentRendererRoot) ? currentRendererRoot : leg
 // under public/ makes chokidar try to install a watcher on each one and the
 // dev server takes minutes to start on Windows. Serving them with a
 // dedicated sirv middleware (below) bypasses chokidar entirely.
-const nitroFilesRoot = resolve(__dirname, '..', 'Nitro-Files');
+const nitroFilesRoot = resolve(import.meta.dirname, '..', 'Nitro-Files');
 const nitroAssetsRoot = resolve(nitroFilesRoot, 'nitro-assets');
 const swfRoot = resolve(nitroFilesRoot, 'swf');
 
@@ -76,15 +77,15 @@ const ReactCompilerConfig = {
 const resolveJsonMode = () =>
 {
     const envOverride = process.env.NITRO_JSON_MODE;
-    if(envOverride === 'legacy' || envOverride === 'json5' || envOverride === 'auto') return envOverride;
+    if(isValidJsonMode(envOverride)) return envOverride;
 
-    const configFile = resolve(__dirname, '.nitro-build.json');
+    const configFile = resolve(import.meta.dirname, '.nitro-build.json');
     if(existsSync(configFile))
     {
         try
         {
             const parsed = JSON.parse(readFileSync(configFile, 'utf8'));
-            if(parsed?.jsonMode === 'legacy' || parsed?.jsonMode === 'json5' || parsed?.jsonMode === 'auto') return parsed.jsonMode;
+            if(isValidJsonMode(parsed?.jsonMode)) return parsed.jsonMode;
         }
         catch {}
     }
@@ -115,7 +116,7 @@ export default defineConfig({
     server: {
         fs: {
             allow: [
-                resolve(__dirname),
+                resolve(import.meta.dirname),
                 rendererRoot,
             ]
         },
@@ -129,8 +130,8 @@ export default defineConfig({
     resolve: {
         tsconfigPaths: true,
         alias: {
-            '@': resolve(__dirname, 'src'),
-            '~': resolve(__dirname, 'node_modules'),
+            '@': resolve(import.meta.dirname, 'src'),
+            '~': resolve(import.meta.dirname, 'node_modules'),
             // Force the umbrella to the source index.ts. Without this,
             // node-module resolution (via the symlink at
             // node_modules/@nitrots/nitro-renderer -> ../Nitro_Render_V3)
@@ -212,7 +213,7 @@ export default defineConfig({
                         if(id.includes('@tanstack')) return 'vendor-query';
                         if(id.includes('zustand') || id.includes('use-between')) return 'vendor-state';
                         if(id.includes('react-icons')) return 'vendor-icons';
-                        if(id.includes('json5')) return 'vendor-json5';
+                        if(id.includes('strip-json-comments')) return 'vendor-jsonc';
                         return 'vendor';
                     }
                 }

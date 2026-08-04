@@ -1,6 +1,6 @@
 import { FC } from 'react';
-import { LocalizeText } from '../../../../api';
-import snowStormLogo from '../../../../assets/images/snowstorm/snowstorm.png';
+import { GetConfigurationValue, GetSessionDataManager, LocalizeText } from '../../../../api';
+import snowStormLogo from '../../../../assets/images/snowstorm/original/snowstorm_logo.png';
 import { LayoutAvatarImageView } from '../../../../common';
 import { useSnowWar } from '../../../../hooks';
 
@@ -16,6 +16,13 @@ const localizeWithFallback = (key: string, fallback: string) =>
     return text && text !== key ? text : fallback;
 };
 
+const getArenaPreviewUrl = (arenaId: number, official: boolean) =>
+{
+    const imageLibraryUrl = GetConfigurationValue<string>('image.library.url', '');
+    const baseUrl = imageLibraryUrl && !imageLibraryUrl.endsWith('/') ? `${imageLibraryUrl}/` : imageLibraryUrl;
+    return `${baseUrl}snowstorm_client/arena_${official ? arenaId : 1}_preview.png`;
+};
+
 /**
  * Pre-match "getting ready" screen shown during the lobby countdown: the
  * waiting players already split into their Red / Blue teams, so everyone can
@@ -24,10 +31,12 @@ const localizeWithFallback = (key: string, fallback: string) =>
  */
 export const SnowWarTeamsView: FC = () =>
 {
-    const { phase, lobbyTeams, lobbySeconds, queueSize, queueInfo, leaveQueue, startEditing } = useSnowWar();
+    const { phase, lobbyTeams, lobbySeconds, queueSize, queueInfo, leaveQueue, selectArena, startEditing } = useSnowWar();
 
     const players = lobbyTeams?.players ?? [];
     const minPlayers = queueInfo?.minPlayers ?? 0;
+    const ownUserId = GetSessionDataManager()?.userId ?? 0;
+    const isLeader = lobbyTeams?.leaderUserId === ownUserId;
 
     // Status line: still waiting for players (below the minimum), or the lobby
     // countdown once enough have joined and the match is forming.
@@ -46,7 +55,7 @@ export const SnowWarTeamsView: FC = () =>
             {queueInfo?.canEdit && (
                 <div className="snowwar-teams__topbar">
                     <button type="button" className="snowwar-button snowwar-button--edit" onClick={() => startEditing()}>
-                        {localizeWithFallback('snowwar.editor.enter', 'Edit Arena')}
+                        {localizeWithFallback('snowwar.editor.build_custom', 'Build Custom Arena')}
                     </button>
                 </div>
             )}
@@ -55,6 +64,38 @@ export const SnowWarTeamsView: FC = () =>
                 {localizeWithFallback('snowwar.teams.assembling', 'Assembling teams...')}
             </div>
             <div className="snowwar-teams__countdown">{status}</div>
+
+            {!!lobbyTeams?.arenas.length && (
+                <div className="snowwar-teams__arenas">
+                    <div className="snowwar-teams__arena-heading">
+                        {isLeader
+                            ? localizeWithFallback('snowwar.arena.choose', 'Choose the arena')
+                            : localizeWithFallback('snowwar.arena.leader', 'The lobby leader chooses the arena')}
+                    </div>
+                    <div className="snowwar-teams__arena-list">
+                        {lobbyTeams.arenas.map(arena =>
+                        {
+                            const selected = lobbyTeams.selectedArenaId === arena.id;
+                            const name = arena.official
+                                ? localizeWithFallback(`gamecenter.snowwar.map.name.${arena.id}`, arena.name)
+                                : arena.name;
+                            return (
+                                <button
+                                    key={arena.id}
+                                    type="button"
+                                    className={`snowwar-teams__arena${selected ? ' snowwar-teams__arena--selected' : ''}`}
+                                    disabled={!isLeader}
+                                    aria-pressed={selected}
+                                    onClick={() => selectArena(arena.id)}>
+                                    <img src={getArenaPreviewUrl(arena.id, arena.official)} alt="" />
+                                    {!arena.official && <small>{localizeWithFallback('snowwar.arena.custom', 'Custom')}</small>}
+                                    <span>{name}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
 
             <div className="snowwar-teams__board">
                 {TEAMS.map(team =>

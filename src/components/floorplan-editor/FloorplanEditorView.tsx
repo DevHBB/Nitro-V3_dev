@@ -30,19 +30,33 @@ import { FloorplanImportExport } from './views/FloorplanImportExport';
 import { FloorplanOptionsPanel } from './views/FloorplanOptionsPanel';
 import { FloorplanToolbar } from './views/FloorplanToolbar';
 
+export type FloorplanEditorExternalSession = {
+    tilemap: string;
+    occupiedTiles?: boolean[][];
+    title?: string;
+    onClose: () => void;
+    onSave: (tilemap: string) => void;
+};
+
+type Props = {
+    externalSession?: FloorplanEditorExternalSession;
+};
+
 const clampThickness = (v: number): ThicknessLevel => {
     if (v <= 0) return 0;
     if (v >= 3) return 3;
     return (v | 0) as ThicknessLevel;
 };
 
-export const FloorplanEditorView: FC = () => {
-    const [isVisible, setIsVisible] = useState(false);
+export const FloorplanEditorView: FC<Props> = ({ externalSession }) => {
+    const [roomVisible, setRoomVisible] = useState(false);
     const [importExportVisible, setImportExportVisible] = useState(false);
     const [liveSync, setLiveSync] = useState(true);
     const [panMode, setPanMode] = useState(false);
     const [autoPickup, setAutoPickup] = useState(false);
     const { state, dispatch, loadFromServer, undo, redo, canUndo, canRedo } = useFloorplanReducer();
+    const isExternal = !!externalSession;
+    const isVisible = isExternal || roomVisible;
     const originalRef = useRef<{
         tilemap: string;
         entryPoint: [number, number];
@@ -54,23 +68,53 @@ export const FloorplanEditorView: FC = () => {
 
     const area = useMemo(() => areaCount(state.tiles), [state.tiles]);
 
-    const { setBaseline, mergeBaseline, revert: revertLivePreview } = useFloorplanLiveSync({ enabled: liveSync && isVisible, state });
+    const { setBaseline, mergeBaseline, revert: revertLivePreview } = useFloorplanLiveSync({ enabled: !isExternal && liveSync && isVisible, state });
 
-    useNitroEvent<RoomEngineEvent>(RoomEngineEvent.DISPOSED, () => setIsVisible(false));
+    useNitroEvent<RoomEngineEvent>(RoomEngineEvent.DISPOSED, () => {
+        if (!isExternal) setRoomVisible(false);
+    });
 
     useEffect(() => {
-        if (!isVisible) return;
+        if (!externalSession) return;
+
+        const rows = externalSession.tilemap.split(/\r\n|\r|\n/).filter((row) => row.length > 0);
+        let entryPoint: [number, number] = [0, 0];
+        outer: for (let y = 0; y < rows.length; y++) {
+            for (let x = 0; x < rows[y].length; x++) {
+                if (rows[y].charAt(x).toLowerCase() === 'x') continue;
+                entryPoint = [x, y];
+                break outer;
+            }
+        }
+
+        const settings = {
+            tilemap: externalSession.tilemap,
+            entryPoint,
+            entryPointDir: 2,
+            thicknessWall: 1 as ThicknessLevel,
+            thicknessFloor: 1 as ThicknessLevel,
+            wallHeight: MIN_WALL_HEIGHT
+        };
+        originalRef.current = settings;
+        loadFromServer(settings);
+        if (externalSession.occupiedTiles) dispatch({ type: 'SET_OCCUPIED_TILES', map: externalSession.occupiedTiles });
+    }, [dispatch, externalSession?.occupiedTiles, externalSession?.tilemap, loadFromServer]);
+
+    useEffect(() => {
+        if (!isVisible || isExternal) return;
         SendMessageComposer(new GetRoomEntryTileMessageComposer());
         // Ask the server which tiles currently hold furniture so they can be
         // shown (and protected from editing) in the grid.
         SendMessageComposer(new GetOccupiedTilesMessageComposer());
-    }, [isVisible]);
+    }, [isExternal, isVisible]);
 
     useMessageEvent<RoomOccupiedTilesMessageEvent>(RoomOccupiedTilesMessageEvent, (event) => {
+        if (isExternal) return;
         dispatch({ type: 'SET_OCCUPIED_TILES', map: event.getParser().blockedTilesMap });
     });
 
     useMessageEvent<RoomEntryTileMessageEvent>(RoomEntryTileMessageEvent, (event) => {
+        if (isExternal) return;
         const parser = event.getParser();
         originalRef.current = {
             tilemap: originalRef.current?.tilemap ?? '',
@@ -86,6 +130,7 @@ export const FloorplanEditorView: FC = () => {
     });
 
     useMessageEvent<FloorHeightMapEvent>(FloorHeightMapEvent, (event) => {
+        if (isExternal) return;
         const parser = event.getParser();
         originalRef.current = {
             tilemap: parser.model,
@@ -115,6 +160,7 @@ export const FloorplanEditorView: FC = () => {
     });
 
     useMessageEvent<RoomVisualizationSettingsEvent>(RoomVisualizationSettingsEvent, (event) => {
+        if (isExternal) return;
         const parser = event.getParser();
         const wall = clampThickness(convertSettingToNumber(parser.thicknessWall));
         const floor = clampThickness(convertSettingToNumber(parser.thicknessFloor));
@@ -151,19 +197,20 @@ export const FloorplanEditorView: FC = () => {
     }, [isVisible, undo, redo]);
 
     useEffect(() => {
+        if (isExternal) return;
         const linkTracker: ILinkEventTracker = {
             linkReceived: (url: string) => {
                 const parts = url.split('/');
                 if (parts.length < 2) return;
                 switch (parts[1]) {
                     case 'show':
-                        setIsVisible(true);
+                        setRoomVisible(true);
                         return;
                     case 'hide':
-                        setIsVisible(false);
+                        setRoomVisible(false);
                         return;
                     case 'toggle':
-                        setIsVisible((v) => !v);
+                        setRoomVisible((v) => !v);
                         return;
                 }
             },
@@ -171,7 +218,7 @@ export const FloorplanEditorView: FC = () => {
         };
         AddLinkEventTracker(linkTracker);
         return () => RemoveLinkEventTracker(linkTracker);
-    }, []);
+    }, [isExternal]);
 
     const onWallHeightChange = (value: number) => {
         if (isNaN(value) || value <= 0) value = MIN_WALL_HEIGHT;
@@ -180,6 +227,12 @@ export const FloorplanEditorView: FC = () => {
     };
 
     const saveFloorChanges = () => {
+        if (externalSession) {
+            externalSession.onSave(serializeTilemap(state.tiles));
+            externalSession.onClose();
+            return;
+        }
+
         SendMessageComposer(
             new UpdateFloorPropertiesMessageComposer(
                 serializeTilemap(state.tiles),
@@ -198,14 +251,20 @@ export const FloorplanEditorView: FC = () => {
         const o = originalRef.current;
         if (!o) return;
         loadFromServer(o);
-        if (liveSync) revertLivePreview();
+        if (!isExternal && liveSync) revertLivePreview();
+    };
+
+    const closeEditor = () => {
+        setImportExportVisible(false);
+        if (externalSession) externalSession.onClose();
+        else setRoomVisible(false);
     };
 
     return (
         <>
             {isVisible && (
                 <NitroCardView uniqueKey="floorpan-editor" className="w-[820px] h-[620px]" theme="primary-slim">
-                    <NitroCardHeaderView headerText={LocalizeText('floor.plan.editor.title')} onCloseClick={() => setIsVisible(false)} />
+                    <NitroCardHeaderView headerText={externalSession?.title ?? LocalizeText('floor.plan.editor.title')} onCloseClick={closeEditor} />
                     <NitroCardContentView overflow="hidden" className="flex flex-col gap-2">
                         <FloorplanToolbar
                             state={state}
@@ -216,14 +275,15 @@ export const FloorplanEditorView: FC = () => {
                             onRedo={redo}
                             panMode={panMode}
                             setPanMode={setPanMode}
+                            includeDoor={!isExternal}
                         />
-                        <FloorplanOptionsPanel state={state} dispatch={dispatch} />
+                        {!isExternal && <FloorplanOptionsPanel state={state} dispatch={dispatch} />}
                         <Flex gap={2} className="flex-1 min-h-0">
                             <FloorplanHeightPicker selectedH={state.brush.h} onSelect={(h) => dispatch({ type: 'BRUSH_SET', h })} />
                             <FloorplanCanvasSVG state={state} dispatch={dispatch} panMode={panMode} />
                         </Flex>
                         <Flex gap={3} alignItems="center" className="px-1">
-                            <Flex gap={1} alignItems="center">
+                            {!isExternal && <Flex gap={1} alignItems="center">
                                 <Text bold small className="text-zinc-700">
                                     {LocalizeText('floor.editor.wall.height')}
                                 </Text>
@@ -235,11 +295,11 @@ export const FloorplanEditorView: FC = () => {
                                     onChange={(e) => onWallHeightChange(e.target.valueAsNumber)}
                                 />
                                 <FaCaretRight className="cursor-pointer fa-icon text-zinc-600" onClick={() => onWallHeightChange(state.wallHeight + 1)} />
-                            </Flex>
+                            </Flex>}
                             <Text bold small className="text-zinc-700">
                                 Area: <span className="tabular-nums">{area.total}</span> ({area.walkable} tiles)
                             </Text>
-                            <Flex
+                            {!isExternal && <Flex
                                 alignItems="center"
                                 gap={1}
                                 className={`ml-auto border rounded px-2 py-1 cursor-pointer select-none ${autoPickup ? 'bg-amber-500/15 border-amber-500 text-amber-700' : 'border-zinc-400 text-zinc-600'}`}
@@ -250,8 +310,8 @@ export const FloorplanEditorView: FC = () => {
                                 <Text bold small>
                                     {autoPickup ? 'Pick up blocking furni ON' : 'Pick up blocking furni OFF'}
                                 </Text>
-                            </Flex>
-                            <Flex
+                            </Flex>}
+                            {!isExternal && <Flex
                                 alignItems="center"
                                 gap={1}
                                 className={`border rounded px-2 py-1 cursor-pointer select-none ${liveSync ? 'bg-emerald-500/15 border-emerald-500 text-emerald-700' : 'border-zinc-400 text-zinc-600'}`}
@@ -262,7 +322,7 @@ export const FloorplanEditorView: FC = () => {
                                 <Text bold small>
                                     {liveSync ? 'Live preview ON' : 'Live preview OFF'}
                                 </Text>
-                            </Flex>
+                            </Flex>}
                         </Flex>
                         <Flex justifyContent="between">
                             <Button variant="danger" onClick={revertChanges}>
@@ -282,6 +342,12 @@ export const FloorplanEditorView: FC = () => {
                     dispatch={dispatch}
                     onClose={() => setImportExportVisible(false)}
                     onSaveFromText={(raw) => {
+                        if (externalSession) {
+                            externalSession.onSave(raw);
+                            setImportExportVisible(false);
+                            externalSession.onClose();
+                            return;
+                        }
                         SendMessageComposer(
                             new UpdateFloorPropertiesMessageComposer(
                                 raw,

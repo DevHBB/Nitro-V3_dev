@@ -1,24 +1,33 @@
 import { ANGLE_COMPONENT, BASE_VEL_X, BASE_VEL_Y, SQRT_TABLE } from './SnowWarTables';
 
 /**
- * SnowWar math — a faithful TypeScript mirror of the server's integer math
- * (Upgrade/README.md §11–§12). Every operation is forced to 32-bit integer
+ * SnowWar math — a faithful TypeScript mirror of the official AIR client and
+ * the server's integer math. Every operation is forced to 32-bit integer
  * semantics with `| 0` so results match the emulator's Java `int` arithmetic
  * exactly; that is what keeps client and server checksums in sync.
  */
 
 export const TILE_SIZE_WORLD = 3200; // 32px tile * 100 accuracy factor
-export const SUBTURN_MOVEMENT = 640; // world units per subturn
-export const SUBTURNS_PER_TICK = 5;
-export const SERVER_TICK_MS = 300;
+export const SUBTURN_MOVEMENT = 534; // official AIR world units per subturn
+export const SUBTURNS_PER_TICK = 3;
+export const SERVER_TICK_MS = 150;
 export const SUBTURN_MS = SERVER_TICK_MS / SUBTURNS_PER_TICK;
+export const INITIAL_HIT_POINTS = 5;
+export const INITIAL_SNOWBALL_COUNT = 5;
+export const SNOWBALL_CREATE_TIME = 20;
+export const STUN_TIME = 100;
+export const INVINCIBLE_AFTER_STUN_TIME = 60;
 
 export const tileToWorld = (tile: number): number => (tile * TILE_SIZE_WORLD) | 0;
 
-// Throw ranges in tiles (circle around the thrower) - mirrors
-// SnowWarConstants on the emulator, which validates every throw.
-export const THROW_RANGE_NORMAL = 10;
-export const THROW_RANGE_LONG = 20;
+export const TRAJECTORY_QUICK = 0;
+export const TRAJECTORY_SHORT_LOB = 1;
+export const TRAJECTORY_LONG_LOB = 2;
+export const TRAJECTORY_DEFAULT = 3;
+export const QUICK_THROW_MAX_RANGE_WORLD = 20000;
+export const SHORT_LOB_MAX_RANGE_WORLD = 60000;
+export const LONG_LOB_MAX_RANGE_WORLD = 100000;
+export const DEFAULT_THROW_TO_LOB_CUTOFF_WORLD = 42000;
 
 export const worldToTile = (world: number): number => (((world + 1600) / 3200) | 0);
 
@@ -151,38 +160,75 @@ export interface SnowballFlightPath {
     direction: number;
     timeToLive: number;
     parabolaOffset: number;
+    planarVelocity: number;
+    trajectory: number;
 }
 
-/** Flight parameters for a thrown snowball (README §12.6). */
+/** Flight parameters from the official AIR SnowBallGameObject.initialize. */
 export const calculateFlightPath = (
     userX: number,
     userY: number,
     targetX: number,
     targetY: number,
     trajectory: number,
+): SnowballFlightPath => calculateFlightPathWorld(
+    tileToWorld(userX),
+    tileToWorld(userY),
+    tileToWorld(targetX),
+    tileToWorld(targetY),
+    trajectory);
+
+/** World-coordinate variant used by live throws while an avatar is mid-tile. */
+export const calculateFlightPathWorld = (
+    startWorldX: number,
+    startWorldY: number,
+    targetWorldX: number,
+    targetWorldY: number,
+    trajectory: number,
 ): SnowballFlightPath =>
 {
-    const startWorldX = tileToWorld(userX);
-    const startWorldY = tileToWorld(userY);
-    const targetWorldX = tileToWorld(targetX);
-    const targetWorldY = tileToWorld(targetY);
-
     const deltaX = ((targetWorldX - startWorldX) / 200) | 0;
     const deltaY = ((targetWorldY - startWorldY) / 200) | 0;
 
     const direction = getAngleFromComponents(deltaX, deltaY);
 
-    let timeToLive: number;
-    if (trajectory === 1)
+    const distanceSquared = ((deltaX * deltaX) + (deltaY * deltaY)) | 0;
+    const distanceToTarget = fastSqrt(distanceSquared) * 200;
+    let resolvedTrajectory = trajectory;
+
+    if (resolvedTrajectory === TRAJECTORY_DEFAULT)
     {
-        timeToLive = 13;
+        if (distanceToTarget <= DEFAULT_THROW_TO_LOB_CUTOFF_WORLD) resolvedTrajectory = TRAJECTORY_QUICK;
+        else if (distanceToTarget <= SHORT_LOB_MAX_RANGE_WORLD) resolvedTrajectory = TRAJECTORY_SHORT_LOB;
+        else resolvedTrajectory = TRAJECTORY_LONG_LOB;
+    }
+
+    let timeToLive: number;
+    let planarVelocity: number;
+
+    if (resolvedTrajectory === TRAJECTORY_QUICK)
+    {
+        timeToLive = 10;
+        planarVelocity = 2000;
+    }
+    else if (resolvedTrajectory === TRAJECTORY_SHORT_LOB)
+    {
+        const cappedDistance = Math.min(distanceToTarget, SHORT_LOB_MAX_RANGE_WORLD);
+        timeToLive = (cappedDistance * 0.000559) | 0;
+        planarVelocity = timeToLive === 0 ? 0 : (cappedDistance / timeToLive) | 0;
     }
     else
     {
-        const distanceSquared = ((deltaX * deltaX) + (deltaY * deltaY)) | 0;
-        const distanceToTarget = fastSqrt(distanceSquared) * 200;
-        timeToLive = (distanceToTarget / 2000) | 0;
+        const cappedDistance = Math.min(distanceToTarget, LONG_LOB_MAX_RANGE_WORLD);
+        timeToLive = (cappedDistance * 0.0007072135785007072) | 0;
+        planarVelocity = timeToLive === 0 ? 0 : (cappedDistance / timeToLive) | 0;
     }
 
-    return { direction, timeToLive, parabolaOffset: (timeToLive / 2) | 0 };
+    return {
+        direction,
+        timeToLive,
+        parabolaOffset: (timeToLive / 2) | 0,
+        planarVelocity,
+        trajectory: resolvedTrajectory,
+    };
 };

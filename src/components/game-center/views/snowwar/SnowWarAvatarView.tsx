@@ -4,36 +4,52 @@ import { LayoutAvatarImageView } from '../../../../common';
 
 const WALK_FRAME_COUNT = 4;
 const WALK_FRAME_MS = 120;
+const DIE_FRAME_COUNT = 4;
+const THROW_FRAME_COUNT = 9;
 
-// figure|gender|direction -> { walk: 4 posture frames, throwFrames: 2 arm poses }
-const POSE_CACHE: Map<string, { walk: string[]; throwFrames: string[] }> = new Map();
+// figure|gender|direction -> official SnowWar movement/action frames.
+const POSE_CACHE: Map<string, { stand: string; walk: string[]; pick: string; throwFrames: string[]; dieBack: string[] }> = new Map();
 const POSE_CACHE_MAX = 64;
+
+export const getSnowWarFigure = (figure: string, teamId: number): string =>
+{
+    const parts = figure.split('.').filter(part => part && !part.startsWith('cc-'));
+    const chest = `ch-${teamId === 1 ? 20001 : 20000}-1`;
+    const chestIndex = parts.findIndex(part => part.startsWith('ch-'));
+
+    if (chestIndex === -1) parts.push(chest);
+    else parts[chestIndex] = chest;
+
+    return parts.join('.');
+};
 
 interface SnowWarAvatarViewProps
 {
     figure: string;
     gender: string;
+    teamId?: number;
     direction: number;
     walking: boolean;
+    stunned?: boolean;
+    stunElapsedMs?: number;
+    picking?: boolean;
     throwing?: boolean;
-    // 0..1 across the throw window; drives a single arm-up -> arm-down motion.
+    // 0..1 across AIR's throw window.
     throwProgress?: number;
     frameNow: number;
     scale?: number;
 }
 
 /**
- * Arena avatar with a real walk cycle and a throw arm-cycle. Throwing cycles
- * two right-hand poses (SnowWarThrow 'swthrow' = arm cocked, SnowWarPick
- * 'swpick' = arm forward) off the arena's rAF clock, the same way walking
- * cycles the 'mv' posture frames; standing falls back to the shared static
- * LayoutAvatarImageView, whose canvas geometry is identical so switching poses
- * never shifts the sprite.
+ * Arena avatar with the official SnowWar movement/action postures. Once the
+ * frames are ready, one persistent sprite is used across every state so pose
+ * transitions cannot briefly remount an empty avatar image.
  */
 export const SnowWarAvatarView: FC<SnowWarAvatarViewProps> = (props) =>
 {
-    const { figure, gender, direction, walking, throwing = false, throwProgress = 0, frameNow, scale = 1 } = props;
-    const [pose, setPose] = useState<{ walk: string[]; throwFrames: string[] }>(null);
+    const { figure, gender, teamId = 0, direction, walking, stunned = false, stunElapsedMs = 0, picking = false, throwing = false, throwProgress = 0, frameNow, scale = 1 } = props;
+    const snowWarFigure = getSnowWarFigure(figure, teamId);
+    const [pose, setPose] = useState<{ stand: string; walk: string[]; pick: string; throwFrames: string[]; dieBack: string[] }>(null);
     const isDisposed = useRef(false);
     const requestIdRef = useRef(0);
 
@@ -42,7 +58,7 @@ export const SnowWarAvatarView: FC<SnowWarAvatarViewProps> = (props) =>
         isDisposed.current = false;
 
         const requestId = ++requestIdRef.current;
-        const cacheKey = [figure, gender, direction].join('|');
+        const cacheKey = [snowWarFigure, gender, direction].join('|');
 
         const cached = POSE_CACHE.get(cacheKey);
         if (cached)
@@ -70,53 +86,43 @@ export const SnowWarAvatarView: FC<SnowWarAvatarViewProps> = (props) =>
 
             if (!avatarImage) return;
 
-            // Renders one still with the given action appended over the default
-            // stand. initActionAppends clears the prior pass's actions; the
-            // default (std, main) posture still supplies the body. `param` is
-            // the item-id for CARRY_OBJECT/USE_OBJECT (which actually raise the
-            // right arm, unlike the swthrow posture whose frame-0 sits at rest),
-            // or undefined for a plain POSTURE like std.
-            const renderPose = (actionType: string, param?: string): string =>
+            const renderPose = (posture: string): string =>
             {
                 avatarImage.initActionAppends();
                 avatarImage.setDirection(AvatarSetType.FULL, direction);
-                if (param !== undefined) avatarImage.appendAction(actionType, param);
-                else avatarImage.appendAction(AvatarAction.POSTURE, actionType);
+                avatarImage.appendAction(AvatarAction.POSTURE, posture);
                 avatarImage.resetAnimationFrameCounter();
                 avatarImage.updateAnimationByFrames(0);
                 return avatarImage.processAsImageUrl(AvatarSetType.FULL);
             };
 
-            // Walk cycle: 'mv' posture across WALK_FRAME_COUNT frames.
-            avatarImage.initActionAppends();
-            avatarImage.setDirection(AvatarSetType.FULL, direction);
-            avatarImage.appendAction(AvatarAction.POSTURE, AvatarAction.POSTURE_WALK);
-
-            const walk: string[] = [];
-
-            for (let frame = 0; frame < WALK_FRAME_COUNT; frame++)
+            const renderPostureFrames = (posture: string, frameCount: number, postureDirection = direction): string[] =>
             {
-                avatarImage.resetAnimationFrameCounter();
-                avatarImage.updateAnimationByFrames(frame);
-                walk.push(avatarImage.processAsImageUrl(AvatarSetType.FULL));
-            }
+                avatarImage.initActionAppends();
+                avatarImage.setDirection(AvatarSetType.FULL, postureDirection);
+                avatarImage.appendAction(AvatarAction.POSTURE, posture);
+                return Array.from({ length: frameCount }, (_, frame) =>
+                {
+                    avatarImage.resetAnimationFrameCounter();
+                    avatarImage.updateAnimationByFrames(frame);
+                    return avatarImage.processAsImageUrl(AvatarSetType.FULL);
+                });
+            };
 
-            // Throw poses: [0] arm up (CarryItem raises the right arm - STATIC,
-            // frame 0 already arm-up), [1] arm down (std). Item id '999999999'
-            // maps to carry value -1, which has no held sprite in any direction
-            // (h_crr_ri_-1_* doesn't exist), so the arm raises with an empty
-            // hand - no leftover cup/can. Selected by throwProgress for a single
-            // up->down motion (not a loop).
-            const throwFrames = [renderPose(AvatarAction.CARRY_OBJECT, '999999999'), renderPose(AvatarAction.POSTURE_STAND)];
+            const stand = renderPose(AvatarAction.POSTURE_STAND);
+            const walk = renderPostureFrames(AvatarAction.SNOWWAR_RUN, WALK_FRAME_COUNT);
+            const pick = renderPostureFrames(AvatarAction.SNOWWAR_PICK, 1)[0];
+            const dieBack = renderPostureFrames(AvatarAction.SNOWWAR_DIE_BACK, DIE_FRAME_COUNT, direction - (direction % 2));
+            const throwFrames = renderPostureFrames(AvatarAction.SNOWWAR_THROW, THROW_FRAME_COUNT);
 
             const isPlaceholder = avatarImage.isPlaceholder();
 
             avatarImage.dispose();
 
             if (isDisposed.current || (requestIdRef.current !== requestId)) return;
-            if (walk.some(url => !url) || throwFrames.some(url => !url)) return;
+            if (!stand || !pick || walk.some(url => !url) || dieBack.some(url => !url) || throwFrames.some(url => !url)) return;
 
-            const rendered = { walk, throwFrames };
+            const rendered = { stand, walk, pick, throwFrames, dieBack };
 
             if (!isPlaceholder)
             {
@@ -132,23 +138,30 @@ export const SnowWarAvatarView: FC<SnowWarAvatarViewProps> = (props) =>
             setPose(rendered);
         };
 
-        renderFrames(figure);
+        renderFrames(snowWarFigure);
 
         return () =>
         {
             isDisposed.current = true;
         };
-    }, [figure, gender, direction]);
+    }, [snowWarFigure, gender, direction]);
 
-    // Standing (and while frames still download) uses the shared static imager.
-    if ((!walking && !throwing) || !pose)
+    // The shared imager is only the initial loading fallback. It is never
+    // remounted for later movement/action transitions.
+    if (!pose)
     {
-        return <LayoutAvatarImageView direction={direction} figure={figure} gender={gender} scale={scale} />;
+        return <LayoutAvatarImageView direction={direction} figure={snowWarFigure} gender={gender} scale={scale} />;
     }
 
-    const frameUrl = throwing
-        ? pose.throwFrames[throwProgress < 0.5 ? 0 : 1] // single arm-up -> arm-down
-        : pose.walk[Math.floor(frameNow / WALK_FRAME_MS) % WALK_FRAME_COUNT];
+    const frameUrl = stunned
+        ? pose.dieBack[Math.min(DIE_FRAME_COUNT - 1, Math.max(0, Math.floor(stunElapsedMs / WALK_FRAME_MS)))]
+        : picking
+            ? pose.pick
+            : throwing
+                ? pose.throwFrames[Math.min(THROW_FRAME_COUNT - 1, Math.floor(throwProgress * THROW_FRAME_COUNT))]
+                : walking
+                    ? pose.walk[Math.floor(frameNow / WALK_FRAME_MS) % WALK_FRAME_COUNT]
+                    : pose.stand;
 
     const style: CSSProperties = { backgroundImage: `url('${frameUrl}')` };
 

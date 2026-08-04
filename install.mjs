@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { platform } from 'node:os';
 import * as readline from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
+import { DEFAULT_JSON_MODE, normalizeJsonModeAnswer, VALID_JSON_MODES } from './scripts/json-mode.mjs';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_RENDERER_REPO_URL = 'https://github.com/duckietm/Nitro_Render_V3.git';
@@ -21,8 +22,6 @@ const CONFIG_DIR = join(ROOT, 'public', 'configuration');
 const NITRO_BUILD_FILE = join(ROOT, '.nitro-build.json');
 const IS_WINDOWS = platform() === 'win32';
 const MIN_NODE_MAJOR = 18;
-const VALID_JSON_MODES = ['json5', 'legacy', 'auto'];
-const DEFAULT_JSON_MODE = 'json5';
 
 const KEY_SPECS = {
     'socket.url':           { type: 'url',       schemes: ['ws:', 'wss:'],     flag: 'socket-url' },
@@ -233,7 +232,7 @@ function printUsage() {
         '',
         'Workflow flags:',
         '  --non-interactive, --skip-prompts   Keep default URLs unless overridden by --<key>=<value>',
-        '  --json-mode=<json5|legacy|auto>     Choose the JSON parsing mode without prompting',
+        '  --json-mode=<jsonc|legacy|auto>     Choose the JSON parsing mode without prompting',
         '  --renderer-dir=<path>               Renderer folder (absolute, or relative to the parent dir).',
         '                                      Default: auto-detect ' + RENDERER_DIR_CANDIDATES.join(' / ') + ', else "' + DEFAULT_RENDERER_DIR_NAME + '". Env: NITRO_RENDERER_DIR',
         '  --renderer-repo=<url>               Git URL to clone the renderer from (default: duckietm Nitro_Render_V3)',
@@ -251,7 +250,7 @@ function printUsage() {
         '  3. yarn install + yarn link in the renderer',
         '  4. yarn install + yarn link "@nitrots/nitro-renderer" in this project',
         '  5. Copy public/configuration/*.example -> *.json (keeps existing files)',
-        '  6. Choose JSON parsing mode (json5 recommended) -> writes .nitro-build.json',
+        '  6. Choose JSON parsing mode (jsonc recommended) -> writes .nitro-build.json',
         '  7. Prompt for URLs and patch the JSON config files',
         '  8. yarn build (honours the JSON mode chosen at step 6)',
         ''
@@ -401,8 +400,9 @@ async function chooseJsonMode(opts) {
     }
 
     info('Pick how configuration files (renderer-config, ui-config, gamedata) are parsed.');
-    info('  1) JSON5  (recommended - accepts comments, trailing commas, single quotes)');
+    info('  1) JSONC  (recommended - accepts comments and trailing commas)');
     info('  2) JSON   (legacy strict - only standard JSON valid)');
+    info('  auto      Try strict JSON first, then JSONC');
     if (existing) info('  Current value in .nitro-build.json: ' + existing);
 
     const rl = readline.createInterface({ input, output });
@@ -410,19 +410,13 @@ async function chooseJsonMode(opts) {
     let chosen = null;
     try {
         while (chosen === null) {
-            const defaultLabel = existing || '1=JSON5';
+            const defaultLabel = existing || '1=JSONC';
             const answer = (await rl.question('  Choice [' + defaultLabel + ']: ')).trim().toLowerCase();
-            if (answer.length === 0) {
-                chosen = existing || DEFAULT_JSON_MODE;
-            } else if (answer === '1' || answer === 'json5' || answer === 'y' || answer === 'yes') {
-                chosen = 'json5';
-            } else if (answer === '2' || answer === 'json' || answer === 'legacy' || answer === 'n' || answer === 'no') {
-                chosen = 'legacy';
-            } else if (answer === 'auto') {
-                chosen = 'auto';
-            } else {
-                warn('Invalid choice. Enter 1, 2, json5, json, legacy, or auto.');
-            }
+            chosen = answer.length === 0
+                ? (existing || DEFAULT_JSON_MODE)
+                : normalizeJsonModeAnswer(answer);
+
+            if(chosen === null) warn('Invalid choice. Enter 1, 2, jsonc, json, legacy, or auto.');
         }
     } finally {
         activeReadline = null;

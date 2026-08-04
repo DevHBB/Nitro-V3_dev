@@ -131,7 +131,7 @@ export const ChatHistoryView: FC<{}> = (props) => {
                             {row.type === ChatEntryType.TYPE_ROOM_INFO && (
                                 <div className="nitro-chat-history-room-info">
                                     <i className="nitro-icon icon-small-room" />
-                                    <span>{row.name}</span>
+                                    <span>{row.message || row.name}</span>
                                 </div>
                             )}
                         </div>

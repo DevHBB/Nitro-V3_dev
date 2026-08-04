@@ -174,7 +174,7 @@ const useCatalogStore = () => {
         setCurrentType(normalizeCatalogType(type));
     }, []);
 
-    // Real-time furni importati: merge custom/imported.json5 once per session (or after publish).
+    // Merge real-time imported furniture from custom/imported.jsonc once per session or after publishing.
     // Fetching on every catalog open was adding avoidable latency; the file is usually absent.
     const importedFurnidataMerged = useRef(false);
 
@@ -186,7 +186,7 @@ const useCatalogStore = () => {
 
             if (!base || !base.length) return;
 
-            const importedUrl = base.replace(/\/+$/, '') + '/custom/imported.json5';
+            const importedUrl = base.replace(/\/+$/, '') + '/custom/imported.jsonc';
 
             GetSessionDataManager()
                 .mergeFurnitureDataFromUrl(importedUrl)

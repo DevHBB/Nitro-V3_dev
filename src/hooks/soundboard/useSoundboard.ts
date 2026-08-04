@@ -1,96 +1,197 @@
 import {
+    GetSessionDataManager,
+    GetSoundManager,
     ISoundboardSound,
     loadGamedata,
     SoundboardPlayComposer,
+    SoundboardPlayDeniedEvent,
     SoundboardPlayEvent,
+    SoundboardRequestSettingsComposer,
     SoundboardSetEnabledComposer,
     SoundboardSettingsEvent
 } from '@nitrots/nitro-renderer';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useBetween } from 'use-between';
-import { GetConfigurationValue, SendMessageComposer, setSoundboardRoomEnabled } from '../../api';
+import { DispatchUiEvent, GetConfigurationValue, LocalizeText, NotificationBubbleType, SendMessageComposer, setSoundboardRoomEnabled } from '../../api';
+import { SoundboardRoomMessageEvent } from '../../events';
 import { useMessageEvent } from '../events';
+import { useNotificationActions } from '../notification';
+import { normalizeLegacySoundboardCatalog } from './soundboardLegacyCatalog';
+import {
+    DisplaySoundboardSound,
+    mergeSoundboardPresentation,
+    normalizeSoundboardLayout,
+    pushRecentSound,
+    SoundboardCategory,
+    SoundboardLayout
+} from './soundboardPresentation';
+import { getRemainingCooldownSeconds, shouldStartOwnCooldown } from './soundboardUi.helpers';
+import { resolveSoundboardUrl } from './soundboardUrl';
 
-// A pad as the client uses it. `local` marks pads that came from the JSON5 file
-// fallback rather than the server (DB) — those play locally on click because the
-// server can't resolve their id to broadcast them.
-export type ClientSoundboardSound = ISoundboardSound & { local?: boolean };
+export type ClientSoundboardSound = DisplaySoundboardSound & { local?: boolean };
 
-const playLocal = (url: string) => {
-    if (!url) return;
-    try {
-        const audio = new Audio(url);
-        audio.volume = 0.8;
-        void audio.play().catch(() => {});
-    } catch {}
-};
-
-// Resolve a stored sound url (which may be relative, like custom badges) to an
-// absolute one against the asset host.
-const resolveUrl = (url: string): string => {
-    if (!url) return '';
-    if (/^https?:\/\//i.test(url) || url.startsWith('//') || url.startsWith('/')) return url;
-
-    const base = (GetConfigurationValue<string>('soundboard.url.prefix') || GetConfigurationValue<string>('asset.url') || '').replace(/\/+$/, '');
-    return base ? `${base}/${url.replace(/^\/+/, '')}` : url;
-};
-
-// Soundboard state + actions. Shared via useBetween so the event listeners
-// register once regardless of how many components read it (toolbar + view).
-const useSoundboardState = () => {
+export const useSoundboardState = () => {
     const [enabled, setEnabled] = useState(false);
     const [serverSounds, setServerSounds] = useState<ISoundboardSound[]>([]);
-    const [fileSounds, setFileSounds] = useState<ClientSoundboardSound[]>([]);
-    const [lastPlayed, setLastPlayed] = useState<{ soundId: number; username: string } | null>(null);
-    const fileLoadStartedRef = useRef(false);
+    const [legacySounds, setLegacySounds] = useState<ISoundboardSound[]>([]);
+    const [layout, setLayout] = useState<SoundboardLayout>(() => normalizeSoundboardLayout(null));
+    const [recentSoundIds, setRecentSoundIds] = useState<number[]>([]);
+    const [cooldownRemainingSeconds, setCooldownRemainingSeconds] = useState(0);
+    const cooldownSecondsRef = useRef(0);
+    const cooldownUntilRef = useRef(0);
+    const legacyLoadStartedRef = useRef(false);
+    const { showSingleBubble } = useNotificationActions();
 
-    useMessageEvent<SoundboardSettingsEvent>(SoundboardSettingsEvent, (event) => {
+    const showCooldownBubble = useCallback(
+        (remainingSeconds: number) => {
+            const seconds = Math.max(1, remainingSeconds);
+            showSingleBubble(LocalizeText('soundboard.error.cooldown', ['seconds'], [seconds.toString()]), NotificationBubbleType.SOUNDBOARD);
+        },
+        [showSingleBubble]
+    );
+
+    const handleSettings = useCallback((event: SoundboardSettingsEvent) => {
         const parser = event.getParser();
+        cooldownSecondsRef.current = Math.max(0, parser.cooldownSeconds);
         setEnabled(parser.enabled);
         setServerSounds(parser.sounds);
         setSoundboardRoomEnabled(parser.enabled);
-    });
+    }, []);
 
-    useMessageEvent<SoundboardPlayEvent>(SoundboardPlayEvent, (event) => {
-        const parser = event.getParser();
-        playLocal(resolveUrl(parser.url));
-        setLastPlayed({ soundId: parser.soundId, username: parser.username });
-    });
+    useMessageEvent<SoundboardSettingsEvent>(SoundboardSettingsEvent, handleSettings);
 
-    // Fallback: when the soundboard is on but the server (DB) provided no pads,
-    // load them from the JSON5 file once. loadGamedata accepts plain JSON and
-    // JSON5 (// comments) — same loader used for the avatar effect map.
+    const handleDenied = useCallback(
+        (event: SoundboardPlayDeniedEvent) => {
+            const parser = event.getParser();
+
+            if (parser.reason === 1) {
+                const seconds = Math.max(1, parser.remainingSeconds);
+                const now = Date.now();
+                cooldownUntilRef.current = now + seconds * 1_000;
+                setCooldownRemainingSeconds(getRemainingCooldownSeconds(cooldownUntilRef.current, now));
+                showCooldownBubble(seconds);
+                return;
+            }
+
+            const key = parser.reason === 2 ? 'soundboard.error.room_disabled' : 'soundboard.error.unavailable';
+            showSingleBubble(LocalizeText(key), NotificationBubbleType.SOUNDBOARD);
+        },
+        [showCooldownBubble, showSingleBubble]
+    );
+
+    useMessageEvent<SoundboardPlayDeniedEvent>(SoundboardPlayDeniedEvent, handleDenied);
+
+    const handlePlay = useCallback(
+        (event: SoundboardPlayEvent) => {
+            const parser = event.getParser();
+            void GetSoundManager()
+                .playSoundboard(resolveSoundboardUrl(parser.url))
+                .then((played) => {
+                    if (!played) showSingleBubble(LocalizeText('soundboard.error.audio'), NotificationBubbleType.SOUNDBOARD);
+                });
+            setRecentSoundIds((current) => pushRecentSound(current, parser.soundId));
+            DispatchUiEvent(new SoundboardRoomMessageEvent(parser.username, parser.soundName, parser.actorUserId, parser.actorRoomIndex));
+
+            const ownUserId = GetSessionDataManager()?.getUserDataSnapshot?.().userId || -1;
+            if (shouldStartOwnCooldown(parser.actorUserId, ownUserId, cooldownSecondsRef.current)) {
+                const now = Date.now();
+                cooldownUntilRef.current = now + cooldownSecondsRef.current * 1_000;
+                setCooldownRemainingSeconds(getRemainingCooldownSeconds(cooldownUntilRef.current, now));
+            }
+        },
+        [showSingleBubble]
+    );
+
+    useMessageEvent<SoundboardPlayEvent>(SoundboardPlayEvent, handlePlay);
+
+    const isCoolingDown = cooldownRemainingSeconds > 0;
+
     useEffect(() => {
-        if (!enabled || serverSounds.length || fileLoadStartedRef.current) return;
-        fileLoadStartedRef.current = true;
+        if (!isCoolingDown) return;
 
+        const updateRemaining = () => setCooldownRemainingSeconds(getRemainingCooldownSeconds(cooldownUntilRef.current, Date.now()));
+        const timer = window.setInterval(updateRemaining, 250);
+
+        return () => window.clearInterval(timer);
+    }, [isCoolingDown]);
+
+    useEffect(() => {
+        if (!enabled) return;
+
+        let cancelled = false;
+        const url = GetConfigurationValue<string>('soundboard.layout.url') || 'configuration/soundboard-layout.jsonc';
+
+        void loadGamedata<unknown>(url)
+            .then((value) => {
+                if (!cancelled) setLayout(normalizeSoundboardLayout(value));
+            })
+            .catch(() => {
+                if (!cancelled) setLayout(normalizeSoundboardLayout(null));
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [enabled]);
+
+    useEffect(() => {
+        if (!enabled || serverSounds.length || legacyLoadStartedRef.current) return;
+
+        legacyLoadStartedRef.current = true;
+        let cancelled = false;
         const url =
             GetConfigurationValue<string>('soundboard.url') ||
             GetConfigurationValue<string>('soundboard.sounds.url') ||
-            'configuration/soundboard-sounds.json5';
+            'configuration/soundboard-sounds.jsonc';
 
-        (async () => {
-            try {
-                const json = await loadGamedata<{ sounds?: ISoundboardSound[] }>(url);
-                const list = Array.isArray(json?.sounds)
-                    ? json.sounds.filter((s) => s && s.url).map((s) => ({ id: s.id, name: s.name, url: s.url, local: true }))
-                    : [];
-                setFileSounds(list);
-            } catch {}
-        })();
+        void loadGamedata<unknown>(url)
+            .then((value) => {
+                if (!cancelled) setLegacySounds(normalizeLegacySoundboardCatalog(value));
+            })
+            .catch(() => {
+                if (!cancelled) setLegacySounds([]);
+            });
+
+        return () => {
+            cancelled = true;
+        };
     }, [enabled, serverSounds.length]);
 
-    const sounds: ClientSoundboardSound[] = serverSounds.length ? serverSounds : fileSounds;
+    const sounds = useMemo<ClientSoundboardSound[]>(() => {
+        if (serverSounds.length) return mergeSoundboardPresentation(serverSounds, layout);
 
-    const play = useCallback((sound: ClientSoundboardSound) => {
-        if (!sound) return;
-        // File-defined pad: the server doesn't know it, so play it locally.
-        if (sound.local) {
-            playLocal(resolveUrl(sound.url));
-            return;
-        }
-        // DB-backed pad: let the server broadcast it to everyone in the room.
-        SendMessageComposer(new SoundboardPlayComposer(sound.id));
+        return mergeSoundboardPresentation(legacySounds, layout).map((sound) => ({ ...sound, local: true }));
+    }, [serverSounds, legacySounds, layout]);
+    const categories = layout.categories as SoundboardCategory[];
+
+    const play = useCallback(
+        (sound: ClientSoundboardSound) => {
+            if (!sound) return;
+
+            if (sound.local) {
+                void GetSoundManager()
+                    .playSoundboard(resolveSoundboardUrl(sound.url))
+                    .then((played) => {
+                        if (!played) showSingleBubble(LocalizeText('soundboard.error.audio'), NotificationBubbleType.SOUNDBOARD);
+                    });
+                setRecentSoundIds((current) => pushRecentSound(current, sound.id));
+                return;
+            }
+
+            const remainingSeconds = getRemainingCooldownSeconds(cooldownUntilRef.current, Date.now());
+            if (remainingSeconds > 0) {
+                setCooldownRemainingSeconds(remainingSeconds);
+                showCooldownBubble(remainingSeconds);
+                return;
+            }
+
+            SendMessageComposer(new SoundboardPlayComposer(sound.id));
+        },
+        [showCooldownBubble, showSingleBubble]
+    );
+
+    const refresh = useCallback(() => {
+        SendMessageComposer(new SoundboardRequestSettingsComposer());
     }, []);
 
     const setRoomEnabled = useCallback((value: boolean) => {
@@ -99,15 +200,21 @@ const useSoundboardState = () => {
         SendMessageComposer(new SoundboardSetEnabledComposer(value));
     }, []);
 
-    // Local-only clear (e.g. when leaving the room) — does not notify the server.
     const reset = useCallback(() => {
+        GetSoundManager().stopSoundboard();
         setEnabled(false);
         setServerSounds([]);
-        setLastPlayed(null);
+        setLegacySounds([]);
+        setLayout(normalizeSoundboardLayout(null));
+        setRecentSoundIds([]);
+        setCooldownRemainingSeconds(0);
+        cooldownUntilRef.current = 0;
+        cooldownSecondsRef.current = 0;
+        legacyLoadStartedRef.current = false;
         setSoundboardRoomEnabled(false);
     }, []);
 
-    return { enabled, sounds, lastPlayed, play, setRoomEnabled, reset };
+    return { enabled, sounds, categories, recentSoundIds, cooldownRemainingSeconds, isCoolingDown, play, refresh, setRoomEnabled, reset };
 };
 
 export const useSoundboard = () => useBetween(useSoundboardState);

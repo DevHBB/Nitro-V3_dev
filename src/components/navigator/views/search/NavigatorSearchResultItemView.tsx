@@ -123,7 +123,11 @@ export const NavigatorSearchResultItemView: FC<NavigatorSearchResultItemViewProp
                     roomId={roomData.roomId}
                 >
                     {roomData.habboGroupId > 0 && (
-                        <LayoutBadgeImageView badgeCode={roomData.groupBadgeCode} className="absolute top-0 inset-s-0 m-1" isGroup={true} />
+                        <LayoutBadgeImageView
+                            badgeCode={roomData.groupBadgeCode}
+                            className="absolute! bottom-0 left-1/2 z-10 mb-1 -translate-x-1/2"
+                            isGroup={true}
+                        />
                     )}
                     <Flex
                         center

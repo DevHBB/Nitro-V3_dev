@@ -1,15 +1,15 @@
 import './pixiPatch';
 
 import { GetConfiguration } from '@nitrots/nitro-renderer';
-import JSON5 from 'json5';
+import { parseJsonDocument, UiJsonMode } from './json/JsonDocumentParser';
 import { configFileUrl, getClientMode, installSecureFetch } from './secure-assets';
 
-declare const __NITRO_JSON_MODE__: 'legacy' | 'json5' | 'auto' | undefined;
+declare const __NITRO_JSON_MODE__: UiJsonMode | undefined;
 
-const resolveJsonMode = (): 'legacy' | 'json5' | 'auto' => {
+const resolveJsonMode = (): UiJsonMode => {
     try {
         if (typeof __NITRO_JSON_MODE__ !== 'undefined' && __NITRO_JSON_MODE__) {
-            if (__NITRO_JSON_MODE__ === 'legacy' || __NITRO_JSON_MODE__ === 'json5' || __NITRO_JSON_MODE__ === 'auto') return __NITRO_JSON_MODE__;
+            if (__NITRO_JSON_MODE__ === 'legacy' || __NITRO_JSON_MODE__ === 'jsonc' || __NITRO_JSON_MODE__ === 'auto') return __NITRO_JSON_MODE__;
         }
     } catch {}
 
@@ -75,17 +75,7 @@ const loadClientMode = async () => {
         const text = await response.text();
         const mode = resolveJsonMode();
 
-        if (mode === 'legacy') {
-            (window as any).__nitroClientMode = JSON.parse(text);
-        } else if (mode === 'json5') {
-            (window as any).__nitroClientMode = JSON5.parse(text);
-        } else {
-            try {
-                (window as any).__nitroClientMode = JSON.parse(text);
-            } catch {
-                (window as any).__nitroClientMode = JSON5.parse(text);
-            }
-        }
+        (window as any).__nitroClientMode = parseJsonDocument(text, mode, url.toString());
         setBootDebug(`boot: client-mode loaded (mode=${mode})`);
     } catch (error) {
         setBootDebug(`boot: client-mode fallback ${error?.message || error}`);
