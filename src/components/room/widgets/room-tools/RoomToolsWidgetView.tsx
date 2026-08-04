@@ -1,4 +1,4 @@
-import { CreateLinkEvent, GetGuestRoomResultEvent, GetRoomEngine, RateFlatMessageComposer, RoomEngineEvent } from '@nitrots/nitro-renderer';
+import { CreateLinkEvent, GetGuestRoomResultEvent, GetRoomEngine, RateFlatMessageComposer, RoomEngineEvent, RoomGeometry } from '@nitrots/nitro-renderer';
 import { AnimatePresence, motion } from 'framer-motion';
 import { FC, useEffect, useState } from 'react';
 import { GetConfigurationValue, LocalizeText, SendMessageComposer, SetLocalStorage, TryVisitRoom } from '../../../../api';
@@ -6,6 +6,7 @@ import { Text } from '../../../../common';
 import { useMessageEvent, useNavigatorData, useNitroEvent, useRoom } from '../../../../hooks';
 import { classNames } from '../../../../layout';
 import { getRegisteredPlugins, INitroPlugin, subscribePlugins } from '../../../plugins/NitroPluginApi';
+import { applyRoomZoom } from './roomZoom.helpers';
 
 interface RoomHistoryEntry {
     roomId: number;
@@ -71,10 +72,27 @@ export const RoomToolsWidgetView: FC<{}> = (props) => {
         return subscribePlugins(() => setPlugins(getRegisteredPlugins()));
     }, []);
 
+    const getLogicalZoomScale = () => {
+        if (!roomSession) return 1;
+
+        const displayScale = GetRoomEngine().getRoomInstanceRenderingCanvasScale(roomSession.roomId, 1);
+        const geometry = GetRoomEngine().getRoomInstanceGeometry(roomSession.roomId, 1);
+        const geometryRatio = geometry ? geometry.scale / RoomGeometry.SCALE_ZOOMED_IN : 1;
+
+        return getNearestZoomScale(displayScale * geometryRatio);
+    };
+
+    const applyZoomScale = (logicalScale: number) => {
+        if (!roomSession) return;
+
+        applyRoomZoom(roomSession.roomId, logicalScale);
+        setZoomScale(logicalScale);
+    };
+
     const updateZoomScale = () => {
         if (!roomSession) return;
 
-        setZoomScale(getNearestZoomScale(GetRoomEngine().getRoomInstanceRenderingCanvasScale(roomSession.roomId, 1)));
+        setZoomScale(getLogicalZoomScale());
     };
 
     const zoomRoom = (direction: number) => {
@@ -91,13 +109,12 @@ export const RoomToolsWidgetView: FC<{}> = (props) => {
             return;
         }
 
-        const currentScale = getNearestZoomScale(GetRoomEngine().getRoomInstanceRenderingCanvasScale(roomSession.roomId, 1));
+        const currentScale = getLogicalZoomScale();
         const nextScale = getNextZoomScale(currentScale, direction);
 
         if (Math.abs(nextScale - currentScale) <= 0.001) return;
 
-        GetRoomEngine().setRoomInstanceRenderingCanvasScale(roomSession.roomId, 1, nextScale);
-        setZoomScale(nextScale);
+        applyZoomScale(nextScale);
     };
 
     const handleToolClick = (action: string, value?: string) => {

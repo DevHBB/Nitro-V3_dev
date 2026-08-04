@@ -1,5 +1,4 @@
 import {
-    GetRoomEngine,
     RoomEngineObjectEvent,
     RoomEngineRoomAdEvent,
     RoomEngineTriggerWidgetEvent,
@@ -25,27 +24,19 @@ import { PetPackageWidgetView } from './pet-package/PetPackageWidgetView';
 import { RoomFilterWordsWidgetView } from './room-filter-words/RoomFilterWordsWidgetView';
 import { RoomThumbnailWidgetView } from './room-thumbnail/RoomThumbnailWidgetView';
 import { RoomToolsWidgetView } from './room-tools/RoomToolsWidgetView';
+import { applyRoomZoom } from './room-tools/roomZoom.helpers';
 import { WordQuizWidgetView } from './word-quiz/WordQuizWidgetView';
 
 export const RoomWidgetsView: FC<{}> = (props) => {
     const { roomSession = null } = useRoom();
     const { simpleAlert = null } = useNotification();
 
-    // Bridge RoomSessionPollEvent (OFFER/ERROR/CONTENT) onto the UI bus
-    // for the lifetime of the room session. Single mount point so the
-    // listeners are not re-registered per widget render.
     usePollSubscriptions();
 
-    useNitroEvent<RoomZoomEvent>(RoomZoomEvent.ROOM_ZOOM, (event) =>
-        GetRoomEngine().setRoomInstanceRenderingCanvasScale(
-            event.roomId,
-            1,
-            event.level < 1 ? 0.5 : 1 << (Math.floor(event.level) - 1),
-            null,
-            null,
-            event.isFlipForced
-        )
-    );
+    useNitroEvent<RoomZoomEvent>(RoomZoomEvent.ROOM_ZOOM, (event) => {
+        const logicalScale = event.level < 1 ? 0.5 : 1 << (Math.floor(event.level) - 1);
+        applyRoomZoom(event.roomId, logicalScale, event.isFlipForced);
+    });
 
     useNitroEvent<RoomEngineObjectEvent>(
         [
