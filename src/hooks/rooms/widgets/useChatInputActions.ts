@@ -129,10 +129,13 @@ export const useChatInputActions = () => {
                         if (roomSession) GetEventDispatcher().dispatchEvent(new RoomZoomEvent(roomSession.roomId, -1, true));
 
                         return null;
-                    case ':zoom':
-                        if (roomSession) GetEventDispatcher().dispatchEvent(new RoomZoomEvent(roomSession.roomId, parseInt(secondPart)));
+                    case ':zoom': {
+                        const zoomLevel = parseInt(secondPart);
+
+                        if (roomSession && Number.isFinite(zoomLevel)) GetEventDispatcher().dispatchEvent(new RoomZoomEvent(roomSession.roomId, zoomLevel));
 
                         return null;
+                    }
                     case ':screenshot':
                         if (!roomSession) return null;
 
