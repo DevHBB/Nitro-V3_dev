@@ -9,7 +9,7 @@ export interface CatalogStudioCommandInput {
 }
 
 export interface CatalogStudioCommandState {
-    phase: 'offline' | 'clean' | 'draft' | 'blocked' | 'ready';
+    phase: 'offline' | 'loading' | 'clean' | 'draft' | 'blocked' | 'ready';
     canValidate: boolean;
     canPublish: boolean;
     pendingLabel: string;
@@ -33,7 +33,9 @@ export const getCatalogStudioCommandState = (input: CatalogStudioCommandInput): 
     const canPublish = canValidate && input.validationCurrent && !hasIssues;
     let phase: CatalogStudioCommandState['phase'] = 'offline';
 
-    if (input.sessionReady) {
+    if (!input.sessionReady && input.loading) {
+        phase = 'loading';
+    } else if (input.sessionReady) {
         if (!hasPending) phase = 'clean';
         else if (input.validationCurrent && hasIssues) phase = 'blocked';
         else if (canPublish) phase = 'ready';

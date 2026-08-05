@@ -3,12 +3,12 @@
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SendMessageComposer } from '../../../../api';
-import { useMessageEvent } from '../../../../hooks';
+import { useConnectionState, useMessageEvent } from '../../../../hooks';
 import { CatalogStudioProvider } from './CatalogStudioProvider';
 import { useCatalogStudio } from './useCatalogStudio';
 
 vi.mock('../../../../api', () => ({ SendMessageComposer: vi.fn() }));
-vi.mock('../../../../hooks', () => ({ useMessageEvent: vi.fn() }));
+vi.mock('../../../../hooks', () => ({ useConnectionState: vi.fn(), useMessageEvent: vi.fn() }));
 
 const handlers = new Map<string, (event: any) => void>();
 
@@ -21,9 +21,11 @@ const Probe = () => {
             <span data-testid="revision">{studio.revision}</span>
             <span data-testid="pending">{studio.pendingCount}</span>
             <span data-testid="locks">{Object.keys(studio.locks).length}</span>
+            <span data-testid="error">{studio.lastError ?? ''}</span>
             <button onClick={() => studio.acquireLock('PAGE', 44)}>lock</button>
             <button onClick={() => studio.releaseLock('PAGE', 44)}>release</button>
             <button onClick={() => studio.publish()}>publish</button>
+            <button onClick={() => studio.applyDocument('JSONC', '{"pages":[]}', 'fingerprint', 'Import JSONC')}>apply</button>
         </div>
     );
 };
@@ -35,6 +37,14 @@ describe('CatalogStudioProvider', () => {
     beforeEach(() => {
         handlers.clear();
         vi.mocked(SendMessageComposer).mockClear();
+        vi.mocked(useConnectionState).mockReturnValue({
+            phase: 'connected',
+            reconnectAttempt: 0,
+            maxReconnectAttempts: 7,
+            authenticated: true,
+            closeCode: null,
+            closeReason: ''
+        });
         vi.mocked(useMessageEvent).mockImplementation((eventType: any, handler: any) => {
             handlers.set(eventType.name, handler);
         });
@@ -66,6 +76,64 @@ describe('CatalogStudioProvider', () => {
         expect(screen.getByTestId('draft')).toHaveTextContent('12');
         expect(screen.getByTestId('revision')).toHaveTextContent('7');
         expect(screen.getByTestId('pending')).toHaveTextContent('3');
+    });
+
+    it('waits for authentication and opens a fresh session after reconnecting', () => {
+        vi.mocked(useConnectionState).mockReturnValue({
+            phase: 'connecting',
+            reconnectAttempt: 0,
+            maxReconnectAttempts: 7,
+            authenticated: false,
+            closeCode: null,
+            closeReason: ''
+        });
+        const view = render(<CatalogStudioProvider active><Probe /></CatalogStudioProvider>);
+
+        expect(vi.mocked(SendMessageComposer)).not.toHaveBeenCalled();
+
+        vi.mocked(useConnectionState).mockReturnValue({
+            phase: 'connected',
+            reconnectAttempt: 0,
+            maxReconnectAttempts: 7,
+            authenticated: true,
+            closeCode: null,
+            closeReason: ''
+        });
+        view.rerender(<CatalogStudioProvider active><Probe /></CatalogStudioProvider>);
+
+        expect(vi.mocked(SendMessageComposer).mock.calls
+            .filter(([ composer ]) => composer.constructor.name === 'CatalogStudioOpenSessionComposer')).toHaveLength(1);
+
+        emit('CatalogStudioSessionEvent', {
+            activeVersionId: 11, draftVersionId: 12, revision: 7,
+            activeUpdatedAt: '', draftCreatedAt: '', pendingCount: 0,
+            actors: [], validationCurrent: false, validationIssueCount: 0, publishedVersions: []
+        });
+        expect(screen.getByTestId('draft')).toHaveTextContent('12');
+
+        vi.mocked(useConnectionState).mockReturnValue({
+            phase: 'reconnecting',
+            reconnectAttempt: 1,
+            maxReconnectAttempts: 7,
+            authenticated: false,
+            closeCode: null,
+            closeReason: ''
+        });
+        view.rerender(<CatalogStudioProvider active><Probe /></CatalogStudioProvider>);
+        expect(screen.getByTestId('draft')).toHaveTextContent('0');
+
+        vi.mocked(useConnectionState).mockReturnValue({
+            phase: 'connected',
+            reconnectAttempt: 0,
+            maxReconnectAttempts: 7,
+            authenticated: true,
+            closeCode: null,
+            closeReason: ''
+        });
+        view.rerender(<CatalogStudioProvider active><Probe /></CatalogStudioProvider>);
+
+        expect(vi.mocked(SendMessageComposer).mock.calls
+            .filter(([ composer ]) => composer.constructor.name === 'CatalogStudioOpenSessionComposer')).toHaveLength(2);
     });
 
     it('uses server revisions and recovers from a stale operation', () => {
@@ -131,6 +199,55 @@ describe('CatalogStudioProvider', () => {
         const acquireCalls = vi.mocked(SendMessageComposer).mock.calls
             .filter(([ composer ]) => composer.constructor.name === 'CatalogStudioAcquireLockComposer');
         expect(acquireCalls).toHaveLength(1);
+    });
+
+    it('acquires the catalog lock and continues a document apply automatically', () => {
+        render(<CatalogStudioProvider active><Probe /></CatalogStudioProvider>);
+        emit('CatalogStudioSessionEvent', {
+            activeVersionId: 11, draftVersionId: 12, revision: 7,
+            activeUpdatedAt: '', draftCreatedAt: '', pendingCount: 0,
+            actors: [], validationCurrent: false, validationIssueCount: 0, publishedVersions: []
+        });
+
+        act(() => screen.getByText('apply').click());
+        const acquire = vi.mocked(SendMessageComposer).mock.calls.at(-1)[0] as any;
+        expect(acquire.constructor.name).toBe('CatalogStudioAcquireLockComposer');
+        expect(acquire.getMessageArray()).toEqual(expect.arrayContaining([ 12, 'PAGE', 'NORMAL', 2147483647 ]));
+        expect(vi.mocked(SendMessageComposer).mock.calls
+            .filter(([ composer ]) => composer.constructor.name === 'CatalogStudioDocumentApplyComposer')).toHaveLength(0);
+
+        emit('CatalogStudioAcquireLockEvent', {
+            operationId: acquire.getMessageArray()[0], success: true, code: 'LOCK_ACQUIRED', message: '',
+            draftVersionId: 12, entityType: 'PAGE', catalogType: 'NORMAL', entityId: 2147483647,
+            ownerId: 9, ownerName: 'Alice', token: 'root-token', expiresAt: '2026-08-02T10:06:30Z'
+        });
+
+        const apply = vi.mocked(SendMessageComposer).mock.calls.at(-1)[0] as any;
+        expect(apply.constructor.name).toBe('CatalogStudioDocumentApplyComposer');
+        expect(apply.getMessageArray().slice(1)).toEqual([
+            12, 7, 'root-token', 'JSONC', '{"pages":[]}', 'fingerprint', 'Import JSONC'
+        ]);
+    });
+
+    it('ignores a late lock response from an obsolete draft', () => {
+        render(<CatalogStudioProvider active><Probe /></CatalogStudioProvider>);
+        emit('CatalogStudioSessionEvent', {
+            activeVersionId: 11, draftVersionId: 12, revision: 7,
+            activeUpdatedAt: '', draftCreatedAt: '', pendingCount: 0,
+            actors: [], validationCurrent: false, validationIssueCount: 0, publishedVersions: []
+        });
+
+        act(() => screen.getByText('apply').click());
+        emit('CatalogStudioAcquireLockEvent', {
+            operationId: 'late-lock', success: true, code: 'LOCK_ACQUIRED', message: '',
+            draftVersionId: 11, entityType: 'PAGE', catalogType: 'NORMAL', entityId: 2147483647,
+            ownerId: 9, ownerName: 'Alice', token: 'obsolete-token', expiresAt: '2026-08-02T10:06:30Z'
+        });
+
+        expect(screen.getByTestId('locks')).toHaveTextContent('0');
+        expect(screen.getByTestId('error')).toHaveTextContent('draft changed');
+        expect(vi.mocked(SendMessageComposer).mock.calls
+            .filter(([ composer ]) => composer.constructor.name === 'CatalogStudioDocumentApplyComposer')).toHaveLength(0);
     });
 
     it('drops locks from the old draft after a successful publication', () => {

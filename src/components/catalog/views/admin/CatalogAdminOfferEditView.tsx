@@ -1,10 +1,12 @@
-import { FC, useEffect, useState } from 'react';
+import { FC, useEffect, useRef, useState } from 'react';
 import { FaCubes, FaSave, FaSpinner, FaTrash } from 'react-icons/fa';
 import { CatalogType, GetConfigurationValue, IPurchasableOffer, LocalizeText, localizeWithFallback, ProductTypeEnum } from '../../../../api';
 import { useCatalogData, useCatalogUiState, usePurse } from '../../../../hooks';
 import { IEditingOfferDetails, IOfferEditData, useCatalogAdmin } from '../../CatalogAdminContext';
 import { CatalogAdminModalView } from './CatalogAdminModalView';
 import { CatalogAdminOfferPriceView } from './CatalogAdminOfferPriceView';
+import { useCatalogStudio } from '../../admin/studio/useCatalogStudio';
+import { claimCatalogAdminHydration } from './CatalogAdminFormHydration';
 
 const getOfferIconUrl = (offer: IPurchasableOffer | null): string | null => {
     const product = offer?.product;
@@ -43,8 +45,26 @@ export const createCatalogAdminOfferFormState = (details: IEditingOfferDetails):
     extradata: details.extradata,
     haveOffer: details.haveOffer ? '1' : '0',
     offerId_group: details.offerIdGroup,
+    songId: details.songId,
     limitedStack: details.limitedStack,
     orderNumber: details.orderNumber
+});
+
+export const createCatalogAdminNewOfferFormState = (pageId: number, orderNumber = 0): IOfferEditData => ({
+    pageId,
+    itemIds: '',
+    catalogName: '',
+    costCredits: 0,
+    costPoints: 0,
+    pointsType: 0,
+    amount: 1,
+    clubOnly: '0',
+    extradata: '',
+    haveOffer: '1',
+    offerId_group: -1,
+    songId: 0,
+    limitedStack: 0,
+    orderNumber
 });
 
 export const validateCatalogAdminOfferForm = (data: IOfferEditData, builderCatalog: boolean, limitedSells: number): string | null => {
@@ -62,9 +82,22 @@ export const validateCatalogAdminOfferForm = (data: IOfferEditData, builderCatal
 
     if (data.costCredits < 0 || data.costPoints < 0 || data.pointsType < 0) return 'Prices and currency type cannot be negative.';
     if (data.amount < 1 || data.amount > 10000) return 'Quantity must be between 1 and 10,000.';
-    if (data.orderNumber < 0) return 'Order cannot be negative.';
+    if (data.songId < 0) return 'Song ID cannot be negative.';
     if (data.limitedStack < limitedSells) return 'Limited stack cannot be lower than the number already sold.';
     return null;
+};
+
+export const resolveCatalogAdminOfferInteraction = (
+    sessionReady: boolean,
+    detailsReady: boolean,
+    loading: boolean,
+    error: string | null
+) => {
+    if (error) return { canSave: false, message: error };
+    if (!sessionReady) return { canSave: false, message: 'Connecting to Catalog Studio...' };
+    if (!detailsReady) return { canSave: false, message: 'Loading offer details...' };
+    if (loading) return { canSave: false, message: 'Saving offer...' };
+    return { canSave: true, message: null };
 };
 
 export const CatalogAdminOfferEditView: FC<{}> = () => {
@@ -72,6 +105,7 @@ export const CatalogAdminOfferEditView: FC<{}> = () => {
     const { currentType } = useCatalogUiState();
     const { purse } = usePurse();
     const catalogAdmin = useCatalogAdmin();
+    const studio = useCatalogStudio();
     const editingOffer = catalogAdmin?.editingOffer ?? null;
     const editingOfferDetails = catalogAdmin?.editingOfferDetails ?? null;
     const setEditingOffer = catalogAdmin?.setEditingOffer;
@@ -79,6 +113,8 @@ export const CatalogAdminOfferEditView: FC<{}> = () => {
     const deleteOffer = catalogAdmin?.deleteOffer;
     const createOffer = catalogAdmin?.createOffer;
     const loading = catalogAdmin?.loading ?? false;
+    const lastError = catalogAdmin?.lastError ?? null;
+    const studioSessionReady = catalogAdmin?.studioSessionReady ?? false;
 
     const [itemIds, setItemIds] = useState('');
     const [catalogName, setCatalogName] = useState('');
@@ -90,27 +126,50 @@ export const CatalogAdminOfferEditView: FC<{}> = () => {
     const [extradata, setExtradata] = useState('');
     const [haveOffer, setHaveOffer] = useState('1');
     const [offerId, setOfferIdGroup] = useState(-1);
+    const [songId, setSongId] = useState(0);
     const [limitedStack, setLimitedStack] = useState(0);
     const [orderNumber, setOrderNumber] = useState(0);
     const [isNew, setIsNew] = useState(false);
+    const initializationClaimRef = useRef({ current: null as string | null });
+    const detailsClaimRef = useRef({ current: null as string | null });
+    const formTargetKey = editingOffer
+        ? `offer:${currentType}:${editingOffer.offerId}:${editingOffer.offerId === -1 ? currentPage?.pageId || 0 : editingOffer.offerId}`
+        : null;
 
     useEffect(() => {
-        if (!editingOffer) return;
+        if (!editingOffer) {
+            claimCatalogAdminHydration(initializationClaimRef.current, null);
+            claimCatalogAdminHydration(detailsClaimRef.current, null);
+            setIsNew(false);
+            return;
+        }
+
+        if (editingOffer.offerId === -1 && !studio.session) return;
+        if (!claimCatalogAdminHydration(initializationClaimRef.current, formTargetKey)) return;
+
+        claimCatalogAdminHydration(detailsClaimRef.current, null);
 
         if (editingOffer.offerId === -1) {
+            const pageId = currentPage?.pageId || 0;
+            const catalogType = currentType === CatalogType.BUILDER ? 'BUILDER' : 'NORMAL';
+            const siblingOrders = (studio.session?.offers ?? [])
+                .filter((offer) => offer.catalogType === catalogType && offer.pageId === pageId)
+                .map((offer) => offer.orderNumber);
+            const form = createCatalogAdminNewOfferFormState(pageId, siblingOrders.length ? Math.max(...siblingOrders) + 1 : 0);
             setIsNew(true);
-            setItemIds('');
-            setCatalogName('');
-            setCostCredits(0);
-            setCostPoints(0);
-            setPointsType(0);
-            setAmount(1);
-            setClubOnly('0');
-            setExtradata('');
-            setHaveOffer('1');
-            setOfferIdGroup(-1);
-            setLimitedStack(0);
-            setOrderNumber(0);
+            setItemIds(form.itemIds);
+            setCatalogName(form.catalogName);
+            setCostCredits(form.costCredits);
+            setCostPoints(form.costPoints);
+            setPointsType(form.pointsType);
+            setAmount(form.amount);
+            setClubOnly(form.clubOnly);
+            setExtradata(form.extradata);
+            setHaveOffer(form.haveOffer);
+            setOfferIdGroup(form.offerId_group);
+            setSongId(form.songId);
+            setLimitedStack(form.limitedStack);
+            setOrderNumber(form.orderNumber);
         } else {
             setIsNew(false);
             setItemIds(editingOffer.itemIds || '');
@@ -123,14 +182,16 @@ export const CatalogAdminOfferEditView: FC<{}> = () => {
             setExtradata(editingOffer.product?.extraParam || '');
             setHaveOffer(editingOffer.haveOffer ? '1' : '0');
             setOfferIdGroup(0);
+            setSongId(0);
             setLimitedStack(0);
             setOrderNumber(0);
         }
-    }, [editingOffer]);
+    }, [editingOffer, currentPage?.pageId, currentType, formTargetKey, studio.session]);
 
     useEffect(() => {
         if (!editingOfferDetails) return;
         if (!editingOffer || editingOfferDetails.offerId !== editingOffer.offerId) return;
+        if (!claimCatalogAdminHydration(detailsClaimRef.current, `${formTargetKey}:details`)) return;
 
         const form = createCatalogAdminOfferFormState(editingOfferDetails);
         setItemIds(form.itemIds);
@@ -143,13 +204,15 @@ export const CatalogAdminOfferEditView: FC<{}> = () => {
         setExtradata(form.extradata);
         setHaveOffer(form.haveOffer);
         setOfferIdGroup(form.offerId_group);
+        setSongId(form.songId);
         setLimitedStack(form.limitedStack);
         setOrderNumber(form.orderNumber);
-    }, [editingOffer, editingOfferDetails]);
+    }, [editingOffer, editingOfferDetails, formTargetKey]);
 
     if (!editingOffer) return null;
 
     const detailsReady = isNew || editingOfferDetails?.offerId === editingOffer.offerId;
+    const interaction = resolveCatalogAdminOfferInteraction(studioSessionReady, detailsReady, loading, lastError);
     const limitedSells = isNew ? 0 : editingOfferDetails?.limitedSells || 0;
     const formData: IOfferEditData = {
         offerId: isNew ? undefined : editingOffer.offerId,
@@ -164,6 +227,7 @@ export const CatalogAdminOfferEditView: FC<{}> = () => {
         extradata,
         haveOffer,
         offerId_group: offerId,
+        songId,
         limitedStack,
         orderNumber
     };
@@ -173,7 +237,7 @@ export const CatalogAdminOfferEditView: FC<{}> = () => {
         .sort((left, right) => left - right);
 
     const handleSave = async () => {
-        if (!saveOffer || !createOffer || !detailsReady) return;
+        if (!saveOffer || !createOffer || !interaction.canSave) return;
         if (validationError) return;
 
         if (isNew) createOffer(formData);
@@ -274,7 +338,6 @@ export const CatalogAdminOfferEditView: FC<{}> = () => {
                                     <label className="nitro-catalog-admin-label is-field">{LocalizeText('catalog.admin.order')}</label>
                                     <input
                                         className={inputClass}
-                                        min={0}
                                         type="number"
                                         value={orderNumber}
                                         onChange={(e) => setOrderNumber(parseInt(e.target.value) || 0)}
@@ -368,6 +431,18 @@ export const CatalogAdminOfferEditView: FC<{}> = () => {
                                         onChange={(e) => setExtradata(e.target.value)}
                                     />
                                 </div>
+                                <div className="nitro-catalog-admin-form-field">
+                                    <label className="nitro-catalog-admin-label is-field">
+                                        {localizeWithFallback('catalog.admin.offer.song.id', 'Song ID')}
+                                    </label>
+                                    <input
+                                        className={inputClass}
+                                        min={0}
+                                        type="number"
+                                        value={songId}
+                                        onChange={(e) => setSongId(parseInt(e.target.value) || 0)}
+                                    />
+                                </div>
                             </div>
                             <label className="nitro-catalog-admin-form-toggle">
                                 <input
@@ -382,7 +457,11 @@ export const CatalogAdminOfferEditView: FC<{}> = () => {
                     </div>
 
                     <div className="nitro-catalog-admin-form-actions">
-                        {validationError && <span className="nitro-catalog-admin-translate-error">{validationError}</span>}
+                        {(validationError || interaction.message) && (
+                            <span className={validationError || lastError ? 'nitro-catalog-admin-translate-error' : 'nitro-catalog-admin-form-status'}>
+                                {validationError || interaction.message}
+                            </span>
+                        )}
                         {!isNew ? (
                             <button className="nitro-catalog-admin-button is-danger" onClick={handleDelete}>
                                 <FaTrash className="text-[8px]" /> {LocalizeText('catalog.admin.delete')}
@@ -390,7 +469,7 @@ export const CatalogAdminOfferEditView: FC<{}> = () => {
                         ) : (
                             <div />
                         )}
-                        <button className="nitro-catalog-admin-button is-primary" disabled={loading || !detailsReady || !!validationError} onClick={handleSave}>
+                        <button className="nitro-catalog-admin-button is-primary" disabled={!interaction.canSave || !!validationError} onClick={handleSave}>
                             {loading ? <FaSpinner className="text-[8px] animate-spin" /> : <FaSave className="text-[8px]" />}{' '}
                             {isNew ? LocalizeText('catalog.admin.create') : LocalizeText('catalog.admin.save')}
                         </button>

@@ -130,10 +130,43 @@ describe('catalog admin page form state', () => {
         });
     });
 
+    it('preserves legacy negative page ordering when editing existing data', () => {
+        const createFormState = (PageEditor as any).createCatalogAdminPageFormState;
+        const validate = (PageEditor as any).validateCatalogAdminPageForm;
+        const state = createFormState({
+            pageId: 42,
+            caption: 'Legacy page',
+            captionSave: 'legacy_page',
+            parentId: -1,
+            catalogMode: 'NORMAL',
+            layout: 'default_3x3',
+            iconColor: 1,
+            iconImage: 1,
+            minRank: 1,
+            orderNum: -1000,
+            visible: true,
+            enabled: true,
+            clubOnly: false,
+            vipOnly: false,
+            headline: '',
+            teaser: '',
+            special: '',
+            textOne: '',
+            textTwo: '',
+            textDetails: '',
+            textTeaser: '',
+            roomId: 0,
+            includes: ''
+        });
+
+        expect(state.orderNum).toBe(-1000);
+        expect(validate(state)).toBeNull();
+    });
+
     it('creates a new-page form without writing a placeholder page first', () => {
         const createNewFormState = (PageEditor as any).createCatalogAdminNewPageFormState;
 
-        expect(createNewFormState(7, 'NORMAL')).toMatchObject({
+        expect(createNewFormState(7, 'NORMAL', 12)).toMatchObject({
             pageId: undefined,
             caption: '',
             captionSave: '',
@@ -142,7 +175,7 @@ describe('catalog admin page form state', () => {
             pageLayout: 'default_3x3',
             iconImage: 0,
             minRank: 1,
-            orderNum: 0,
+            orderNum: 12,
             visible: '1',
             enabled: '1'
         });

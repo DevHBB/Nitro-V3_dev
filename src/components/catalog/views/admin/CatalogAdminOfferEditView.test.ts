@@ -2,6 +2,20 @@ import { describe, expect, it } from 'vitest';
 import * as OfferEditor from './CatalogAdminOfferEditView';
 
 describe('catalog admin offer form state', () => {
+    it('explains session and detail loading states before saving an offer', () => {
+        const resolveInteraction = (OfferEditor as any).resolveCatalogAdminOfferInteraction;
+
+        expect(resolveInteraction(false, false, false, null)).toEqual({
+            canSave: false,
+            message: 'Connecting to Catalog Studio...'
+        });
+        expect(resolveInteraction(true, false, false, null)).toEqual({
+            canSave: false,
+            message: 'Loading offer details...'
+        });
+        expect(resolveInteraction(true, true, false, null)).toEqual({ canSave: true, message: null });
+    });
+
     it('uses the complete authoritative offer response including bundle quantities', () => {
         const createFormState = (OfferEditor as any).createCatalogAdminOfferFormState;
         const state = createFormState({
@@ -17,6 +31,7 @@ describe('catalog admin offer form state', () => {
             extradata: 'extra',
             haveOffer: false,
             offerIdGroup: 77,
+            songId: 321,
             limitedStack: 100,
             limitedSells: 12,
             orderNumber: 4,
@@ -36,8 +51,52 @@ describe('catalog admin offer form state', () => {
             extradata: 'extra',
             haveOffer: '0',
             offerId_group: 77,
+            songId: 321,
             limitedStack: 100,
             orderNumber: 4
+        });
+    });
+
+    it('preserves legacy negative offer ordering', () => {
+        const validate = (OfferEditor as any).validateCatalogAdminOfferForm;
+        const form = {
+            pageId: 42,
+            itemIds: '100',
+            catalogName: 'legacy_offer',
+            costCredits: 1,
+            costPoints: 0,
+            pointsType: 0,
+            amount: 1,
+            clubOnly: '0',
+            extradata: '',
+            haveOffer: '1',
+            offerId_group: 0,
+            songId: 0,
+            limitedStack: 0,
+            orderNumber: -1000
+        };
+
+        expect(validate(form, false, 0)).toBeNull();
+    });
+
+    it('creates a complete new-offer form with the next available order', () => {
+        const createNewFormState = (OfferEditor as any).createCatalogAdminNewOfferFormState;
+
+        expect(createNewFormState(42, 8)).toEqual({
+            pageId: 42,
+            itemIds: '',
+            catalogName: '',
+            costCredits: 0,
+            costPoints: 0,
+            pointsType: 0,
+            amount: 1,
+            clubOnly: '0',
+            extradata: '',
+            haveOffer: '1',
+            offerId_group: -1,
+            songId: 0,
+            limitedStack: 0,
+            orderNumber: 8
         });
     });
 
