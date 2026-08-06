@@ -544,6 +544,7 @@
     padding: 0 0 0 54px !important;
     align-self: center;
     overflow: hidden;
+    border-radius: 19px;
     box-sizing: border-box;
     background: transparent !important;
     image-rendering: pixelated;
@@ -566,10 +567,10 @@
         17px top;
     background-repeat:
         no-repeat,
-        repeat-x;
+        no-repeat;
     background-size:
         17px 38px,
-        1px 38px;
+        calc(100% - 17px) 38px;
     image-rendering: pixelated;
 }
 

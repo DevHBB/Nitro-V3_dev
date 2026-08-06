@@ -2269,45 +2269,11 @@
 
 .nitro-catalog-admin-preview-pages {
     display: grid;
-    grid-template-columns: minmax(135px, 180px) minmax(0, 1fr);
+    grid-template-columns: repeat(auto-fill, minmax(205px, 1fr));
     gap: 6px;
     max-height: 355px;
-    overflow: hidden;
-}
-
-.nitro-catalog-admin-preview-navigation {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    min-height: 0;
     padding-right: 3px;
     overflow: auto;
-}
-
-.nitro-catalog-admin-preview-page-button {
-    flex: 0 0 auto;
-    min-height: 27px;
-    padding: 4px 7px;
-    border: 1px solid #9aabb4;
-    border-radius: 4px;
-    background: #e8eef2;
-    color: #2b4654;
-    font: 700 10px Ubuntu, Arial, sans-serif;
-    text-align: left;
-    cursor: pointer;
-}
-
-.nitro-catalog-admin-preview-page-button:hover,
-.nitro-catalog-admin-preview-page-button:focus-visible {
-    border-color: #4085b5;
-    outline: 0;
-    background: #dcecf5;
-}
-
-.nitro-catalog-admin-preview-page-button.is-active {
-    border-color: #2e789f;
-    background: #438eb8;
-    color: #fff;
 }
 
 .nitro-catalog-admin-preview-page,
@@ -2318,22 +2284,11 @@
     background: #f8fafb;
 }
 
-.nitro-catalog-admin-preview-page {
-    min-width: 0;
-    overflow: auto;
-}
-
-.nitro-catalog-admin-preview-page header {
+.nitro-catalog-admin-preview-page header,
+.nitro-catalog-admin-preview-offer {
     display: flex;
     flex-direction: column;
     gap: 1px;
-}
-
-.nitro-catalog-admin-preview-offer {
-    display: grid;
-    grid-template-columns: 58px minmax(0, 1fr);
-    align-items: center;
-    gap: 6px;
 }
 
 .nitro-catalog-admin-preview-page header strong,
@@ -2353,15 +2308,8 @@
 
 .nitro-catalog-admin-preview-offers {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
-    gap: 5px;
+    gap: 4px;
     margin-top: 6px;
-}
-
-.nitro-catalog-admin-preview-offer-copy {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
 }
 
 .nitro-catalog-admin-preview-offer.is-eligible {
@@ -2415,10 +2363,6 @@
 
 .nitro-catalog-admin-command-bar.is-draft {
     box-shadow: inset 4px 0 0 #d99a24, inset 0 1px 0 rgba(255, 255, 255, 0.85);
-}
-
-.nitro-catalog-admin-command-bar.is-loading {
-    box-shadow: inset 4px 0 0 #4d86a7, inset 0 1px 0 rgba(255, 255, 255, 0.85);
 }
 
 .nitro-catalog-admin-command-bar.is-blocked {
@@ -2593,11 +2537,6 @@
 
 .nitro-catalog-admin-tab:hover {
     filter: brightness(1.03);
-}
-
-.nitro-catalog-admin-tab:focus-visible {
-    outline: 2px solid #2f719d;
-    outline-offset: -2px;
 }
 
 .nitro-catalog-admin-tab.is-active {
@@ -2899,11 +2838,6 @@
     background: rgba(65, 141, 176, 0.1);
 }
 
-.nitro-catalog-admin-tree-row:focus-visible {
-    outline: 2px solid #3d85af;
-    outline-offset: -2px;
-}
-
 .nitro-catalog-admin-tree-row.is-selected {
     background: linear-gradient(180deg, #cdeafb 0%, #a9d6ef 100%);
     box-shadow: inset 0 0 0 1px rgba(65, 141, 176, 0.5);
@@ -2913,39 +2847,9 @@
     opacity: 0.55;
 }
 
-.nitro-catalog-admin-tree-row.is-drop-inside {
+.nitro-catalog-admin-tree-row.is-drag-over {
     background: rgba(65, 141, 176, 0.22);
     box-shadow: inset 0 0 0 1px rgba(65, 141, 176, 0.55);
-}
-
-.nitro-catalog-admin-tree-row.is-drop-before {
-    box-shadow: inset 0 2px 0 #3f8fb7;
-}
-
-.nitro-catalog-admin-tree-row.is-drop-after {
-    box-shadow: inset 0 -2px 0 #3f8fb7;
-}
-
-.nitro-catalog-admin-root-drop {
-    display: flex;
-    gap: 6px;
-    align-items: center;
-    justify-content: center;
-    min-height: 28px;
-    margin-bottom: 4px;
-    border: 1px dashed #9aa8ad;
-    border-radius: 4px;
-    background: #eef1ef;
-    color: #66777d;
-    font-size: 10px;
-    font-weight: 600;
-}
-
-.nitro-catalog-admin-root-drop.is-active {
-    border-color: #3f8fb7;
-    background: #cdeafb;
-    color: #245d78;
-    box-shadow: inset 0 0 0 1px rgba(63, 143, 183, 0.25);
 }
 
 .nitro-catalog-admin-tree-drag {
@@ -3574,11 +3478,6 @@
 .nitro-catalog-admin-publish-status.is-offline {
     background: rgba(184, 59, 50, 0.14);
     color: #98342d;
-}
-
-.nitro-catalog-admin-publish-status.is-loading {
-    background: rgba(67, 126, 160, 0.14);
-    color: #315f79;
 }
 
 .nitro-catalog-admin-publish-status.is-ready {

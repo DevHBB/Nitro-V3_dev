@@ -1,5 +1,5 @@
 import { NitroEventType } from '@nitrots/nitro-renderer';
-import { FC, useEffect, useState } from 'react';
+import { FC, useEffect, useRef, useState } from 'react';
 import { AvatarEditorThumbnailsHelper, GetClubMemberLevel, GetConfigurationValue, IAvatarEditorCategoryPartItem } from '../../../api';
 import { LayoutCurrencyIcon, LayoutGridItemProps } from '../../../common';
 import { useAvatarEditor } from '../../../hooks';
@@ -17,6 +17,7 @@ export const AvatarEditorFigureSetItemView: FC<
 > = (props) => {
     const { setType = null, partItem = null, isSelected = false, width = '100%', ...rest } = props;
     const [assetUrl, setAssetUrl] = useState<string>('');
+    const [isLoading, setIsLoading] = useState<boolean>(true);
     const [retryId, setRetryId] = useState<number>(0);
     const { selectedColorParts = null, getFigureStringWithFace = null } = useAvatarEditor();
 
@@ -25,12 +26,33 @@ export const AvatarEditorFigureSetItemView: FC<
     const isLocked = isHC && GetClubMemberLevel() < clubLevel;
     const isSellableNotOwned = partItem.isSellableNotOwned ?? false;
 
+    const assetUrlRef = useRef<string>(assetUrl);
+    assetUrlRef.current = assetUrl;
+    const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
     useNitroEvent(NitroEventType.AVATAR_ASSET_LOADED, () => {
-        if (!assetUrl || !assetUrl.length) {
-            AvatarEditorThumbnailsHelper.clearCache();
-            setRetryId((prev) => prev + 1);
-        }
+
+        if (assetUrlRef.current && assetUrlRef.current.length) return;
+        if (retryTimeoutRef.current) return;
+
+        retryTimeoutRef.current = setTimeout(() => {
+            retryTimeoutRef.current = null;
+
+            if (!assetUrlRef.current || !assetUrlRef.current.length) setRetryId((prev) => prev + 1);
+        }, 250);
     });
+
+    useEffect(() => () => {
+        if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current);
+    }, []);
+
+    useEffect(() => {
+        if (!isLoading) return;
+
+        const timeout = setTimeout(() => setIsLoading(false), 6000);
+
+        return () => clearTimeout(timeout);
+    }, [isLoading]);
 
     useEffect(() => {
         setAssetUrl('');
@@ -56,7 +78,10 @@ export const AvatarEditorFigureSetItemView: FC<
                 );
             }
 
-            if (url && url.length) setAssetUrl(url);
+            if (url && url.length) {
+                setAssetUrl(url);
+                setIsLoading(false);
+            }
         };
 
         loadImage();
@@ -65,12 +90,13 @@ export const AvatarEditorFigureSetItemView: FC<
     if (!partItem) return null;
 
     const isHead = setType === 'hd';
+    const showLoading = !partItem.isClear && isLoading && (!assetUrl || !assetUrl.length);
 
     return (
         <InfiniteGrid.Item
             itemActive={isSelected}
             itemImage={!partItem.isClear && isHead ? assetUrl : undefined}
-            className={`avatar-parts mx-auto${isSelected ? ' part-selected' : ''}${!partItem.isClear && isSellableNotOwned ? ' pet-sellable-locked' : ''}`}
+            className={`avatar-parts mx-auto${showLoading ? ' is-loading' : ''}${isSelected ? ' part-selected' : ''}${!partItem.isClear && isSellableNotOwned ? ' pet-sellable-locked' : ''}`}
             style={isHead ? { backgroundSize: 'auto 80%', backgroundPosition: 'center', imageRendering: 'pixelated' } : undefined}
             {...rest}
         >

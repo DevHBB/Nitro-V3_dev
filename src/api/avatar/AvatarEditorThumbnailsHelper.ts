@@ -131,6 +131,7 @@ export class AvatarEditorThumbnailsHelper {
         const buildContainer = (part: IAvatarEditorCategoryPartItem, useColors: boolean, partColors: IPartColor[], isDisabled: boolean = false) => {
             const container = new NitroContainer();
             const parts = part.partSet.parts.concat().sort(this.sortByDrawOrder);
+            let renderedCount = 0;
 
             for (const part of parts) {
                 if (!part) continue;
@@ -171,14 +172,22 @@ export class AvatarEditorThumbnailsHelper {
                 if (isDisabled) container.filters = [AvatarEditorThumbnailsHelper.ALPHA_FILTER];
 
                 container.addChild(sprite);
+                renderedCount++;
             }
 
-            return container;
+            return { container, renderedCount };
         };
 
         return new Promise(async (resolve, reject) => {
             const resetFigure = async (figure: string) => {
-                const container = buildContainer(part, useColors, partColors, isDisabled);
+                const { container, renderedCount } = buildContainer(part, useColors, partColors, isDisabled);
+
+                if (renderedCount === 0) {
+                    resolve(null);
+
+                    return;
+                }
+
                 const imageUrl = await TextureUtils.generateImageUrl({ target: container, resolution: 1 });
 
                 if (imageUrl) AvatarEditorThumbnailsHelper.THUMBNAIL_CACHE.set(thumbnailKey, imageUrl);
