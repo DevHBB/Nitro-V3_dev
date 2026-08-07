@@ -32,7 +32,6 @@ export const CatalogStudioBulkPanel: FC = () => {
         </div>
         <div className="nitro-catalog-admin-publish-actions">
             <button className="nitro-catalog-admin-btn" disabled={studio.loading} onClick={() => studio.dryRunDocument('BULK', request)}>Dry-run</button>
-            <button className="nitro-catalog-admin-btn" disabled={studio.loading} onClick={() => studio.acquireLock('PAGE', 2147483647)}>Acquire apply lock</button>
             <button className="nitro-catalog-admin-btn is-publish" disabled={!dryRun || studio.loading}
                 onClick={() => dryRun && studio.applyDocument('BULK', request, dryRun.fingerprint, `Bulk ${operation}`)}>Apply {dryRun?.changedEntities ?? 0} changes</button>
         </div>

@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 describe('RoomToolsWidgetView AIR toolbar', () => {
 const source = readFileSync(join(process.cwd(), 'src/components/room/widgets/room-tools/RoomToolsWidgetView.tsx'), 'utf8');
+const helpers = readFileSync(join(process.cwd(), 'src/components/room/widgets/room-tools/roomZoom.helpers.ts'), 'utf8');
 const css = readFileSync(join(process.cwd(), 'src/css/room/RoomWidgets.css'), 'utf8');
 
     it('renders level controls and a collapsible side rail', () => {
@@ -14,9 +15,15 @@ const css = readFileSync(join(process.cwd(), 'src/css/room/RoomWidgets.css'), 'u
     });
 
     it('keeps renderer zoom side effects outside React state updaters', () => {
-        expect(source).not.toMatch(/setZoomScale\s*\([^)]*=>[\s\S]{0,500}setRoomInstanceRenderingCanvasScale/);
+        expect(source).not.toMatch(/setZoomScale\s*\([^)]*=>[\s\S]{0,500}applyRoomZoom/);
         expect(source).toContain('getNextZoomScale(currentScale, direction)');
-        expect(source).toContain('GetRoomEngine().setRoomInstanceRenderingCanvasScale(roomSession.roomId, 1, nextScale)');
+        expect(source).toContain('applyRoomZoom(roomSession.roomId, logicalScale)');
+    });
+
+    it('drops the room geometry to size-32 below 1x for crisp zoomed-out furni', () => {
+        expect(helpers).toContain('geometry.performZoomOut()');
+        expect(helpers).toContain('geometry.performZoomIn()');
+        expect(helpers).toContain('RoomGeometry.SCALE_ZOOMED_IN / RoomGeometry.SCALE_ZOOMED_OUT');
     });
 
     it('tracks zoom changes triggered outside the toolbar', () => {
@@ -27,8 +34,6 @@ const css = readFileSync(join(process.cwd(), 'src/css/room/RoomWidgets.css'), 'u
 
     it('keeps the collapse handle mounted while the rail is collapsed', () => {
         expect(source).toContain("classNames('nitro-room-tools-container', !isToolsOpen && 'is-collapsed')");
-        // The toggle is rendered before (and outside) the `isToolsOpen` branch so it
-        // stays clickable once the rail collapses — that is what reopens the toolbar.
         expect(source.indexOf('room-tools-collapse-toggle')).toBeLessThan(source.indexOf('{isToolsOpen && ('));
         expect(source).not.toContain('initial={{ opacity: 0, x: -12 }}');
     });

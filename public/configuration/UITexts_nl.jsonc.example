@@ -1,6 +1,9 @@
 {
     // UITexts — Dutch (nl). Full UI text set (630 keys), parallel to UITexts_it.jsonc. Placeholders (%...%) kept verbatim.
     "friendlist.search": "Vrienden zoeken",
+    "widget.buildheight.title": "Bouwhoogte",
+    "widget.buildheight.description": "Stel de stapelhoogte in voor meubels die je plaatst.",
+    "widget.buildheight.reset": "Herstellen (uit)",
     "purse.seasonal.currency.101": "cash",
     "widget.chooser.checkall": "Meubels selecteren",
     "widget.chooser.btn.pickall": "geselecteerde items oppakken!",

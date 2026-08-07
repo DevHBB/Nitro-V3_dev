@@ -4,7 +4,7 @@ import { FC, useEffect, useMemo, useRef, useState } from 'react';
 import { GetConfigurationValue, isHousekeepingEnabled, MessengerIconState, OpenMessengerChat, SendMessageComposer, setYoutubeRoomEnabled, VisitDesktop , localizeWithFallback} from '../../api';
 import { Flex, LayoutAvatarImageView, LayoutItemCountView } from '../../common';
 import { SoundboardRoomMessageEvent } from '../../events';
-import { useAchievements, useFriends, useHasPermission, useInventoryUnseenTracker, useMentionsSnapshot, useMessageEvent, useMessenger, useModTools, useNitroEvent, useSessionInfo, useSoundboard, useUiEvent, useWiredTools } from '../../hooks';
+import { useAchievements, useFriends, useHasPermission, useInventoryUnseenTracker, useMentionsSnapshot, useMessageEvent, useMessenger, useModTools, useNitroEvent, useSessionInfo, useSoundboard, useBuildHeight, useUiEvent, useWiredTools } from '../../hooks';
 import { ToolbarItemView } from './ToolbarItemView';
 import { ToolbarMeView } from './ToolbarMeView';
 import { YouTubePlayerView } from './YouTubePlayerView';
@@ -50,6 +50,7 @@ export const ToolbarView: FC<{ isInRoom: boolean }> = props =>
     const fortuneWheelEnabled = useMemo(() => GetConfigurationValue<boolean>('toolbar.fortunewheel.enabled', true), []);
     const { openMonitor, showToolbarButton } = useWiredTools();
     const { enabled: soundboardEnabled, reset: resetSoundboard } = useSoundboard();
+    const { available: buildHeightAvailable, toggle: toggleBuildHeight } = useBuildHeight();
     const isMod = useHasPermission('acc_supporttool');
     const isHk = useHasPermission('acc_housekeeping');
     const hkEnabled = useMemo(() => isHousekeepingEnabled(), []);
@@ -305,6 +306,10 @@ export const ToolbarView: FC<{ isInRoom: boolean }> = props =>
                         <motion.div variants={ itemVariants }>
                             <ToolbarItemView icon="soundboard" onClick={ () => CreateLinkEvent('soundboard/toggle') } className={ `tb-icon ${ soundboardPulse ? 'animate-pulse' : '' }` } />
                         </motion.div> }
+                    { (isInRoom && buildHeightAvailable) &&
+                        <motion.div variants={ itemVariants }>
+                            <ToolbarItemView icon="buildheight" onClick={ toggleBuildHeight } className="tb-icon" />
+                        </motion.div> }
                     </>) }
                     { isMod &&
                         <motion.div variants={ itemVariants } className="relative">
@@ -435,6 +440,10 @@ export const ToolbarView: FC<{ isInRoom: boolean }> = props =>
                     { (isInRoom && soundboardEnabled) &&
                         <motion.div variants={ itemVariants }>
                             <ToolbarItemView icon="soundboard" onClick={ () => CreateLinkEvent('soundboard/toggle') } className={ `tb-icon ${ soundboardPulse ? 'animate-pulse' : '' }` } />
+                        </motion.div> }
+                    { (isInRoom && buildHeightAvailable) &&
+                        <motion.div variants={ itemVariants }>
+                            <ToolbarItemView icon="buildheight" onClick={ toggleBuildHeight } className="tb-icon" />
                         </motion.div> }
                     <motion.div variants={ itemVariants } className="relative">
                         <ToolbarItemView icon="friendall" onClick={ () => CreateLinkEvent('friends/toggle') } className="tb-icon" />

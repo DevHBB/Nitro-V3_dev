@@ -20,6 +20,9 @@ export const NitroCardView: FC<NitroCardViewProps> = (props) => {
         gap = 0,
         classNames = [],
         isResizable = true,
+        dragStyle,
+        offsetLeft,
+        offsetTop,
         ...rest
     } = props;
     const elementRef = useRef<HTMLDivElement>(null);
@@ -34,7 +37,7 @@ export const NitroCardView: FC<NitroCardViewProps> = (props) => {
 
     return (
         <NitroCardContextProvider value={{ theme }}>
-            <DraggableWindow disableDrag={disableDrag} handleSelector={handleSelector} uniqueKey={uniqueKey} windowPosition={windowPosition}>
+            <DraggableWindow disableDrag={disableDrag} dragStyle={dragStyle} handleSelector={handleSelector} offsetLeft={offsetLeft} offsetTop={offsetTop} uniqueKey={uniqueKey} windowPosition={windowPosition}>
                 <Column classNames={getClassNames} gap={gap} innerRef={elementRef} overflow={overflow} position={position} {...rest} />
             </DraggableWindow>
         </NitroCardContextProvider>

@@ -64,6 +64,7 @@ export const readCatalogIndexCache = (catalogType: string): CatalogIndexNodeSnap
         if (payload.version !== CACHE_VERSION) return null;
         if (normalizeCatalogType(payload.catalogType) !== normalizeCatalogType(catalogType)) return null;
         if (!isValidSnapshot(payload.root)) return null;
+        if (payload.root.children.length === 0) return null;
 
         return payload.root;
     } catch {
@@ -72,7 +73,7 @@ export const readCatalogIndexCache = (catalogType: string): CatalogIndexNodeSnap
 };
 
 export const writeCatalogIndexCache = (catalogType: string, root: NodeData): void => {
-    if (typeof sessionStorage === 'undefined' || !root) return;
+    if (typeof sessionStorage === 'undefined' || !root || root.children.length === 0) return;
 
     try {
         const payload: CatalogIndexCachePayload = {

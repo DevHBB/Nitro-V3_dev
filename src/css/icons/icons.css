@@ -802,3 +802,12 @@
 .nitro-icon.icon-navigator-search-delete:active {
     background-image: url("@/assets/images/navigator/saves-search/delete_search_click.png");
 }
+
+.nitro-icon.icon-buildheight {
+    background-image: url("@/assets/images/toolbar/icons/buildheight.svg");
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    width: 34px;
+    height: 36px;
+}

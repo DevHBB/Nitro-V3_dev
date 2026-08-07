@@ -3,6 +3,9 @@
     // Friendlist
     // ------------------------------------------------------------------------
     "friendlist.search": "Cerca amici",
+    "widget.buildheight.title": "Altezza di costruzione",
+    "widget.buildheight.description": "Imposta l'altezza di impilamento dei mobili che posizioni.",
+    "widget.buildheight.reset": "Reimposta (off)",
 
     // ------------------------------------------------------------------------
     // Purse / Currency

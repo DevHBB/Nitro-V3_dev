@@ -5,15 +5,12 @@ import {
     RoomAdPurchaseInfoEvent,
     RoomEntryData
 } from '@nitrots/nitro-renderer';
-import { FC, useEffect, useState } from 'react';
+import { FC, useEffect, useRef, useState } from 'react';
 import { LocalizeText, SendMessageComposer } from '../../../../../api';
-import { useNitroQuery } from '../../../../../api/nitro-query';
 import { Button, Column, Text } from '../../../../../common';
-import { useCatalogUiState, useNavigatorData, useRoomPromote } from '../../../../../hooks';
+import { useCatalogUiState, useMessageEvent, useNavigatorData, useRoomPromote } from '../../../../../hooks';
 import { NitroInput } from '../../../../../layout';
 import { CatalogLayoutProps } from './CatalogLayout.types';
-
-let isPurchasingAd = false;
 
 export const CatalogLayoutRoomAdsView: FC<CatalogLayoutProps> = (props) => {
     const { page = null } = props;
@@ -27,13 +24,21 @@ export const CatalogLayoutRoomAdsView: FC<CatalogLayoutProps> = (props) => {
     const { promoteInformation, isExtended, setIsExtended } = useRoomPromote();
     const promoteData = promoteInformation?.data ?? null;
 
-    const { data: availableRooms = [] } = useNitroQuery<RoomAdPurchaseInfoEvent, RoomEntryData[]>({
-        key: ['nitro', 'catalog', 'room-ad-purchase-info'],
-        request: () => new GetRoomAdPurchaseInfoComposer(),
-        parser: RoomAdPurchaseInfoEvent,
-        select: (e) => e.getParser()?.rooms ?? [],
-        staleTime: 60_000
+    const [availableRooms, setAvailableRooms] = useState<RoomEntryData[]>([]);
+
+    const isPurchasingAd = useRef(false);
+
+    useMessageEvent<RoomAdPurchaseInfoEvent>(RoomAdPurchaseInfoEvent, (event) => {
+        const parser = event.getParser();
+
+        if (!parser) return;
+
+        setAvailableRooms(parser.rooms ?? []);
     });
+
+    useEffect(() => {
+        SendMessageComposer(new GetRoomAdPurchaseInfoComposer());
+    }, []);
 
     useEffect(() => {
         if (isExtended && promoteData) {
@@ -41,8 +46,8 @@ export const CatalogLayoutRoomAdsView: FC<CatalogLayoutProps> = (props) => {
             setEventName(promoteData.eventName);
             setEventDesc(promoteData.eventDescription);
             setCategoryId(promoteData.categoryId);
-            setExtended(isExtended); // This is for sending to packet
-            setIsExtended(false); // This is from hook useRoomPromotte
+            setExtended(isExtended);
+            setIsExtended(false);
         }
     }, [isExtended, promoteData, setIsExtended]);
 
@@ -53,12 +58,13 @@ export const CatalogLayoutRoomAdsView: FC<CatalogLayoutProps> = (props) => {
         setCategoryId(1);
         setIsExtended(false);
         setIsVisible(false);
+        isPurchasingAd.current = false;
     };
 
     const purchaseAd = () => {
-        if (isPurchasingAd) return;
+        if (isPurchasingAd.current) return;
 
-        isPurchasingAd = true;
+        isPurchasingAd.current = true;
 
         const pageId = page.pageId;
         const offerId = page.offers.length >= 1 ? page.offers[0].offerId : -1;

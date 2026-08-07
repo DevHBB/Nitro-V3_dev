@@ -37,6 +37,76 @@ const rootData = (root: ICatalogNode): NodeData => ({
     offerIds: root.offerIds
 } as unknown as NodeData);
 
+export type CatalogAdminPageDropPosition = 'before' | 'inside' | 'after' | 'root';
+
+export interface CatalogAdminPageMovePlan {
+    pageId: number;
+    newParentId: number;
+    newIndex: number;
+}
+
+export const resolveCatalogAdminPageDropPosition = (
+    pointerY: number,
+    rowTop: number,
+    rowHeight: number
+): Exclude<CatalogAdminPageDropPosition, 'root'> => {
+    const ratio = rowHeight > 0 ? (pointerY - rowTop) / rowHeight : 0.5;
+    if (ratio <= 0.25) return 'before';
+    if (ratio >= 0.75) return 'after';
+    return 'inside';
+};
+
+const nodeContains = (ancestor: ICatalogNode, node: ICatalogNode | null) => {
+    let current = node;
+    while (current) {
+        if (current.pageId === ancestor.pageId) return true;
+        current = current.parent;
+    }
+    return false;
+};
+
+export const planCatalogAdminPageDrop = (
+    dragged: ICatalogNode | null | undefined,
+    target: ICatalogNode | null | undefined,
+    position: CatalogAdminPageDropPosition,
+    root: ICatalogNode | null | undefined
+): CatalogAdminPageMovePlan | null => {
+    if (!dragged || !root || dragged.pageId <= 0) return null;
+    if (target?.pageId === dragged.pageId) return null;
+
+    let parent = root;
+    let insertionIndex = root.children.length;
+
+    if (position !== 'root') {
+        if (!target) return null;
+
+        if (position === 'inside') {
+            parent = target;
+            insertionIndex = target.children.length;
+        } else {
+            parent = target.parent ?? root;
+            const targetIndex = parent.children.indexOf(target);
+            if (targetIndex < 0) return null;
+            insertionIndex = targetIndex + (position === 'after' ? 1 : 0);
+        }
+    }
+
+    if (nodeContains(dragged, parent)) return null;
+
+    const sourceParent = dragged.parent;
+    if (sourceParent?.pageId === parent.pageId) {
+        const sourceIndex = sourceParent.children.indexOf(dragged);
+        if (sourceIndex >= 0 && sourceIndex < insertionIndex) insertionIndex--;
+        if (sourceIndex === insertionIndex) return null;
+    }
+
+    return {
+        pageId: dragged.pageId,
+        newParentId: parent === root ? -1 : parent.pageId,
+        newIndex: Math.max(0, insertionIndex)
+    };
+};
+
 export const buildCatalogAdminDraftTree = (
     liveRoot: ICatalogNode | null,
     pages: CatalogStudioPageSnapshot[],

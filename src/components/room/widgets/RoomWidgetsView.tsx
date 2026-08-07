@@ -1,5 +1,4 @@
 import {
-    GetRoomEngine,
     RoomEngineObjectEvent,
     RoomEngineRoomAdEvent,
     RoomEngineTriggerWidgetEvent,
@@ -14,6 +13,7 @@ import { WidgetErrorBoundary } from '../../../common';
 import { useNitroEvent, useNotification, usePollSubscriptions, useRoom } from '../../../hooks';
 import { AvatarInfoWidgetView } from './avatar-info/AvatarInfoWidgetView';
 import { RoomKeybindView } from './RoomKeybindView';
+import { BuildHeightWidgetView } from './BuildHeightWidgetView';
 import { ChatWidgetView } from './chat/ChatWidgetView';
 import { ChatInputView } from './chat-input/ChatInputView';
 import { FurniChooserWidgetView } from './choosers/FurniChooserWidgetView';
@@ -25,27 +25,22 @@ import { PetPackageWidgetView } from './pet-package/PetPackageWidgetView';
 import { RoomFilterWordsWidgetView } from './room-filter-words/RoomFilterWordsWidgetView';
 import { RoomThumbnailWidgetView } from './room-thumbnail/RoomThumbnailWidgetView';
 import { RoomToolsWidgetView } from './room-tools/RoomToolsWidgetView';
+import { applyRoomZoom } from './room-tools/roomZoom.helpers';
 import { WordQuizWidgetView } from './word-quiz/WordQuizWidgetView';
+
+const MAX_ZOOM_SHIFT = 3;
 
 export const RoomWidgetsView: FC<{}> = (props) => {
     const { roomSession = null } = useRoom();
     const { simpleAlert = null } = useNotification();
 
-    // Bridge RoomSessionPollEvent (OFFER/ERROR/CONTENT) onto the UI bus
-    // for the lifetime of the room session. Single mount point so the
-    // listeners are not re-registered per widget render.
     usePollSubscriptions();
 
-    useNitroEvent<RoomZoomEvent>(RoomZoomEvent.ROOM_ZOOM, (event) =>
-        GetRoomEngine().setRoomInstanceRenderingCanvasScale(
-            event.roomId,
-            1,
-            event.level < 1 ? 0.5 : 1 << (Math.floor(event.level) - 1),
-            null,
-            null,
-            event.isFlipForced
-        )
-    );
+    useNitroEvent<RoomZoomEvent>(RoomZoomEvent.ROOM_ZOOM, (event) => {
+        const level = Number.isFinite(event.level) ? Math.floor(event.level) : 1;
+        const logicalScale = level < 1 ? 0.5 : (1 << Math.min(level - 1, MAX_ZOOM_SHIFT));
+        applyRoomZoom(event.roomId, logicalScale, event.isFlipForced);
+    });
 
     useNitroEvent<RoomEngineObjectEvent>(
         [
@@ -197,6 +192,9 @@ export const RoomWidgetsView: FC<{}> = (props) => {
             </WidgetErrorBoundary>
             <WidgetErrorBoundary name="DoorbellWidget">
                 <DoorbellWidgetView />
+            </WidgetErrorBoundary>
+            <WidgetErrorBoundary name="BuildHeightWidget">
+                <BuildHeightWidgetView />
             </WidgetErrorBoundary>
             <WidgetErrorBoundary name="RoomToolsWidget">
                 <RoomToolsWidgetView />

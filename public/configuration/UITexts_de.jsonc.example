@@ -4,6 +4,9 @@
     // parallel zu UITexts_en.jsonc. Platzhalter (%...%) unverändert lassen.
     // ------------------------------------------------------------------
     "friendlist.search": "Freunde suchen",
+    "widget.buildheight.title": "Bauhöhe",
+    "widget.buildheight.description": "Lege die Stapelhöhe für Möbel fest, die du platzierst.",
+    "widget.buildheight.reset": "Zurücksetzen (aus)",
     "purse.seasonal.currency.101": "Bargeld",
     "widget.chooser.checkall": "Möbel auswählen",
     "widget.chooser.btn.pickall": "ausgewählte Objekte aufheben!",

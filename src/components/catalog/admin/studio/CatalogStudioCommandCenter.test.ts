@@ -52,6 +52,22 @@ describe('Catalog Studio command center state', () => {
         expect(state.validationLabel).toBe('4 validation issues');
     });
 
+    it('shows a neutral loading state while the first session is opening', () => {
+        const state = getCatalogStudioCommandState({
+            sessionReady: false,
+            pendingCount: 0,
+            actorCount: 0,
+            lockCount: 0,
+            validationCurrent: false,
+            validationIssueCount: 0,
+            loading: true
+        });
+
+        expect(state.phase).toBe('loading');
+        expect(state.canValidate).toBe(false);
+        expect(state.canPublish).toBe(false);
+    });
+
     it('uses the catalog type when resolving a page lock', () => {
         const getPageLockKey = (CommandCenter as any).getCatalogStudioPageLockKey;
 

@@ -1,6 +1,9 @@
 {
     // UITexts — Spanish (es). Full UI text set (630 keys), parallel to UITexts_it.jsonc. Placeholders (%...%) kept verbatim.
     "friendlist.search": "Buscar amigos",
+    "widget.buildheight.title": "Altura de construcción",
+    "widget.buildheight.description": "Ajusta la altura de apilamiento de los muebles que colocas.",
+    "widget.buildheight.reset": "Restablecer (apagado)",
     "purse.seasonal.currency.101": "efectivo",
     "widget.chooser.checkall": "Seleccionar muebles",
     "widget.chooser.btn.pickall": "¡recoge los objetos seleccionados!",
