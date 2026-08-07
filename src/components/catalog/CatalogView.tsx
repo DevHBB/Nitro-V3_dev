@@ -281,8 +281,10 @@ const CatalogViewInner: FC<{}> = () => {
 export const CatalogView: FC<{}> = () => {
     const { catalogLocalizationVersion = 0 } = useCatalogData();
 
+    const isCatalogAdmin = useHasPermission('acc_catalogfurni');
+
     return (
-        <CatalogStudioProvider active>
+        <CatalogStudioProvider active={ isCatalogAdmin }>
             <CatalogAdminProvider>
                 <div className="hidden" data-catalog-localization-version={catalogLocalizationVersion} />
                 <CatalogViewInner />
