@@ -89,7 +89,6 @@ export const Slider: FC<SliderProps> = (props) => {
 
     const renderThumbElement = (i: number) => {
         const baseProps: HTMLProps<HTMLDivElement> = {
-            key: i,
             className: cn('thumb', `thumb-${i}`, thumbClassName)
         };
 
