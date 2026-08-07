@@ -21,7 +21,7 @@ export const BuildHeightWidgetView: FC<{}> = () => {
                 <Text center>{LocalizeText('widget.buildheight.description')}</Text>
                 <Flex alignItems="center" justifyContent="center" gap={2}>
                     <Button variant="secondary" onClick={() => applyHeight(clamp(height - STEP))}>-</Button>
-                    <Text bold variant="white" className="build-height-value">{format(height)}</Text>
+                    <Text bold variant="black" className="build-height-value">{format(height)}</Text>
                     <Button variant="secondary" onClick={() => applyHeight(clamp(height + STEP))}>+</Button>
                 </Flex>
                 <Slider
