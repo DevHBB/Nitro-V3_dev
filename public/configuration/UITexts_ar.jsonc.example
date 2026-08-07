@@ -1,6 +1,9 @@
 {
     // UITexts — Arabic (ar). Full UI text set (630 keys), parallel to UITexts_it.jsonc. Placeholders (%...%) kept verbatim.
     "friendlist.search": "البحث عن الأصدقاء",
+    "widget.buildheight.title": "ارتفاع البناء",
+    "widget.buildheight.description": "اضبط ارتفاع تكديس الأثاث الذي تضعه.",
+    "widget.buildheight.reset": "إعادة تعيين (إيقاف)",
     "purse.seasonal.currency.101": "نقود",
     "widget.chooser.checkall": "تحديد الأثاث",
     "widget.chooser.btn.pickall": "التقاط العناصر المحددة!",

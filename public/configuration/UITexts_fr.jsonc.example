@@ -1,6 +1,9 @@
 {
     // UITexts — French (fr). Full UI text set (630 keys), parallel to UITexts_it.jsonc. Placeholders (%...%) kept verbatim.
     "friendlist.search": "Rechercher des amis",
+    "widget.buildheight.title": "Hauteur de construction",
+    "widget.buildheight.description": "Définissez la hauteur d'empilement du mobilier que vous placez.",
+    "widget.buildheight.reset": "Réinitialiser (désactivé)",
     "purse.seasonal.currency.101": "cash",
     "widget.chooser.checkall": "Sélectionner les meubles",
     "widget.chooser.btn.pickall": "ramasser les objets sélectionnés !",
