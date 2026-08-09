@@ -29,14 +29,14 @@ import {
 import { FC, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { SendMessageComposer } from '../../../../api';
 import { useConnectionState, useMessageEvent } from '../../../../hooks';
-import { CatalogStudioDocumentResult, CatalogStudioHistoryGroup, CatalogStudioLock, CatalogStudioPreviewState, CatalogStudioSession, CatalogStudioValidationState } from './CatalogStudioTypes';
+import { CatalogStudioDocumentResult, CatalogStudioHistoryGroup, CatalogStudioLock, CatalogStudioMutationResult, CatalogStudioPreviewState, CatalogStudioSession, CatalogStudioValidationState } from './CatalogStudioTypes';
 import { CatalogPreviewPersona } from './CatalogPreviewPersona';
+import { applyCatalogStudioMutation } from './CatalogStudioMutationState';
+import { nextCatalogStudioOperationId } from './CatalogStudioOperationId';
 import { CatalogStudioContext, CatalogStudioContextValue } from './useCatalogStudio';
 
 const lockKey = (entityType: string, entityId: number, catalogType: string = 'NORMAL') =>
     catalogType === 'NORMAL' ? `${entityType}:${entityId}` : `${catalogType}:${entityType}:${entityId}`;
-let operationSequence = 0;
-const nextOperationId = (action: string) => `${action}-${Date.now()}-${++operationSequence}`;
 const CATALOG_ROOT_LOCK_ID = 2147483647;
 type PendingDocumentApply = {
     format: 'JSONC' | 'SQL' | 'BULK';
@@ -61,6 +61,7 @@ export const CatalogStudioProvider: FC<{ active: boolean; children: ReactNode }>
     const locksRef = useRef<Record<string, CatalogStudioLock>>({});
     const pendingLockKeysRef = useRef<Set<string>>(new Set());
     const pendingDocumentApplyRef = useRef<PendingDocumentApply | null>(null);
+    const historyGroupIdsRef = useRef<Set<number>>(new Set());
 
     const replaceSession = useCallback((next: CatalogStudioSession) => {
         sessionRef.current = next;
@@ -141,7 +142,7 @@ export const CatalogStudioProvider: FC<{ active: boolean; children: ReactNode }>
             pendingDocumentApplyRef.current = null;
             setLoading(true);
             SendMessageComposer(new CatalogStudioDocumentApplyComposer(
-                nextOperationId('apply'), current.draftVersionId, current.revision, nextLock.token,
+                nextCatalogStudioOperationId('apply'), current.draftVersionId, current.revision, nextLock.token,
                 pendingApply.format, pendingApply.document, pendingApply.fingerprint, pendingApply.summary
             ));
         }
@@ -180,7 +181,9 @@ export const CatalogStudioProvider: FC<{ active: boolean; children: ReactNode }>
     useMessageEvent<CatalogStudioHistoryEvent>(CatalogStudioHistoryEvent, (event) => {
         const parser = event.getParser();
         updateRevision(parser.revision);
-        setHistory(parser.groups.map((group) => ({ ...group, entries: group.entries.map((entry) => ({ ...entry })) })));
+        const nextHistory = parser.groups.map((group) => ({ ...group, entries: group.entries.map((entry) => ({ ...entry })) }));
+        historyGroupIdsRef.current = new Set(nextHistory.map(group => group.id));
+        setHistory(nextHistory);
         setHistoryTotalCount(parser.totalCount);
         setLoading(false);
     });
@@ -257,7 +260,7 @@ export const CatalogStudioProvider: FC<{ active: boolean; children: ReactNode }>
         const timer = window.setInterval(() => {
             Object.values(locksRef.current).forEach((lock) => {
                 SendMessageComposer(new CatalogStudioRenewLockComposer(
-                    nextOperationId('renew-lock'), lock.draftVersionId, lock.entityType,
+                    nextCatalogStudioOperationId('renew-lock'), lock.draftVersionId, lock.entityType,
                     lock.catalogType, lock.entityId, lock.token
                 ));
             });
@@ -271,14 +274,14 @@ export const CatalogStudioProvider: FC<{ active: boolean; children: ReactNode }>
         if (!current || locksRef.current[key] || pendingLockKeysRef.current.has(key)) return;
         pendingLockKeysRef.current.add(key);
         setLoading(true);
-        SendMessageComposer(new CatalogStudioAcquireLockComposer(nextOperationId('acquire-lock'), current.draftVersionId, entityType, catalogType, entityId));
+        SendMessageComposer(new CatalogStudioAcquireLockComposer(nextCatalogStudioOperationId('acquire-lock'), current.draftVersionId, entityType, catalogType, entityId));
     }, []);
 
     const releaseLock = useCallback((entityType: string, entityId: number, catalogType: 'NORMAL' | 'BUILDER' = 'NORMAL') => {
         const lock = locksRef.current[lockKey(entityType, entityId, catalogType)];
         if (!lock) return;
         SendMessageComposer(new CatalogStudioReleaseLockComposer(
-            nextOperationId('release-lock'), lock.draftVersionId, lock.entityType, lock.catalogType, lock.entityId, lock.token
+            nextCatalogStudioOperationId('release-lock'), lock.draftVersionId, lock.entityType, lock.catalogType, lock.entityId, lock.token
         ));
         setLocks((current) => {
             const next = { ...current };
@@ -299,7 +302,7 @@ export const CatalogStudioProvider: FC<{ active: boolean; children: ReactNode }>
         const current = sessionRef.current;
         if (!current) return;
         setLoading(true);
-        const operationId = nextOperationId(action);
+        const operationId = nextCatalogStudioOperationId(action);
         if (action === 'validate') SendMessageComposer(new CatalogStudioValidateComposer(operationId, current.draftVersionId, current.revision));
         if (action === 'publish') SendMessageComposer(new CatalogStudioPublishComposer(operationId, current.draftVersionId, current.revision));
         if (action === 'discard') SendMessageComposer(new CatalogStudioDiscardComposer(operationId, current.draftVersionId, current.revision));
@@ -309,14 +312,14 @@ export const CatalogStudioProvider: FC<{ active: boolean; children: ReactNode }>
         const current = sessionRef.current;
         if (!current) return;
         setLoading(true);
-        SendMessageComposer(new CatalogStudioUndoComposer(nextOperationId('undo'), current.draftVersionId, current.revision, groupId));
+        SendMessageComposer(new CatalogStudioUndoComposer(nextCatalogStudioOperationId('undo'), current.draftVersionId, current.revision, groupId));
     }, []);
 
     const restore = useCallback((sourceVersionId: number) => {
         const current = sessionRef.current;
         if (!current) return;
         setLoading(true);
-        SendMessageComposer(new CatalogStudioRestoreComposer(nextOperationId('restore'), current.draftVersionId, current.revision, sourceVersionId));
+        SendMessageComposer(new CatalogStudioRestoreComposer(nextCatalogStudioOperationId('restore'), current.draftVersionId, current.revision, sourceVersionId));
     }, []);
 
     const requestPreview = useCallback((persona: CatalogPreviewPersona) => {
@@ -324,7 +327,7 @@ export const CatalogStudioProvider: FC<{ active: boolean; children: ReactNode }>
         if(!current) return;
         setLoading(true);
         SendMessageComposer(new CatalogStudioPreviewComposer(
-            nextOperationId('preview'), current.draftVersionId, current.revision, persona.rank,
+            nextCatalogStudioOperationId('preview'), current.draftVersionId, current.revision, persona.rank,
             persona.hc, persona.vip, persona.buildersClub, persona.showHidden, persona.credits, persona.currencies
         ));
     }, []);
@@ -334,7 +337,7 @@ export const CatalogStudioProvider: FC<{ active: boolean; children: ReactNode }>
         if(!current) return;
         setLoading(true);
         SendMessageComposer(new CatalogStudioExportComposer(
-            nextOperationId('export'), current.draftVersionId, current.revision, format
+            nextCatalogStudioOperationId('export'), current.draftVersionId, current.revision, format
         ));
     }, []);
 
@@ -343,7 +346,7 @@ export const CatalogStudioProvider: FC<{ active: boolean; children: ReactNode }>
         if(!current) return;
         setLoading(true);
         SendMessageComposer(new CatalogStudioDocumentDryRunComposer(
-            nextOperationId('dry-run'), current.draftVersionId, current.revision, format, document
+            nextCatalogStudioOperationId('dry-run'), current.draftVersionId, current.revision, format, document
         ));
     }, []);
 
@@ -359,10 +362,24 @@ export const CatalogStudioProvider: FC<{ active: boolean; children: ReactNode }>
         }
         setLoading(true);
         SendMessageComposer(new CatalogStudioDocumentApplyComposer(
-            nextOperationId('apply'), current.draftVersionId, current.revision, rootLock.token,
+            nextCatalogStudioOperationId('apply'), current.draftVersionId, current.revision, rootLock.token,
             format, document, fingerprint, summary
         ));
     }, [acquireLock]);
+
+    const applyMutation = useCallback((mutation: CatalogStudioMutationResult) => {
+        setSession(current => {
+            if(!current) return current;
+            const next = applyCatalogStudioMutation(current, mutation);
+            sessionRef.current = next;
+            return next;
+        });
+        if(!historyGroupIdsRef.current.has(mutation.historyGroup.id)) {
+            historyGroupIdsRef.current.add(mutation.historyGroup.id);
+            setHistory(current => [ mutation.historyGroup, ...current ].slice(0, 50));
+            setHistoryTotalCount(current => current + 1);
+        }
+    }, []);
 
     const value = useMemo<CatalogStudioContextValue>(() => ({
         session,
@@ -388,8 +405,9 @@ export const CatalogStudioProvider: FC<{ active: boolean; children: ReactNode }>
         requestPreview,
         exportDocument,
         dryRunDocument,
-        applyDocument
-    }), [session, history, historyTotalCount, validation, preview, documentResult, locks, loading, lastError, refresh, acquireLock, releaseLock, loadHistory, undo, revisionAction, restore, requestPreview, exportDocument, dryRunDocument, applyDocument]);
+        applyDocument,
+        applyMutation
+    }), [session, history, historyTotalCount, validation, preview, documentResult, locks, loading, lastError, refresh, acquireLock, releaseLock, loadHistory, undo, revisionAction, restore, requestPreview, exportDocument, dryRunDocument, applyDocument, applyMutation]);
 
     return <CatalogStudioContext value={value}>{children}</CatalogStudioContext>;
 };

@@ -1,5 +1,5 @@
-import { FC, useEffect, useRef, useState } from 'react';
-import { FaLanguage, FaSave, FaSpinner, FaTrash } from 'react-icons/fa';
+import { FC, useCallback, useEffect, useRef, useState } from 'react';
+import { FaLanguage, FaSave, FaSpinner, FaTrash, FaUndo } from 'react-icons/fa';
 import { CatalogType, LocalizeText, localizeWithFallback } from '../../../../api';
 import { useCatalogData, useCatalogUiState, useTranslationActions, useTranslationState } from '../../../../hooks';
 import { CATALOG_ROOT_LOCK_ID, IEditingPageDetails, IPageEditData, useCatalogAdmin } from '../../CatalogAdminContext';
@@ -8,6 +8,8 @@ import { CatalogIconView } from '../catalog-icon/CatalogIconView';
 import { CatalogAdminModalView } from './CatalogAdminModalView';
 import { useCatalogStudio } from '../../admin/studio/useCatalogStudio';
 import { claimCatalogAdminHydration } from './CatalogAdminFormHydration';
+import { createCatalogAdminPageDetailsFromSnapshot } from './CatalogAdminPageState';
+import { useCatalogAdminSmartSave } from './useCatalogAdminSmartSave';
 
 const LAYOUT_OPTIONS = [
     'default_3x3',
@@ -130,7 +132,18 @@ export const createCatalogAdminNewPageFormState = (parentId: number, catalogMode
     minRank: 1,
     orderNum,
     visible: '1',
-    enabled: '1'
+    enabled: '1',
+    clubOnly: '0',
+    vipOnly: '0',
+    pageHeadline: '',
+    pageTeaser: '',
+    pageSpecial: '',
+    pageText1: '',
+    pageText2: '',
+    pageTextDetails: '',
+    pageTextTeaser: '',
+    roomId: 0,
+    includes: ''
 });
 
 export const validateCatalogAdminPageForm = (data: IPageEditData): string | null => {
@@ -161,32 +174,11 @@ export const CatalogAdminPageEditView: FC<{}> = () => {
     const requestPageDetails = catalogAdmin?.requestPageDetails;
     const loading = catalogAdmin?.loading ?? false;
     const lastError = catalogAdmin?.lastError ?? null;
+    const lastMutationResult = catalogAdmin?.lastMutationResult ?? null;
     const studioSessionReady = catalogAdmin?.studioSessionReady ?? false;
     const ensurePageLock = catalogAdmin?.ensurePageLock;
     const hasPageLock = catalogAdmin?.hasPageLock;
 
-    const [caption, setCaption] = useState('');
-    const [captionSave, setCaptionSave] = useState('');
-    const [catalogMode, setCatalogMode] = useState<string>('NORMAL');
-    const [pageLayout, setPageLayout] = useState('default_3x3');
-    const [iconColor, setIconColor] = useState(1);
-    const [iconImage, setIconImage] = useState(0);
-    const [minRank, setMinRank] = useState(1);
-    const [visible, setVisible] = useState('1');
-    const [enabled, setEnabled] = useState('1');
-    const [orderNum, setOrderNum] = useState(0);
-    const [parentId, setParentId] = useState(-1);
-    const [clubOnly, setClubOnly] = useState('0');
-    const [vipOnly, setVipOnly] = useState('0');
-    const [pageHeadline, setPageHeadline] = useState('');
-    const [pageTeaser, setPageTeaser] = useState('');
-    const [pageSpecial, setPageSpecial] = useState('');
-    const [pageText1, setPageText1] = useState('');
-    const [pageText2, setPageText2] = useState('');
-    const [pageTextDetails, setPageTextDetails] = useState('');
-    const [pageTextTeaser, setPageTextTeaser] = useState('');
-    const [roomId, setRoomId] = useState(0);
-    const [includes, setIncludes] = useState('');
     const [showTranslate, setShowTranslate] = useState(false);
     const [translateTargetLanguage, setTranslateTargetLanguage] = useState('en');
     const [isTranslating, setIsTranslating] = useState(false);
@@ -194,6 +186,7 @@ export const CatalogAdminPageEditView: FC<{}> = () => {
     const initializationClaimRef = useRef({ current: null as string | null });
     const detailsClaimRef = useRef({ current: null as string | null });
     const requestClaimRef = useRef({ current: null as string | null });
+    const captionInputRef = useRef<HTMLInputElement>(null);
     const { supportedLanguages = [], languagesLoading = false } = useTranslationState();
     const { translateText, ensureSupportedLanguagesLoaded } = useTranslationActions();
     const targetNode = editingPageNode ? editingPageNode : editingRootPage ? rootNode : activeNodes.length > 0 ? activeNodes[activeNodes.length - 1] : null;
@@ -201,19 +194,65 @@ export const CatalogAdminPageEditView: FC<{}> = () => {
     const targetPageId = targetNode?.pageId ?? currentPage?.pageId;
     const isRoot = editingRootPage;
     const pageCatalogMode = currentType === CatalogType.BUILDER ? 'BUILDER' : 'NORMAL';
-    const formTargetKey = editingPageData && targetNode
-        ? `page:${pageCatalogMode}:${creatingPage ? 'new' : 'edit'}:${creatingPage ? targetNode.pageId : targetPageId}`
-        : null;
-    const lockPageId = creatingPage
-        ? targetNode && targetNode.pageId > 0 ? targetNode.pageId : CATALOG_ROOT_LOCK_ID
-        : targetPageId;
-
-    const closeForm = () => {
+    const closeForm = useCallback(() => {
         catalogAdmin?.setEditingPageData(false);
         catalogAdmin?.setEditingRootPage(false);
         catalogAdmin?.setEditingPageNode(null);
         catalogAdmin?.setCreatingPage(false);
-    };
+    }, [catalogAdmin]);
+
+    const smartSave = useCatalogAdminSmartSave<IPageEditData>({
+        initial: createCatalogAdminNewPageFormState(-1, pageCatalogMode),
+        acknowledgement: lastMutationResult,
+        submit: draft => draft.pageId == null
+            ? catalogAdmin?.createPage(draft) ?? null
+            : catalogAdmin?.savePage(draft) ?? null,
+        canSubmit: draft => {
+            const draftLockId = draft.pageId ?? (targetNode && targetNode.pageId > 0 ? targetNode.pageId : CATALOG_ROOT_LOCK_ID);
+            return studioSessionReady && (hasPageLock?.(draftLockId) ?? false) && !validateCatalogAdminPageForm(draft);
+        },
+        toCommitted: acknowledgement => acknowledgement.entity
+            ? createCatalogAdminPageFormState(createCatalogAdminPageDetailsFromSnapshot(acknowledgement.entity as any))
+            : null,
+        onClose: closeForm
+    });
+    const {
+        caption, captionSave, catalogMode, pageLayout, iconColor, iconImage, minRank, visible, enabled,
+        orderNum, parentId, clubOnly = '0', vipOnly = '0', pageHeadline = '', pageTeaser = '',
+        pageSpecial = '', pageText1 = '', pageText2 = '', pageTextDetails = '', pageTextTeaser = '',
+        roomId = 0, includes = ''
+    } = smartSave.draft;
+    const patchForm = smartSave.patch;
+    const setCaption = (value: string) => patchForm({ caption: value });
+    const setCaptionSave = (value: string) => patchForm({ captionSave: value });
+    const setCatalogMode = (value: string) => patchForm({ catalogMode: value });
+    const setPageLayout = (value: string) => patchForm({ pageLayout: value });
+    const setIconColor = (value: number) => patchForm({ iconColor: value });
+    const setIconImage = (value: number) => patchForm({ iconImage: value });
+    const setMinRank = (value: number) => patchForm({ minRank: value });
+    const setVisible = (value: string) => patchForm({ visible: value });
+    const setEnabled = (value: string) => patchForm({ enabled: value });
+    const setOrderNum = (value: number) => patchForm({ orderNum: value });
+    const setParentId = (value: number) => patchForm({ parentId: value });
+    const setClubOnly = (value: string) => patchForm({ clubOnly: value });
+    const setVipOnly = (value: string) => patchForm({ vipOnly: value });
+    const setPageHeadline = (value: string) => patchForm({ pageHeadline: value });
+    const setPageTeaser = (value: string) => patchForm({ pageTeaser: value });
+    const setPageSpecial = (value: string) => patchForm({ pageSpecial: value });
+    const setPageText1 = (value: string) => patchForm({ pageText1: value });
+    const setPageText2 = (value: string) => patchForm({ pageText2: value });
+    const setPageTextDetails = (value: string) => patchForm({ pageTextDetails: value });
+    const setPageTextTeaser = (value: string) => patchForm({ pageTextTeaser: value });
+    const setRoomId = (value: number) => patchForm({ roomId: value });
+    const setIncludes = (value: string) => patchForm({ includes: value });
+    const effectivePageId = smartSave.draft.pageId ?? targetPageId;
+    const isNewPage = creatingPage && smartSave.baseline.pageId == null;
+    const formTargetKey = editingPageData && targetNode
+        ? `page:${pageCatalogMode}:${creatingPage ? 'new' : 'edit'}:${creatingPage ? targetNode.pageId : targetPageId}`
+        : null;
+    const lockPageId = isNewPage
+        ? targetNode && targetNode.pageId > 0 ? targetNode.pageId : CATALOG_ROOT_LOCK_ID
+        : effectivePageId;
 
     useEffect(() => {
         if (!editingPageData || !targetNode) {
@@ -237,53 +276,27 @@ export const CatalogAdminPageEditView: FC<{}> = () => {
                 .map((page) => page.orderNum);
             const nextOrder = siblingOrders.length ? Math.max(...siblingOrders) + 1 : 0;
             const form = createCatalogAdminNewPageFormState(parentId, mode, nextOrder);
-            setCaption(form.caption);
-            setCaptionSave(form.captionSave);
-            setCatalogMode(form.catalogMode);
-            setPageLayout(form.pageLayout);
-            setIconColor(form.iconColor);
-            setIconImage(form.iconImage);
-            setMinRank(form.minRank);
-            setOrderNum(form.orderNum);
-            setParentId(form.parentId);
-            setVisible(form.visible);
-            setEnabled(form.enabled);
-            setClubOnly(form.clubOnly || '0');
-            setVipOnly(form.vipOnly || '0');
-            setPageHeadline('');
-            setPageTeaser('');
-            setPageSpecial('');
-            setPageText1('');
-            setPageText2('');
-            setPageTextDetails('');
-            setPageTextTeaser('');
-            setRoomId(0);
-            setIncludes('');
+            smartSave.hydrate(form);
             setShowTranslate(false);
             setIsTranslating(false);
             setTranslateError(null);
             return;
         }
 
-        setCaption('');
-        setCaptionSave('');
-        setMinRank(1);
-        setOrderNum(0);
-        setEnabled('1');
-
-        setCatalogMode(pageCatalogMode);
-        setPageLayout('default_3x3');
-        setIconImage(targetNode.iconId ?? 0);
-        setVisible(targetNode.isVisible ? '1' : '0');
-
-        setPageText1('');
+        const wireParentId = targetNode.parentId;
+        smartSave.hydrate({
+            ...createCatalogAdminNewPageFormState(
+                typeof wireParentId === 'number' && wireParentId !== -1 ? wireParentId : targetNode.parent ? targetNode.parent.pageId : -1,
+                pageCatalogMode
+            ),
+            pageId: targetPageId,
+            iconImage: targetNode.iconId ?? 0,
+            visible: targetNode.isVisible ? '1' : '0'
+        });
         setShowTranslate(false);
         setIsTranslating(false);
         setTranslateError(null);
-        const wireParentId = targetNode.parentId;
-        setParentId(typeof wireParentId === 'number' && wireParentId !== -1 ? wireParentId : targetNode.parent ? targetNode.parent.pageId : -1);
-
-    }, [editingPageData, creatingPage, targetNode, formTargetKey, pageCatalogMode, studio.session]);
+    }, [editingPageData, creatingPage, targetNode, formTargetKey, pageCatalogMode, studio.session, smartSave.hydrate, targetPageId]);
 
     useEffect(() => {
         if (!editingPageData || creatingPage || targetPageId == null || targetPageId < 0) {
@@ -313,29 +326,12 @@ export const CatalogAdminPageEditView: FC<{}> = () => {
         if (!claimCatalogAdminHydration(detailsClaimRef.current, `${formTargetKey}:details`)) return;
 
         const form = createCatalogAdminPageFormState(editingPageDetails);
-        setCaption(form.caption);
-        setCaptionSave(form.captionSave);
-        setCatalogMode(form.catalogMode);
-        setPageLayout(form.pageLayout);
-        setIconColor(form.iconColor);
-        setIconImage(form.iconImage);
-        setMinRank(form.minRank);
-        setOrderNum(form.orderNum);
-        setParentId(form.parentId);
-        setVisible(form.visible);
-        setEnabled(form.enabled);
-        setClubOnly(form.clubOnly || '0');
-        setVipOnly(form.vipOnly || '0');
-        setPageHeadline(form.pageHeadline || '');
-        setPageTeaser(form.pageTeaser || '');
-        setPageSpecial(form.pageSpecial || '');
-        setPageText1(form.pageText1 || '');
-        setPageText2(form.pageText2 || '');
-        setPageTextDetails(form.pageTextDetails || '');
-        setPageTextTeaser(form.pageTextTeaser || '');
-        setRoomId(form.roomId || 0);
-        setIncludes(form.includes || '');
-    }, [editingPageDetails, formTargetKey, targetPageId]);
+        smartSave.hydrate(form);
+    }, [editingPageDetails, formTargetKey, smartSave.hydrate, targetPageId]);
+
+    useEffect(() => {
+        if (smartSave.fieldErrors.caption) captionInputRef.current?.focus();
+    }, [smartSave.fieldErrors.caption]);
 
     if (!editingPageData || !targetNode) return null;
 
@@ -347,42 +343,30 @@ export const CatalogAdminPageEditView: FC<{}> = () => {
         targetNode.pageName,
         localizeWithFallback('catalog.admin.page.untitled', 'Untitled page')
     );
-    const detailsReady = creatingPage || editingPageDetails?.pageId === targetPageId;
+    const detailsReady = isNewPage || editingPageDetails?.pageId === effectivePageId;
     const lockReady = lockPageId != null && lockPageId >= 0 && (hasPageLock?.(lockPageId) ?? false);
-    const interaction = resolveCatalogAdminPageInteraction(studioSessionReady, detailsReady, lockReady, loading, lastError);
-    const formData: IPageEditData = {
-        pageId: creatingPage ? undefined : targetPageId,
-        caption,
-        captionSave,
-        catalogMode,
-        pageLayout,
-        iconColor,
-        iconImage,
-        minRank,
-        visible,
-        enabled,
-        orderNum,
-        parentId,
-        clubOnly,
-        vipOnly,
-        pageHeadline,
-        pageTeaser,
-        pageSpecial,
-        pageText1,
-        pageText2,
-        pageTextDetails,
-        pageTextTeaser,
-        roomId,
-        includes
-    };
+    const smartSaveError = lastMutationResult?.success === false ? null : lastError;
+    const interaction = resolveCatalogAdminPageInteraction(
+        studioSessionReady, detailsReady, lockReady, loading && smartSave.status !== 'saving', smartSaveError);
+    const formData = smartSave.draft;
     const validationError = detailsReady ? validateCatalogAdminPageForm(formData) : null;
+    const saveStatusText = smartSave.status === 'saving'
+        ? 'Saving...'
+        : smartSave.status === 'dirty'
+          ? 'Unsaved changes'
+          : smartSave.status === 'conflict'
+            ? (smartSave.message || 'The catalog changed. Review and save again.')
+            : smartSave.status === 'error'
+              ? (smartSave.message || 'Save failed')
+              : smartSave.lastSavedAt
+                ? `Saved · ${new Date(smartSave.lastSavedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                : 'Saved';
+    const canSubmit = interaction.canSave && !validationError && (smartSave.isDirty || !!smartSave.inFlight);
 
-    const handleSave = async () => {
+    const handleSave = (closeAfter = false) => {
         if (!catalogAdmin?.savePage || !catalogAdmin.createPage || !interaction.canSave) return;
         if (validationError) return;
-
-        if (creatingPage) catalogAdmin.createPage(formData);
-        else catalogAdmin.savePage(formData);
+        smartSave.save(closeAfter);
     };
 
     const openTranslate = () => {
@@ -418,7 +402,7 @@ export const CatalogAdminPageEditView: FC<{}> = () => {
     };
 
     const handleDelete = async () => {
-        if (!catalogAdmin?.deletePage || isRoot || creatingPage) return;
+        if (!catalogAdmin?.deletePage || isRoot || isNewPage) return;
         if (!confirm(LocalizeText('catalog.admin.delete.page.confirm', ['name'], [editingPageDetails?.caption ?? '']))) return;
 
         catalogAdmin.deletePage(targetPageId);
@@ -428,14 +412,14 @@ export const CatalogAdminPageEditView: FC<{}> = () => {
     return (
         <CatalogAdminModalView
             title={
-                creatingPage
+                isNewPage
                     ? localizeWithFallback('catalog.admin.create.page', 'Create page')
                     : isRoot
                       ? LocalizeText('catalog.admin.edit.root')
                       : localizeWithFallback('catalog.admin.edit.page', 'Edit page')
             }
             widthClassName="w-[540px]"
-            onClose={closeForm}
+            onClose={smartSave.requestClose}
         >
             <div className="nitro-catalog-admin-form">
                 <div className="nitro-catalog-admin-form-sheet">
@@ -447,7 +431,7 @@ export const CatalogAdminPageEditView: FC<{}> = () => {
                                     {previewName}
                                 </span>
                                 <span className="nitro-catalog-admin-page-preview-sub">
-                                    {localizeWithFallback('catalog.admin.page.id', 'Page ID')} {targetPageId ?? '—'} · {pageLayout} · {catalogMode}
+                                    {localizeWithFallback('catalog.admin.page.id', 'Page ID')} {effectivePageId ?? '—'} · {pageLayout} · {catalogMode}
                                 </span>
                             </div>
                         </div>
@@ -459,7 +443,8 @@ export const CatalogAdminPageEditView: FC<{}> = () => {
                                     <label className="nitro-catalog-admin-label is-field">
                                         {localizeWithFallback('catalog.admin.page.caption', 'Caption')}
                                     </label>
-                                    <input className={inputClass} value={caption} onChange={(e) => setCaption(e.target.value)} />
+                                    <input ref={captionInputRef} aria-invalid={!!smartSave.fieldErrors.caption} className={inputClass} value={caption} onChange={(e) => setCaption(e.target.value)} />
+                                    {smartSave.fieldErrors.caption && <span className="nitro-catalog-admin-field-error">{smartSave.fieldErrors.caption}</span>}
                                 </div>
                                 <div className="nitro-catalog-admin-form-field is-span-2">
                                     <label className="nitro-catalog-admin-label is-field">
@@ -708,24 +693,43 @@ export const CatalogAdminPageEditView: FC<{}> = () => {
                         </section>
                     </div>
 
-                    <div className="nitro-catalog-admin-form-actions">
-                        {(validationError || lastError) && (
-                            <span className="nitro-catalog-admin-translate-error">{validationError || lastError}</span>
-                        )}
-                        {!validationError && !lastError && interaction.message && (
-                            <span className="nitro-catalog-admin-form-status">{interaction.message}</span>
-                        )}
-                        {!isRoot && !creatingPage ? (
-                            <button className="nitro-catalog-admin-button is-danger" onClick={handleDelete}>
-                                <FaTrash className="text-[8px]" /> {LocalizeText('catalog.admin.delete')}
+                    <div className={`nitro-catalog-admin-savebar is-${smartSave.status}`}>
+                        <div className="nitro-catalog-admin-savebar-status" aria-live="polite">
+                            <span>{validationError || smartSave.message || interaction.message || saveStatusText}</span>
+                            <small>Ctrl+S</small>
+                        </div>
+                        <div className="nitro-catalog-admin-savebar-actions">
+                            {!isRoot && !isNewPage && (
+                                <button className="nitro-catalog-admin-button is-danger" type="button" onClick={handleDelete}>
+                                    <FaTrash className="text-[8px]" /> {LocalizeText('catalog.admin.delete')}
+                                </button>
+                            )}
+                            <button
+                                className="nitro-catalog-admin-button is-muted"
+                                disabled={!smartSave.isDirty || !!smartSave.inFlight}
+                                type="button"
+                                onClick={smartSave.reset}
+                            >
+                                <FaUndo className="text-[8px]" /> Reset
                             </button>
-                        ) : (
-                            <div />
-                        )}
-                        <button className="nitro-catalog-admin-button is-primary" disabled={!interaction.canSave || !!validationError} onClick={handleSave}>
-                            {loading ? <FaSpinner className="text-[8px] animate-spin" /> : <FaSave className="text-[8px]" />}{' '}
-                            {creatingPage ? LocalizeText('catalog.admin.create') : LocalizeText('catalog.admin.save')}
-                        </button>
+                            <button
+                                className="nitro-catalog-admin-button is-muted"
+                                disabled={!canSubmit}
+                                type="button"
+                                onClick={() => handleSave(true)}
+                            >
+                                Save and close
+                            </button>
+                            <button
+                                className="nitro-catalog-admin-button is-primary"
+                                disabled={!canSubmit}
+                                type="button"
+                                onClick={() => handleSave(false)}
+                            >
+                                {smartSave.status === 'saving' ? <FaSpinner className="text-[8px] animate-spin" /> : <FaSave className="text-[8px]" />}{' '}
+                                {isNewPage ? LocalizeText('catalog.admin.create') : LocalizeText('catalog.admin.save')}
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
