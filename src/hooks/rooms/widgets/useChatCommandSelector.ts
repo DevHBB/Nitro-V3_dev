@@ -102,14 +102,18 @@ export const useChatCommandSelector = (chatValue: string) => {
     });
 
     const allCommands = useMemo(() => {
-        const merged: CommandDefinition[] = [...serverCommands];
+        const byKey = new Map<string, CommandDefinition>();
 
-        for (const clientCmd of CLIENT_COMMANDS) {
-            if (merged.some((cmd) => cmd.key === clientCmd.key)) continue;
-            merged.push({ key: clientCmd.key, description: LocalizeText(clientCmd.descriptionKey) });
+        for (const cmd of serverCommands) {
+            if (!byKey.has(cmd.key)) byKey.set(cmd.key, cmd);
         }
 
-        return merged.sort((a, b) => a.key.localeCompare(b.key));
+        for (const clientCmd of CLIENT_COMMANDS) {
+            if (byKey.has(clientCmd.key)) continue;
+            byKey.set(clientCmd.key, { key: clientCmd.key, description: LocalizeText(clientCmd.descriptionKey) });
+        }
+
+        return [ ...byKey.values() ].sort((a, b) => a.key.localeCompare(b.key));
     }, [serverCommands]);
 
     const filterText = useMemo(() => {
