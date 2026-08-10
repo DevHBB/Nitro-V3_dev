@@ -1,5 +1,5 @@
-import { FC, useEffect, useRef, useState } from 'react';
-import { FaCubes, FaSave, FaSpinner, FaTrash } from 'react-icons/fa';
+import { FC, useCallback, useEffect, useRef, useState } from 'react';
+import { FaCubes, FaSave, FaSpinner, FaTrash, FaUndo } from 'react-icons/fa';
 import { CatalogType, GetConfigurationValue, IPurchasableOffer, LocalizeText, localizeWithFallback, ProductTypeEnum } from '../../../../api';
 import { useCatalogData, useCatalogUiState, usePurse } from '../../../../hooks';
 import { IEditingOfferDetails, IOfferEditData, useCatalogAdmin } from '../../CatalogAdminContext';
@@ -7,6 +7,8 @@ import { CatalogAdminModalView } from './CatalogAdminModalView';
 import { CatalogAdminOfferPriceView } from './CatalogAdminOfferPriceView';
 import { useCatalogStudio } from '../../admin/studio/useCatalogStudio';
 import { claimCatalogAdminHydration } from './CatalogAdminFormHydration';
+import { CatalogStudioOfferSnapshot } from '../../admin/studio/CatalogStudioTypes';
+import { useCatalogAdminSmartSave } from './useCatalogAdminSmartSave';
 
 const getOfferIconUrl = (offer: IPurchasableOffer | null): string | null => {
     const product = offer?.product;
@@ -114,27 +116,80 @@ export const CatalogAdminOfferEditView: FC<{}> = () => {
     const createOffer = catalogAdmin?.createOffer;
     const loading = catalogAdmin?.loading ?? false;
     const lastError = catalogAdmin?.lastError ?? null;
+    const lastMutationResult = catalogAdmin?.lastMutationResult ?? null;
     const studioSessionReady = catalogAdmin?.studioSessionReady ?? false;
+    const ensurePageLock = catalogAdmin?.ensurePageLock;
+    const hasPageLock = catalogAdmin?.hasPageLock;
+    const ensureOfferLock = catalogAdmin?.ensureOfferLock;
+    const hasOfferLock = catalogAdmin?.hasOfferLock;
 
-    const [itemIds, setItemIds] = useState('');
-    const [catalogName, setCatalogName] = useState('');
-    const [costCredits, setCostCredits] = useState(0);
-    const [costPoints, setCostPoints] = useState(0);
-    const [pointsType, setPointsType] = useState(0);
-    const [amount, setAmount] = useState(1);
-    const [clubOnly, setClubOnly] = useState('0');
-    const [extradata, setExtradata] = useState('');
-    const [haveOffer, setHaveOffer] = useState('1');
-    const [offerId, setOfferIdGroup] = useState(-1);
-    const [songId, setSongId] = useState(0);
-    const [limitedStack, setLimitedStack] = useState(0);
-    const [orderNumber, setOrderNumber] = useState(0);
     const [isNew, setIsNew] = useState(false);
     const initializationClaimRef = useRef({ current: null as string | null });
     const detailsClaimRef = useRef({ current: null as string | null });
+    const catalogNameInputRef = useRef<HTMLInputElement>(null);
+    const itemIdsInputRef = useRef<HTMLInputElement>(null);
+    const limitedStackInputRef = useRef<HTMLInputElement>(null);
     const formTargetKey = editingOffer
         ? `offer:${currentType}:${editingOffer.offerId}:${editingOffer.offerId === -1 ? currentPage?.pageId || 0 : editingOffer.offerId}`
         : null;
+    const closeForm = useCallback(() => setEditingOffer?.(null), [setEditingOffer]);
+    const smartSave = useCatalogAdminSmartSave<IOfferEditData>({
+        initial: createCatalogAdminNewOfferFormState(0),
+        acknowledgement: lastMutationResult,
+        submit: draft => draft.offerId == null
+            ? createOffer?.(draft) ?? null
+            : saveOffer?.(draft) ?? null,
+        canSubmit: draft => {
+            const builderCatalog = currentType === CatalogType.BUILDER;
+            const sold = draft.offerId == null ? 0 : editingOfferDetails?.limitedSells || 0;
+            const hasLock = draft.offerId == null
+                ? (hasPageLock?.(draft.pageId) ?? false)
+                : (hasOfferLock?.(draft.offerId) ?? false);
+            return studioSessionReady && hasLock && !validateCatalogAdminOfferForm(draft, builderCatalog, sold);
+        },
+        toCommitted: acknowledgement => {
+            if(!acknowledgement.entity) return null;
+            const offer = acknowledgement.entity as CatalogStudioOfferSnapshot;
+            return {
+                offerId: offer.offerId,
+                pageId: offer.pageId,
+                itemIds: offer.itemIds,
+                catalogName: offer.catalogName,
+                costCredits: offer.costCredits,
+                costPoints: offer.costPoints,
+                pointsType: offer.pointsType,
+                amount: offer.amount,
+                clubOnly: offer.clubOnly ? '1' : '0',
+                extradata: offer.extradata,
+                haveOffer: offer.haveOffer ? '1' : '0',
+                offerId_group: offer.offerIdClient,
+                songId: offer.songId,
+                limitedStack: offer.limitedStack,
+                orderNumber: offer.orderNumber
+            };
+        },
+        onClose: closeForm
+    });
+    const {
+        itemIds, catalogName, costCredits, costPoints, pointsType, amount, clubOnly,
+        extradata, haveOffer, offerId_group: offerId, songId = 0, limitedStack, orderNumber
+    } = smartSave.draft;
+    const patchForm = smartSave.patch;
+    const setItemIds = (value: string) => patchForm({ itemIds: value });
+    const setCatalogName = (value: string) => patchForm({ catalogName: value });
+    const setCostCredits = (value: number) => patchForm({ costCredits: value });
+    const setCostPoints = (value: number) => patchForm({ costPoints: value });
+    const setPointsType = (value: number) => patchForm({ pointsType: value });
+    const setAmount = (value: number) => patchForm({ amount: value });
+    const setClubOnly = (value: string) => patchForm({ clubOnly: value });
+    const setExtradata = (value: string) => patchForm({ extradata: value });
+    const setHaveOffer = (value: string) => patchForm({ haveOffer: value });
+    const setOfferIdGroup = (value: number) => patchForm({ offerId_group: value });
+    const setSongId = (value: number) => patchForm({ songId: value });
+    const setLimitedStack = (value: number) => patchForm({ limitedStack: value });
+    const setOrderNumber = (value: number) => patchForm({ orderNumber: value });
+    const effectiveOfferId = smartSave.draft.offerId ?? editingOffer?.offerId ?? -1;
+    const isNewOffer = isNew && smartSave.baseline.offerId == null;
 
     useEffect(() => {
         if (!editingOffer) {
@@ -157,36 +212,28 @@ export const CatalogAdminOfferEditView: FC<{}> = () => {
                 .map((offer) => offer.orderNumber);
             const form = createCatalogAdminNewOfferFormState(pageId, siblingOrders.length ? Math.max(...siblingOrders) + 1 : 0);
             setIsNew(true);
-            setItemIds(form.itemIds);
-            setCatalogName(form.catalogName);
-            setCostCredits(form.costCredits);
-            setCostPoints(form.costPoints);
-            setPointsType(form.pointsType);
-            setAmount(form.amount);
-            setClubOnly(form.clubOnly);
-            setExtradata(form.extradata);
-            setHaveOffer(form.haveOffer);
-            setOfferIdGroup(form.offerId_group);
-            setSongId(form.songId);
-            setLimitedStack(form.limitedStack);
-            setOrderNumber(form.orderNumber);
+            smartSave.hydrate(form);
         } else {
             setIsNew(false);
-            setItemIds(editingOffer.itemIds || '');
-            setCatalogName(editingOffer.localizationName || '');
-            setCostCredits(editingOffer.priceInCredits);
-            setCostPoints(editingOffer.priceInActivityPoints);
-            setPointsType(editingOffer.activityPointType);
-            setAmount(editingOffer.product?.productCount || 1);
-            setClubOnly(editingOffer.clubLevel > 0 ? '1' : '0');
-            setExtradata(editingOffer.product?.extraParam || '');
-            setHaveOffer(editingOffer.haveOffer ? '1' : '0');
-            setOfferIdGroup(0);
-            setSongId(0);
-            setLimitedStack(0);
-            setOrderNumber(0);
+            smartSave.hydrate({
+                offerId: editingOffer.offerId,
+                pageId: currentPage?.pageId || 0,
+                itemIds: editingOffer.itemIds || '',
+                catalogName: editingOffer.localizationName || '',
+                costCredits: editingOffer.priceInCredits,
+                costPoints: editingOffer.priceInActivityPoints,
+                pointsType: editingOffer.activityPointType,
+                amount: editingOffer.product?.productCount || 1,
+                clubOnly: editingOffer.clubLevel > 0 ? '1' : '0',
+                extradata: editingOffer.product?.extraParam || '',
+                haveOffer: editingOffer.haveOffer ? '1' : '0',
+                offerId_group: 0,
+                songId: 0,
+                limitedStack: 0,
+                orderNumber: 0
+            });
         }
-    }, [editingOffer, currentPage?.pageId, currentType, formTargetKey, studio.session]);
+    }, [editingOffer, currentPage?.pageId, currentType, formTargetKey, smartSave.hydrate, studio.session]);
 
     useEffect(() => {
         if (!editingOfferDetails) return;
@@ -194,73 +241,73 @@ export const CatalogAdminOfferEditView: FC<{}> = () => {
         if (!claimCatalogAdminHydration(detailsClaimRef.current, `${formTargetKey}:details`)) return;
 
         const form = createCatalogAdminOfferFormState(editingOfferDetails);
-        setItemIds(form.itemIds);
-        setCatalogName(form.catalogName);
-        setCostCredits(form.costCredits);
-        setCostPoints(form.costPoints);
-        setPointsType(form.pointsType);
-        setAmount(form.amount);
-        setClubOnly(form.clubOnly);
-        setExtradata(form.extradata);
-        setHaveOffer(form.haveOffer);
-        setOfferIdGroup(form.offerId_group);
-        setSongId(form.songId);
-        setLimitedStack(form.limitedStack);
-        setOrderNumber(form.orderNumber);
-    }, [editingOffer, editingOfferDetails, formTargetKey]);
+        smartSave.hydrate(form);
+    }, [editingOffer, editingOfferDetails, formTargetKey, smartSave.hydrate]);
+
+    useEffect(() => {
+        if(!editingOffer) return;
+        if(isNewOffer && smartSave.draft.pageId > 0) ensurePageLock?.(smartSave.draft.pageId);
+        else if(effectiveOfferId > 0) ensureOfferLock?.(effectiveOfferId);
+    }, [editingOffer, effectiveOfferId, ensureOfferLock, ensurePageLock, isNewOffer, smartSave.draft.pageId]);
+
+    useEffect(() => {
+        if(smartSave.fieldErrors.catalogName) catalogNameInputRef.current?.focus();
+        else if(smartSave.fieldErrors.itemIds) itemIdsInputRef.current?.focus();
+        else if(smartSave.fieldErrors.limitedStack) limitedStackInputRef.current?.focus();
+    }, [smartSave.fieldErrors]);
 
     if (!editingOffer) return null;
 
-    const detailsReady = isNew || editingOfferDetails?.offerId === editingOffer.offerId;
-    const interaction = resolveCatalogAdminOfferInteraction(studioSessionReady, detailsReady, loading, lastError);
-    const limitedSells = isNew ? 0 : editingOfferDetails?.limitedSells || 0;
-    const formData: IOfferEditData = {
-        offerId: isNew ? undefined : editingOffer.offerId,
-        pageId: isNew ? currentPage?.pageId || 0 : editingOfferDetails?.pageId || 0,
-        itemIds,
-        catalogName,
-        costCredits,
-        costPoints,
-        pointsType,
-        amount,
-        clubOnly,
-        extradata,
-        haveOffer,
-        offerId_group: offerId,
-        songId,
-        limitedStack,
-        orderNumber
-    };
+    const detailsReady = isNewOffer || editingOfferDetails?.offerId === effectiveOfferId;
+    const lockReady = isNewOffer
+        ? (hasPageLock?.(smartSave.draft.pageId) ?? false)
+        : effectiveOfferId > 0 && (hasOfferLock?.(effectiveOfferId) ?? false);
+    const smartSaveError = lastMutationResult?.success === false ? null : lastError;
+    const interaction = resolveCatalogAdminOfferInteraction(
+        studioSessionReady, detailsReady, loading && smartSave.status !== 'saving', smartSaveError);
+    const limitedSells = isNewOffer ? 0 : editingOfferDetails?.limitedSells || 0;
+    const formData = smartSave.draft;
     const validationError = detailsReady ? validateCatalogAdminOfferForm(formData, currentType === CatalogType.BUILDER, limitedSells) : null;
     const currencyTypes = Array.from(new Set([0, 5, 101, pointsType, ...Array.from(purse?.activityPoints?.keys?.() || [])]))
         .filter((type) => type >= 0)
         .sort((left, right) => left - right);
 
-    const handleSave = async () => {
-        if (!saveOffer || !createOffer || !interaction.canSave) return;
-        if (validationError) return;
+    const saveStatusText = smartSave.status === 'saving'
+        ? 'Saving...'
+        : smartSave.status === 'dirty'
+          ? 'Unsaved changes'
+          : smartSave.status === 'conflict'
+            ? (smartSave.message || 'The catalog changed. Review and save again.')
+            : smartSave.status === 'error'
+              ? (smartSave.message || 'Save failed')
+              : smartSave.lastSavedAt
+                ? `Saved · ${new Date(smartSave.lastSavedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                : 'Saved';
+    const canSubmit = interaction.canSave && lockReady && !validationError && (smartSave.isDirty || !!smartSave.inFlight);
 
-        if (isNew) createOffer(formData);
-        else saveOffer(formData);
+    const handleSave = (closeAfter = false) => {
+        if (!saveOffer || !createOffer || !interaction.canSave || !lockReady) return;
+        if (validationError) return;
+        smartSave.save(closeAfter);
     };
 
     const handleDelete = () => {
-        if (isNew || !deleteOffer || !confirm(LocalizeText('catalog.admin.delete.offer.confirm'))) return;
+        if (isNewOffer || !deleteOffer || !confirm(LocalizeText('catalog.admin.delete.offer.confirm'))) return;
 
-        deleteOffer(editingOffer.offerId);
+        deleteOffer(effectiveOfferId);
     };
 
     const inputClass = 'nitro-catalog-admin-input';
-    const previewIconUrl = isNew ? null : getOfferIconUrl(editingOffer);
+    const previewIconUrl = isNewOffer ? null : getOfferIconUrl(editingOffer);
     const previewName =
-        catalogName || editingOffer.localizationName || (isNew ? localizeWithFallback('catalog.admin.offer.new', 'New offer') : `#${editingOffer.offerId}`);
-    const previewFallbackIcon = isNew ? null : editingOffer.product?.getIconUrl(editingOffer);
+        catalogName || editingOffer.localizationName || (isNewOffer ? localizeWithFallback('catalog.admin.offer.new', 'New offer') : `#${effectiveOfferId}`);
+    const previewFallbackIcon = isNewOffer ? null : editingOffer.product?.getIconUrl(editingOffer);
 
     return (
         <CatalogAdminModalView
-            title={isNew ? LocalizeText('catalog.admin.offer.new') : localizeWithFallback('catalog.admin.edit.offer', 'Edit offer')}
+            title={isNewOffer ? LocalizeText('catalog.admin.offer.new') : localizeWithFallback('catalog.admin.edit.offer', 'Edit offer')}
             widthClassName="w-[500px]"
-            onClose={() => setEditingOffer(null)}
+            onClose={smartSave.requestClose}
         >
             <div className="nitro-catalog-admin-form">
                 <div className="nitro-catalog-admin-form-sheet">
@@ -287,9 +334,9 @@ export const CatalogAdminOfferEditView: FC<{}> = () => {
                                     {previewName}
                                 </span>
                                 <span className="nitro-catalog-admin-offer-preview-sub">
-                                    {isNew
+                                    {isNewOffer
                                         ? localizeWithFallback('catalog.admin.offer.new', 'New offer')
-                                        : `${localizeWithFallback('catalog.admin.offer.id', 'Offer ID')} #${editingOffer.offerId}`}
+                                        : `${localizeWithFallback('catalog.admin.offer.id', 'Offer ID')} #${effectiveOfferId}`}
                                     {amount > 1 ? ` · x${amount}` : ''}
                                 </span>
                                 <span className="nitro-catalog-admin-offer-preview-price">
@@ -304,12 +351,15 @@ export const CatalogAdminOfferEditView: FC<{}> = () => {
                             <div className="nitro-catalog-admin-form-field">
                                 <label className="nitro-catalog-admin-label is-field">{LocalizeText('catalog.admin.offer.name')}</label>
                                 <input
+                                    ref={catalogNameInputRef}
+                                    aria-invalid={!!smartSave.fieldErrors.catalogName}
                                     className={inputClass}
                                     placeholder={localizeWithFallback('catalog.admin.offer.name.placeholder', 'e.g. rare_dragon_lamp')}
                                     type="text"
                                     value={catalogName}
                                     onChange={(e) => setCatalogName(e.target.value)}
                                 />
+                                {smartSave.fieldErrors.catalogName && <span className="nitro-catalog-admin-field-error">{smartSave.fieldErrors.catalogName}</span>}
                             </div>
                             <div className="nitro-catalog-admin-form-grid is-3col">
                                 <div className="nitro-catalog-admin-form-field is-span-3">
@@ -317,16 +367,21 @@ export const CatalogAdminOfferEditView: FC<{}> = () => {
                                         {localizeWithFallback('catalog.admin.offer.item.ids', 'Item IDs')}
                                     </label>
                                     <input
+                                        ref={itemIdsInputRef}
+                                        aria-invalid={!!smartSave.fieldErrors.itemIds}
                                         className={inputClass}
                                         placeholder={localizeWithFallback('catalog.admin.offer.item.ids.placeholder', '1234 or 100;200')}
                                         type="text"
                                         value={itemIds}
                                         onChange={(e) => setItemIds(e.target.value)}
                                     />
+                                    {smartSave.fieldErrors.itemIds && <span className="nitro-catalog-admin-field-error">{smartSave.fieldErrors.itemIds}</span>}
                                 </div>
                                 <div className="nitro-catalog-admin-form-field">
                                     <label className="nitro-catalog-admin-label is-field">{LocalizeText('catalog.admin.offer.quantity')}</label>
                                     <input
+                                        ref={limitedStackInputRef}
+                                        aria-invalid={!!smartSave.fieldErrors.limitedStack}
                                         className={inputClass}
                                         min={1}
                                         type="number"
@@ -412,8 +467,9 @@ export const CatalogAdminOfferEditView: FC<{}> = () => {
                                         value={limitedStack}
                                         onChange={(e) => setLimitedStack(parseInt(e.target.value) || 0)}
                                     />
+                                    {smartSave.fieldErrors.limitedStack && <span className="nitro-catalog-admin-field-error">{smartSave.fieldErrors.limitedStack}</span>}
                                 </div>
-                                {!isNew && (
+                                {!isNewOffer && (
                                     <div className="nitro-catalog-admin-form-field">
                                         <label className="nitro-catalog-admin-label is-field">
                                             {localizeWithFallback('catalog.admin.offer.limited.sold', 'Already sold')}
@@ -456,23 +512,43 @@ export const CatalogAdminOfferEditView: FC<{}> = () => {
                         </section>
                     </div>
 
-                    <div className="nitro-catalog-admin-form-actions">
-                        {(validationError || interaction.message) && (
-                            <span className={validationError || lastError ? 'nitro-catalog-admin-translate-error' : 'nitro-catalog-admin-form-status'}>
-                                {validationError || interaction.message}
-                            </span>
-                        )}
-                        {!isNew ? (
-                            <button className="nitro-catalog-admin-button is-danger" onClick={handleDelete}>
-                                <FaTrash className="text-[8px]" /> {LocalizeText('catalog.admin.delete')}
+                    <div className={`nitro-catalog-admin-savebar is-${smartSave.status}`}>
+                        <div className="nitro-catalog-admin-savebar-status" aria-live="polite">
+                            <span>{validationError || smartSave.message || interaction.message || (!lockReady ? 'Waiting for the edit lock...' : saveStatusText)}</span>
+                            <small>Ctrl+S</small>
+                        </div>
+                        <div className="nitro-catalog-admin-savebar-actions">
+                            {!isNewOffer && (
+                                <button className="nitro-catalog-admin-button is-danger" type="button" onClick={handleDelete}>
+                                    <FaTrash className="text-[8px]" /> {LocalizeText('catalog.admin.delete')}
+                                </button>
+                            )}
+                            <button
+                                className="nitro-catalog-admin-button is-muted"
+                                disabled={!smartSave.isDirty || !!smartSave.inFlight}
+                                type="button"
+                                onClick={smartSave.reset}
+                            >
+                                <FaUndo className="text-[8px]" /> Reset
                             </button>
-                        ) : (
-                            <div />
-                        )}
-                        <button className="nitro-catalog-admin-button is-primary" disabled={!interaction.canSave || !!validationError} onClick={handleSave}>
-                            {loading ? <FaSpinner className="text-[8px] animate-spin" /> : <FaSave className="text-[8px]" />}{' '}
-                            {isNew ? LocalizeText('catalog.admin.create') : LocalizeText('catalog.admin.save')}
-                        </button>
+                            <button
+                                className="nitro-catalog-admin-button is-muted"
+                                disabled={!canSubmit}
+                                type="button"
+                                onClick={() => handleSave(true)}
+                            >
+                                Save and close
+                            </button>
+                            <button
+                                className="nitro-catalog-admin-button is-primary"
+                                disabled={!canSubmit}
+                                type="button"
+                                onClick={() => handleSave(false)}
+                            >
+                                {smartSave.status === 'saving' ? <FaSpinner className="text-[8px] animate-spin" /> : <FaSave className="text-[8px]" />}{' '}
+                                {isNewOffer ? LocalizeText('catalog.admin.create') : LocalizeText('catalog.admin.save')}
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>

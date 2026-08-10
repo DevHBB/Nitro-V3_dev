@@ -485,6 +485,68 @@
     background: linear-gradient(180deg, var(--catalog-admin-panel-alt) 0%, #deded6 100%);
 }
 
+.nitro-catalog-admin-savebar {
+    display: flex;
+    flex-shrink: 0;
+    gap: 10px;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 52px;
+    padding: 8px 12px;
+    border-top: 1px solid #c9c9c0;
+    background: linear-gradient(180deg, var(--catalog-admin-panel-alt) 0%, #deded6 100%);
+}
+
+.nitro-catalog-admin-savebar-status {
+    display: flex;
+    flex-direction: column;
+    min-width: 112px;
+    color: #53606a;
+    font-size: 11px;
+    line-height: 1.15;
+}
+
+.nitro-catalog-admin-savebar-status small {
+    margin-top: 3px;
+    color: #88929a;
+    font-size: 9px;
+}
+
+.nitro-catalog-admin-savebar.is-dirty .nitro-catalog-admin-savebar-status { color: #865a05; }
+.nitro-catalog-admin-savebar.is-saving .nitro-catalog-admin-savebar-status { color: #296786; }
+.nitro-catalog-admin-savebar.is-error .nitro-catalog-admin-savebar-status,
+.nitro-catalog-admin-savebar.is-conflict .nitro-catalog-admin-savebar-status { color: #a83232; }
+.nitro-catalog-admin-savebar.is-saved .nitro-catalog-admin-savebar-status { color: #397046; }
+
+.nitro-catalog-admin-savebar-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.nitro-catalog-admin-field-error {
+    color: #a83232;
+    font-size: 10px;
+    line-height: 1.2;
+}
+
+@media (max-width: 520px) {
+    .nitro-catalog-admin-savebar {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .nitro-catalog-admin-savebar-actions {
+        justify-content: stretch;
+    }
+
+    .nitro-catalog-admin-savebar-actions .nitro-catalog-admin-button {
+        flex: 1 1 auto;
+    }
+}
+
 .nitro-catalog-admin-form .nitro-catalog-admin-input,
 .nitro-catalog-admin-form-sheet .nitro-catalog-admin-input {
     min-height: 28px;

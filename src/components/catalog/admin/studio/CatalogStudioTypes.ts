@@ -85,6 +85,7 @@ export interface CatalogStudioLock {
 
 export interface CatalogStudioHistoryEntry {
     entityType: string;
+    catalogType?: CatalogStudioCatalogType;
     entityId: number;
     operation: string;
 }
@@ -152,4 +153,14 @@ export interface CatalogStudioDocumentResult {
     document: string;
     fingerprint: string;
     changedEntities: number;
+}
+
+export interface CatalogStudioMutationResult {
+    operationId: string;
+    action: 'createPage' | 'savePage' | 'createOffer' | 'saveOffer';
+    revision: number;
+    entityType: 'PAGE' | 'OFFER';
+    catalogType: CatalogStudioCatalogType;
+    entity: CatalogStudioPageSnapshot | CatalogStudioOfferSnapshot;
+    historyGroup: CatalogStudioHistoryGroup;
 }
