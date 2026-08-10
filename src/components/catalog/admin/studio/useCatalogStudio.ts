@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react';
-import { CatalogStudioDocumentResult, CatalogStudioHistoryGroup, CatalogStudioLock, CatalogStudioPreviewState, CatalogStudioSession, CatalogStudioValidationState } from './CatalogStudioTypes';
+import { CatalogStudioDocumentResult, CatalogStudioHistoryGroup, CatalogStudioLock, CatalogStudioMutationResult, CatalogStudioPreviewState, CatalogStudioSession, CatalogStudioValidationState } from './CatalogStudioTypes';
 import { CatalogPreviewPersona } from './CatalogPreviewPersona';
 
 export interface CatalogStudioContextValue {
@@ -27,6 +27,7 @@ export interface CatalogStudioContextValue {
     exportDocument: (format: 'JSONC' | 'SQL') => void;
     dryRunDocument: (format: 'JSONC' | 'SQL' | 'BULK', document: string) => void;
     applyDocument: (format: 'JSONC' | 'SQL' | 'BULK', document: string, fingerprint: string, summary: string) => void;
+    applyMutation: (mutation: CatalogStudioMutationResult) => void;
 }
 
 export const CatalogStudioContext = createContext<CatalogStudioContextValue>(null);
