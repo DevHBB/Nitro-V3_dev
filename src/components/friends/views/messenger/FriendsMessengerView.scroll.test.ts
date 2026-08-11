@@ -2,17 +2,14 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-describe('FriendsMessengerView routing and scroll behavior', () =>
-{
-    it('does not dereference the legacy message box when the persistent view is mounted', () =>
-    {
+describe('FriendsMessengerView routing and scroll behavior', () => {
+    it('does not dereference the legacy message box when the persistent view is mounted', () => {
         const source = readFileSync(join(process.cwd(), 'src/components/friends/views/messenger/FriendsMessengerView.tsx'), 'utf8');
 
-        expect(source).toContain('if(!messagesBox.current) return;');
+        expect(source).toMatch(/if\s*\(!messagesBox\.current\)\s*return;/);
     });
 
-    it('routes Staff Chat and direct chats through the same persistent window', () =>
-    {
+    it('routes Staff Chat and direct chats through the same persistent window', () => {
         const source = readFileSync(join(process.cwd(), 'src/components/friends/views/messenger/FriendsMessengerView.tsx'), 'utf8');
 
         expect(source).not.toContain('isLegacyStaffChat');
@@ -24,5 +21,20 @@ describe('FriendsMessengerView routing and scroll behavior', () =>
         expect(source).toContain('const thread = getMessageThread(participantId);');
         expect(source).toContain('setActiveThreadId(thread.threadId);');
         expect(source.match(/setActiveThreadId\(thread\.threadId\);/g)).toHaveLength(1);
+    });
+
+    it('uses final component names instead of implementation-origin prefixes', () => {
+        const files = [
+            'src/components/friends/views/friends-list/FriendsListView.tsx',
+            'src/components/friends/views/messenger/FriendsMessengerView.tsx',
+            'src/components/friends/views/messenger/FriendsMessengerHabbiconPickerView.tsx',
+            'src/components/friends/views/messenger/messenger-thread/FriendsMessengerThreadGroup.tsx'
+        ];
+
+        for (const file of files) {
+            const source = readFileSync(join(process.cwd(), file), 'utf8');
+
+            expect(source).not.toMatch(/\b(?:swf|air)-/);
+        }
     });
 });

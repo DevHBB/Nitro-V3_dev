@@ -4,6 +4,7 @@ import { FaArrowLeft, FaCopy, FaExclamationTriangle, FaSearch, FaTimes, FaUsers 
 import { CopyToClipboard, GetUserProfile, LocalizeText, MessengerConversation, MessengerMessage, MessengerThread, ReportType, selectConversations, selectMessages, SendMessageComposer } from '../../../../api';
 import { DraggableWindowPosition, LayoutAvatarImageView, NitroCardContentView, NitroCardHeaderView, NitroCardView } from '../../../../common';
 import { useFriends, useHelp } from '../../../../hooks';
+import { STAFF_CHAT_FIGURE } from '../../staffChatIdentity';
 import { resolveAvatarFigure } from '../friends-list/resolveAvatarFigure';
 import { FriendsMessengerThreadView } from './messenger-thread/FriendsMessengerThreadView';
 import { canFollowMessengerConversation, filterMessengerConversations, resolveConversationAfterClose, restoreConversationsWithNewMessages } from './persistentMessenger.helpers';
@@ -15,8 +16,6 @@ interface PersistentMessengerApi
     history: { loadInitial: (conversationId: number) => void; loadOlder: (conversationId: number) => void };
     actions: { openDirectConversation: (participantId: number, name: string) => void; sendMessage: (conversationId: number, recipientId: number, text: string) => any; retryMessage: (clientId: string) => any; markRead: (conversationId: number, messageId: number) => void };
 }
-
-const STAFF_CHAT_FIGURE = 'ha-3409-1413-70.lg-285-89.ch-3032-1334-109.sh-3016-110.hd-185-1359.ca-3225-110-62.wa-3264-62-62.fa-1206-90.hr-3322-1403';
 
 interface FriendsPersistentMessengerViewProps
 {

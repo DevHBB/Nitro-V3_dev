@@ -15,22 +15,20 @@ export const FriendsListView: FC<{}> = (props) => {
     const [selectedFriendsIds, setSelectedFriendsIds] = useState<number[]>([]);
     const [showRoomInvite, setShowRoomInvite] = useState<boolean>(false);
     const [showRemoveFriendsConfirmation, setShowRemoveFriendsConfirmation] = useState<boolean>(false);
-    const [activePanel, setActivePanel] = useState<'friends' | 'requests' | 'search'>('friends');
+    const [activePanel, setActivePanel] = useState<'friends' | 'requests' | 'search' | null>('friends');
     const [isFriendSearchOpen, setIsFriendSearchOpen] = useState(false);
     const [friendSearchValue, setFriendSearchValue] = useState('');
     const [isOnlineExpanded, setIsOnlineExpanded] = useState<boolean>(true);
     const [isOfflineExpanded, setIsOfflineExpanded] = useState<boolean>(false);
-    const [selectedCategoryId, setSelectedCategoryId] = useState<number>(0);
-    const { onlineFriends = [], offlineFriends = [], requests = [], requestFriend = null, settings = null } = useFriends();
-    const categories = settings?.categories ?? [];
+    const { onlineFriends = [], offlineFriends = [], requests = [], requestFriend = null, requestResponse = null } = useFriends();
 
     const friendSearch = friendSearchValue.trim().toLocaleLowerCase();
-    const filteredOnlineFriends = filterFriendsByCategory(onlineFriends, 0).filter((friend) => !friendSearch || friend.name.toLocaleLowerCase().includes(friendSearch));
-    const filteredOfflineFriends = filterFriendsByCategory(offlineFriends, 0).filter((friend) => !friendSearch || friend.name.toLocaleLowerCase().includes(friendSearch));
-
-    useEffect(() => {
-        if (selectedCategoryId && !categories.some((category) => category.id === selectedCategoryId)) setSelectedCategoryId(0);
-    }, [categories, selectedCategoryId]);
+    const filteredOnlineFriends = filterFriendsByCategory(onlineFriends, 0).filter(
+        (friend) => !friendSearch || friend.name.toLocaleLowerCase().includes(friendSearch)
+    );
+    const filteredOfflineFriends = filterFriendsByCategory(offlineFriends, 0).filter(
+        (friend) => !friendSearch || friend.name.toLocaleLowerCase().includes(friendSearch)
+    );
 
     const removeFriendsText = useMemo(() => {
         if (!selectedFriendsIds || !selectedFriendsIds.length) return '';
@@ -141,80 +139,169 @@ export const FriendsListView: FC<{}> = (props) => {
     }, [requestFriend]);
 
     useEffect(() => {
-        if ((activePanel === 'requests') && !requests.length) setActivePanel('friends');
+        if (activePanel === 'requests' && !requests.length) setActivePanel('friends');
     }, [activePanel, requests.length]);
 
     if (!isVisible) return null;
 
+    const respondToAllRequests = (accept: boolean) => {
+        for (const request of requests) requestResponse(request.id, accept);
+    };
+
     return (
         <>
-            <DraggableWindow uniqueKey="nitro-friends" handleSelector=".hfl-titlebar" windowPosition={DraggableWindowPosition.TOP_LEFT} offsetLeft={110} offsetTop={50}>
-                <div className={`habbo-friend-list${requests.length ? ' has-requests' : ''}${activePanel === 'search' ? ' search-mode' : ''}${activePanel === 'requests' ? ' requests-mode' : ''}`}>
+            <DraggableWindow
+                uniqueKey="nitro-friends"
+                handleSelector=".hfl-titlebar"
+                windowPosition={DraggableWindowPosition.TOP_LEFT}
+                offsetLeft={110}
+                offsetTop={50}
+            >
+                <div
+                    className={`habbo-friend-list${requests.length ? ' has-requests' : ''}${activePanel === 'search' ? ' search-mode' : ''}${activePanel === 'requests' ? ' requests-mode' : ''}${activePanel === null ? ' collapsed-mode' : ''}`}
+                >
                     <div className="hfl-titlebar drag-handler">
                         <span className="hfl-titlebar-grip" />
                         <span className="hfl-title">{LocalizeText('friendlist.friends')}</span>
                         <button type="button" className="hfl-close" onClick={() => setIsVisible(false)} />
                     </div>
                     <div className="hfl-category">
-                        <button type="button" className="hfl-category-current" onClick={() => setActivePanel('friends')}>{LocalizeText('friendlist.friends')}</button>
-                    </div>
-                    <div className="hfl-content">
-                        {activePanel === 'search' && <FriendsSearchView />}
-                        {activePanel === 'requests' && <FriendsListRequestView />}
-                        {activePanel === 'friends' && <><section className="hfl-section">
-                            <button type="button" className={`hfl-section-header${isOnlineExpanded ? '' : ' collapsed'}`} onClick={() => setIsOnlineExpanded((value) => !value)}>
-                                <span>{LocalizeText('friendlist.friends') + ` (${filteredOnlineFriends.length})`}</span>
-                                <span
-                                    className="hfl-select-all"
-                                    onClick={(event) => {
-                                        event.stopPropagation();
-                                        toggleSelectFriends(filteredOnlineFriends.map((friend) => friend.id));
-                                    }}
-                                >
-                                    {filteredOnlineFriends.length && filteredOnlineFriends.every((friend) => selectedFriendsIds.indexOf(friend.id) >= 0)
-                                        ? LocalizeText('friendlist.unselect_all')
-                                        : LocalizeText('friendlist.select_all')}
-                                </span>
-                            </button>
-                            {isOnlineExpanded && <div className="hfl-list">
-                                <FriendsListGroupView list={filteredOnlineFriends} selectedFriendsIds={selectedFriendsIds} selectFriend={selectFriend} />
-                            </div>}
-                        </section>
-                        <section className="hfl-section">
-                            <button type="button" className={`hfl-section-header${isOfflineExpanded ? '' : ' collapsed'}`} onClick={() => setIsOfflineExpanded((value) => !value)}>
-                                <span>{LocalizeText('friendlist.friends.offlinecaption') + ` (${filteredOfflineFriends.length})`}</span>
-                            </button>
-                            {isOfflineExpanded && <div className="hfl-list"><FriendsListGroupView list={filteredOfflineFriends} selectedFriendsIds={selectedFriendsIds} selectFriend={selectFriend} /></div>}
-                        </section>
-                        </>}
-                    </div>
-                    <div className="hfl-footer">
-                        <div className="hfl-footer-border">
-                        <button type="button" className="hfl-footer-button invite" title={LocalizeText('friendlist.tip.invite')} onClick={() => setShowRoomInvite(true)} />
-                        <button type="button" className="hfl-footer-button home" title={LocalizeText('friendlist.tip.home')} onClick={() => CreateLinkEvent('navigator/goto/home')} />
-                        {isFriendSearchOpen
-                            ? <div className="hfl-footer-search">
-                                <input autoFocus value={friendSearchValue} onChange={(event) => setFriendSearchValue(event.target.value)} />
-                                <button type="button" title={LocalizeText('generic.clear')} onClick={() => {
-                                    if (friendSearchValue.length) setFriendSearchValue('');
-                                    else setIsFriendSearchOpen(false);
-                                }} />
-                            </div>
-                            : <button type="button" className="hfl-footer-button search" title={LocalizeText('people.search.title')} onClick={() => {
-                                setActivePanel('friends');
-                                setIsFriendSearchOpen(true);
-                            }} />}
                         <button
                             type="button"
-                            className="hfl-footer-button delete"
-                            disabled={!selectedFriendsIds.length}
-                            title={LocalizeText('generic.delete')}
-                            onClick={() => selectedFriendsIds.length && setShowRemoveFriendsConfirmation(true)}
-                        />
-                        </div>
+                            className="hfl-category-current"
+                            aria-expanded={activePanel === 'friends'}
+                            onClick={() => setActivePanel((value) => (value === 'friends' ? null : 'friends'))}
+                        >
+                            {LocalizeText('friendlist.friends')}
+                        </button>
                     </div>
-                    {!!requests.length && <button type="button" className="hfl-request-strip" onClick={() => setActivePanel((value) => value === 'requests' ? 'friends' : 'requests')}>{LocalizeText('friendlist.tab.friendrequests')}</button>}
-                    <button type="button" className="hfl-search-strip" onClick={() => setActivePanel((value) => value === 'search' ? 'friends' : 'search')}>{LocalizeText('generic.search')}</button>
+                    {activePanel !== null && (
+                        <div className="hfl-content">
+                            {activePanel === 'search' && <FriendsSearchView />}
+                            {activePanel === 'requests' && (
+                                <>
+                                    <FriendsListRequestView />
+                                    <div className="hfl-request-footer" data-testid="requests-footer">
+                                        <button type="button" data-action="accept-all" disabled={!requests.length} onClick={() => respondToAllRequests(true)}>
+                                            {LocalizeText('friendlist.requests.acceptall')}
+                                        </button>
+                                        <button type="button" data-action="dismiss-all" disabled={!requests.length} onClick={() => respondToAllRequests(false)}>
+                                            {LocalizeText('friendlist.requests.dismissall')}
+                                        </button>
+                                    </div>
+                                </>
+                            )}
+                            {activePanel === 'friends' && (
+                                <>
+                                    <section className="hfl-section">
+                                        <button
+                                            type="button"
+                                            className={`hfl-section-header${isOnlineExpanded ? '' : ' collapsed'}`}
+                                            onClick={() => setIsOnlineExpanded((value) => !value)}
+                                        >
+                                            <span>{LocalizeText('friendlist.friends') + ` (${filteredOnlineFriends.length})`}</span>
+                                            <span
+                                                className="hfl-select-all"
+                                                onClick={(event) => {
+                                                    event.stopPropagation();
+                                                    toggleSelectFriends(filteredOnlineFriends.map((friend) => friend.id));
+                                                }}
+                                            >
+                                                {filteredOnlineFriends.length &&
+                                                filteredOnlineFriends.every((friend) => selectedFriendsIds.indexOf(friend.id) >= 0)
+                                                    ? LocalizeText('friendlist.unselect_all')
+                                                    : LocalizeText('friendlist.select_all')}
+                                            </span>
+                                        </button>
+                                        {isOnlineExpanded && (
+                                            <div className="hfl-list">
+                                                <FriendsListGroupView
+                                                    list={filteredOnlineFriends}
+                                                    selectedFriendsIds={selectedFriendsIds}
+                                                    selectFriend={selectFriend}
+                                                />
+                                            </div>
+                                        )}
+                                    </section>
+                                    <section className="hfl-section">
+                                        <button
+                                            type="button"
+                                            className={`hfl-section-header${isOfflineExpanded ? '' : ' collapsed'}`}
+                                            onClick={() => setIsOfflineExpanded((value) => !value)}
+                                        >
+                                            <span>{LocalizeText('friendlist.friends.offlinecaption') + ` (${filteredOfflineFriends.length})`}</span>
+                                        </button>
+                                        {isOfflineExpanded && (
+                                            <div className="hfl-list">
+                                                <FriendsListGroupView
+                                                    list={filteredOfflineFriends}
+                                                    selectedFriendsIds={selectedFriendsIds}
+                                                    selectFriend={selectFriend}
+                                                />
+                                            </div>
+                                        )}
+                                    </section>
+                                </>
+                            )}
+                        </div>
+                    )}
+                    {activePanel === 'friends' && (
+                        <div className="hfl-footer" data-testid="friends-footer">
+                            <div className="hfl-footer-border">
+                                <button
+                                    type="button"
+                                    className="hfl-footer-button invite"
+                                    title={LocalizeText('friendlist.tip.invite')}
+                                    onClick={() => setShowRoomInvite(true)}
+                                />
+                                <button
+                                    type="button"
+                                    className="hfl-footer-button home"
+                                    title={LocalizeText('friendlist.tip.home')}
+                                    onClick={() => CreateLinkEvent('navigator/goto/home')}
+                                />
+                                {isFriendSearchOpen ? (
+                                    <div className="hfl-footer-search">
+                                        <input autoFocus value={friendSearchValue} onChange={(event) => setFriendSearchValue(event.target.value)} />
+                                        <button
+                                            type="button"
+                                            title={LocalizeText('generic.clear')}
+                                            onClick={() => {
+                                                if (friendSearchValue.length) setFriendSearchValue('');
+                                                else setIsFriendSearchOpen(false);
+                                            }}
+                                        />
+                                    </div>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        className="hfl-footer-button search"
+                                        title={LocalizeText('people.search.title')}
+                                        onClick={() => setIsFriendSearchOpen(true)}
+                                    />
+                                )}
+                                <button
+                                    type="button"
+                                    className="hfl-footer-button delete"
+                                    disabled={!selectedFriendsIds.length}
+                                    title={LocalizeText('generic.delete')}
+                                    onClick={() => selectedFriendsIds.length && setShowRemoveFriendsConfirmation(true)}
+                                />
+                            </div>
+                        </div>
+                    )}
+                    {!!requests.length && (
+                        <button
+                            type="button"
+                            className="hfl-request-strip"
+                            onClick={() => setActivePanel((value) => (value === 'requests' ? null : 'requests'))}
+                        >
+                            {LocalizeText('friendlist.tab.friendrequests')}
+                        </button>
+                    )}
+                    <button type="button" className="hfl-search-strip" onClick={() => setActivePanel((value) => (value === 'search' ? null : 'search'))}>
+                        {LocalizeText('generic.search')}
+                    </button>
                     <div className="hfl-bottom" />
                 </div>
             </DraggableWindow>
