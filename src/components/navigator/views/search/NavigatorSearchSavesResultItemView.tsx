@@ -41,21 +41,20 @@ export const NavigatorSearchSavesResultItemView: FC<NavigatorSearchSavesResultIt
         SendMessageComposer(new NavigatorDeleteSavedSearchComposer(search.id));
     };
 
+    const title = LocalizeText(getResultTitle());
+
     return (
-        <Flex
-            pointer
-            alignItems="center"
-            gap={1}
-            className="saved-search-row group px-1 py-0.5 shrink-0"
-            title={LocalizeText('navigator.tooltip.open.saved.search')}
-            onClick={openSearch}
-        >
-            <FaBolt className="text-orange-500 shrink-0 text-[10px]" />
-            <Text small pointer truncate variant="black" className="grow! min-w-0">
-                {LocalizeText(getResultTitle())}
-            </Text>
-            <i
-                className="nitro-icon icon-navigator-search-delete cursor-pointer flex-shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+        <Flex alignItems="center" className="saved-search-row group shrink-0">
+            <button type="button" className="saved-search-row__open" title={LocalizeText('navigator.tooltip.open.saved.search')} onClick={openSearch}>
+                <FaBolt className="text-orange-500 shrink-0 text-[10px]" />
+                <Text small truncate variant="black" className="grow! min-w-0 text-left">
+                    {title}
+                </Text>
+            </button>
+            <button
+                type="button"
+                className="saved-search-row__delete nitro-icon icon-navigator-search-delete"
+                aria-label={`${LocalizeText('navigator.tooltip.remove.saved.search')} ${title}`}
                 title={LocalizeText('navigator.tooltip.remove.saved.search')}
                 onClick={deleteSearch}
             />

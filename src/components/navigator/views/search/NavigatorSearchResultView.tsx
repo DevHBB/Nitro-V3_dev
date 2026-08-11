@@ -1,9 +1,9 @@
 import { NavigatorSearchComposer, NavigatorSearchResultList, NavigatorSearchSaveComposer } from '@nitrots/nitro-renderer';
-import { FC, useEffect, useState } from 'react';
+import { FC, useState } from 'react';
 import { FaBars, FaMinus, FaPlus, FaTh, FaWindowMaximize, FaWindowRestore } from 'react-icons/fa';
-import { LocalizeText, NavigatorSearchResultViewDisplayMode, SendMessageComposer } from '../../../../api';
+import { LocalizeText, localizeWithFallback, NavigatorSearchResultViewDisplayMode, SendMessageComposer } from '../../../../api';
 import { AutoGrid, AutoGridProps, Column, Flex, Grid, LayoutSearchSavesView, Text } from '../../../../common';
-import { useNavigatorData } from '../../../../hooks';
+import { useNavigatorData, useNavigatorUiStore } from '../../../../hooks';
 import { NavigatorSearchResultItemView } from './NavigatorSearchResultItemView';
 
 export interface NavigatorSearchResultViewProps extends AutoGridProps {
@@ -12,29 +12,31 @@ export interface NavigatorSearchResultViewProps extends AutoGridProps {
 
 export const NavigatorSearchResultView: FC<NavigatorSearchResultViewProps> = (props) => {
     const { searchResult = null, ...rest } = props;
-    const [isExtended, setIsExtended] = useState(true);
-    const [displayMode, setDisplayMode] = useState<number>(0);
     const [selectedRoomId, setSelectedRoomId] = useState<number | null>(null);
     const [isPopoverActive, setIsPopoverActive] = useState<boolean>(false);
 
     const { topLevelContext } = useNavigatorData();
+    const isExtended = useNavigatorUiStore(
+        (state) => state.expandedResultCodes.includes(searchResult.code) || (!state.collapsedResultCodes.includes(searchResult.code) && !searchResult.closed)
+    );
+    const displayMode = useNavigatorUiStore((state) => state.resultViewModes[searchResult.code] ?? searchResult.mode);
 
     const getResultTitle = () => {
-        let name = searchResult.code;
+        const name = searchResult.code;
 
-        if (!name || !name.length || LocalizeText('navigator.searchcode.title.' + name) === 'navigator.searchcode.title.' + name) return searchResult.data;
-
+        if (!name || !name.length) return searchResult.data;
         if (name.startsWith('${')) return name.slice(2, name.length - 1);
 
-        return 'navigator.searchcode.title.' + name;
+        return localizeWithFallback('navigator.searchcode.title.' + name, searchResult.data || name);
     };
 
     const toggleDisplayMode = () => {
-        setDisplayMode((prevValue) => {
-            if (prevValue === NavigatorSearchResultViewDisplayMode.LIST) return NavigatorSearchResultViewDisplayMode.THUMBNAILS;
+        const nextMode =
+            displayMode === NavigatorSearchResultViewDisplayMode.LIST
+                ? NavigatorSearchResultViewDisplayMode.THUMBNAILS
+                : NavigatorSearchResultViewDisplayMode.LIST;
 
-            return NavigatorSearchResultViewDisplayMode.LIST;
-        });
+        useNavigatorUiStore.getState().setResultViewMode(searchResult.code, nextMode);
     };
 
     const showMore = () => {
@@ -42,29 +44,47 @@ export const NavigatorSearchResultView: FC<NavigatorSearchResultViewProps> = (pr
         else if (searchResult.action == 2 && topLevelContext) SendMessageComposer(new NavigatorSearchComposer(topLevelContext.code, ''));
     };
 
-    useEffect(() => {
-        if (!searchResult) return;
-
-        setIsExtended(searchResult.code === 'myworld_view' ? true : !searchResult.closed);
-        setDisplayMode(searchResult.mode);
-    }, [searchResult]);
-
     const gridHasTwoColumns = displayMode >= NavigatorSearchResultViewDisplayMode.THUMBNAILS;
+    const resultTitle = getResultTitle();
+    const listViewLabel = localizeWithFallback('navigator.viewmode.list', 'Show rooms as a list');
+    const tileViewLabel = localizeWithFallback('navigator.viewmode.tiles', 'Show rooms as tiles');
 
     return (
         <Column className="nitro-card-panel" gap={0}>
             <Flex fullWidth alignItems="center" className="px-2 py-1" justifyContent="between">
-                <Flex grow pointer alignItems="center" gap={1} onClick={(event) => setIsExtended((prevValue) => !prevValue)}>
+                <button
+                    type="button"
+                    className="nitro-navigator-air__category-toggle flex grow items-center gap-1"
+                    aria-label={resultTitle}
+                    aria-expanded={isExtended}
+                    onClick={() => useNavigatorUiStore.getState().setResultCollapsed(searchResult.code, isExtended)}
+                >
                     {isExtended && <FaMinus className="text-secondary fa-icon" />}
                     {!isExtended && <FaPlus className="text-secondary fa-icon" />}
-                    <Text>{LocalizeText(getResultTitle())}</Text>
-                </Flex>
+                    <Text>{resultTitle}</Text>
+                </button>
                 <div className="flex gap-2 items-center">
                     {displayMode === NavigatorSearchResultViewDisplayMode.LIST && (
-                        <FaTh className="text-secondary fa-icon cursor-pointer" onClick={toggleDisplayMode} />
+                        <button
+                            type="button"
+                            className="nitro-navigator-air__icon-button"
+                            aria-label={tileViewLabel}
+                            title={tileViewLabel}
+                            onClick={toggleDisplayMode}
+                        >
+                            <FaTh className="text-secondary fa-icon" />
+                        </button>
                     )}
                     {displayMode >= NavigatorSearchResultViewDisplayMode.THUMBNAILS && (
-                        <FaBars className="text-secondary fa-icon cursor-pointer" onClick={toggleDisplayMode} />
+                        <button
+                            type="button"
+                            className="nitro-navigator-air__icon-button"
+                            aria-label={listViewLabel}
+                            title={listViewLabel}
+                            onClick={toggleDisplayMode}
+                        >
+                            <FaBars className="text-secondary fa-icon" />
+                        </button>
                     )}
                     {searchResult.action > 0 && searchResult.action === 1 && (
                         <FaWindowMaximize className="text-secondary fa-icon cursor-pointer" title={LocalizeText('navigator.more.rooms')} onClick={showMore} />
@@ -74,7 +94,7 @@ export const NavigatorSearchResultView: FC<NavigatorSearchResultViewProps> = (pr
                     )}
                     <LayoutSearchSavesView
                         title={LocalizeText('navigator.tooltip.add.saved.search')}
-                        onClick={() => SendMessageComposer(new NavigatorSearchSaveComposer(getResultTitle(), searchResult.data))}
+                        onClick={() => SendMessageComposer(new NavigatorSearchSaveComposer(resultTitle, searchResult.data))}
                     />
                 </div>
             </Flex>

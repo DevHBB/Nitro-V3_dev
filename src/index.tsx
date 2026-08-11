@@ -56,6 +56,7 @@ import './css/inventory/InventoryView.css';
 import './css/layout/LayoutTrophy.css';
 
 import './css/nitrocard/NitroCardView.css';
+import './css/navigator/NavigatorView.css';
 
 import './css/notification/NotificationCenterView.css';
 

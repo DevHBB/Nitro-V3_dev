@@ -12,6 +12,9 @@ export const useNavigatorUiState = () => {
     const needsSearch = useNavigatorUiStore((s) => s.needsSearch);
     const currentTabCode = useNavigatorUiStore((s) => s.currentTabCode);
     const currentFilter = useNavigatorUiStore((s) => s.currentFilter);
+    const collapsedResultCodes = useNavigatorUiStore((s) => s.collapsedResultCodes);
+    const expandedResultCodes = useNavigatorUiStore((s) => s.expandedResultCodes);
+    const resultViewModes = useNavigatorUiStore((s) => s.resultViewModes);
     return {
         isVisible,
         isReady,
@@ -23,6 +26,9 @@ export const useNavigatorUiState = () => {
         needsInit,
         needsSearch,
         currentTabCode,
-        currentFilter
+        currentFilter,
+        collapsedResultCodes,
+        expandedResultCodes,
+        resultViewModes
     };
 };
