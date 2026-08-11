@@ -1,5 +1,5 @@
 .tb-frame {
-    transition: background-color 220ms ease, border-color 220ms ease, box-shadow 220ms ease, border-radius 220ms ease;
+    transition: bottom 140ms ease-out, background-color 220ms ease, border-color 220ms ease, box-shadow 220ms ease, border-radius 220ms ease;
 }
 
 .nitro-toolbar-hobba {
@@ -35,15 +35,15 @@
 .tb-icon {
     opacity: 1;
     cursor: pointer;
-    transition: transform 0.15s ease, filter 0.15s ease;
+    transition: filter 0.12s ease;
     filter: drop-shadow(1px 1px 0 rgba(0, 0, 0, 0.65));
 
     &:hover {
-        transform: translateY(-2px);
+        filter: brightness(1.12) drop-shadow(1px 1px 0 rgba(0, 0, 0, 0.65));
     }
 
     &:active {
-        transform: translateY(0);
+        filter: brightness(0.92) drop-shadow(1px 1px 0 rgba(0, 0, 0, 0.65));
     }
 }
 
