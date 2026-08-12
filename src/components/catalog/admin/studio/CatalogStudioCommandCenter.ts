@@ -18,6 +18,11 @@ export interface CatalogStudioCommandState {
     validationLabel: string;
 }
 
+export type CatalogStudioWorkspaceTab = 'catalog' | 'transfer' | 'publish';
+
+export const getCatalogStudioWorkspaceTabs = (): CatalogStudioWorkspaceTab[] =>
+    [ 'catalog', 'transfer', 'publish' ];
+
 const quantity = (count: number, singular: string, plural: string) =>
     `${count} ${count === 1 ? singular : plural}`;
 

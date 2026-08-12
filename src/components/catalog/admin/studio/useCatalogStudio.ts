@@ -1,6 +1,5 @@
 import { createContext, useContext } from 'react';
-import { CatalogStudioDocumentResult, CatalogStudioHistoryGroup, CatalogStudioLock, CatalogStudioMutationResult, CatalogStudioPreviewState, CatalogStudioSession, CatalogStudioValidationState } from './CatalogStudioTypes';
-import { CatalogPreviewPersona } from './CatalogPreviewPersona';
+import { CatalogStudioDocumentResult, CatalogStudioHistoryGroup, CatalogStudioLock, CatalogStudioMutationResult, CatalogStudioSession, CatalogStudioValidationState } from './CatalogStudioTypes';
 
 export interface CatalogStudioContextValue {
     session: CatalogStudioSession | null;
@@ -9,7 +8,6 @@ export interface CatalogStudioContextValue {
     history: CatalogStudioHistoryGroup[];
     historyTotalCount: number;
     validation: CatalogStudioValidationState | null;
-    preview: CatalogStudioPreviewState | null;
     documentResult: CatalogStudioDocumentResult | null;
     locks: Readonly<Record<string, CatalogStudioLock>>;
     loading: boolean;
@@ -21,12 +19,9 @@ export interface CatalogStudioContextValue {
     undo: (groupId: number) => void;
     validate: () => void;
     publish: () => void;
-    discard: () => void;
-    restore: (sourceVersionId: number) => void;
-    requestPreview: (persona: CatalogPreviewPersona) => void;
-    exportDocument: (format: 'JSONC' | 'SQL') => void;
-    dryRunDocument: (format: 'JSONC' | 'SQL' | 'BULK', document: string) => void;
-    applyDocument: (format: 'JSONC' | 'SQL' | 'BULK', document: string, fingerprint: string, summary: string) => void;
+    exportDocument: (format: 'SQL') => void;
+    dryRunDocument: (format: 'SQL', document: string) => void;
+    applyDocument: (format: 'SQL', document: string, fingerprint: string, summary: string) => void;
     applyMutation: (mutation: CatalogStudioMutationResult) => void;
 }
 

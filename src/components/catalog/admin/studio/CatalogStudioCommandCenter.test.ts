@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import * as CommandCenter from './CatalogStudioCommandCenter';
 
-const { getCatalogStudioCommandState } = CommandCenter;
+const { getCatalogStudioCommandState, getCatalogStudioWorkspaceTabs } = CommandCenter;
 
 describe('Catalog Studio command center state', () => {
     it('requires current validation before publishing pending changes', () => {
@@ -74,5 +74,9 @@ describe('Catalog Studio command center state', () => {
         expect(getPageLockKey(976, 'NORMAL')).toBe('PAGE:976');
         expect(getPageLockKey(976, 'BUILDERS_CLUB')).toBe('BUILDER:PAGE:976');
         expect(getPageLockKey(976, 'BUILDER')).toBe('BUILDER:PAGE:976');
+    });
+
+    it('exposes only the three essential workspace areas', () => {
+        expect(getCatalogStudioWorkspaceTabs()).toEqual([ 'catalog', 'transfer', 'publish' ]);
     });
 });
