@@ -18,12 +18,10 @@
 .habbo-friend-list {
     position: relative;
     display: grid;
-    grid-template-rows: 24px 17px minmax(0, 1fr) 41px 17px 18px;
-    width: 240px;
-    min-width: 240px;
-    /* Fixed 240px SWF frame, but never wider than the viewport — matches the
-       max-height clamp below and the convention the other windows follow. */
-    max-width: min(240px, calc(100vw - 16px));
+    grid-template-rows: 24px 17px minmax(0, 1fr) 41px 17px 33px;
+    width: 230px;
+    min-width: 230px;
+    max-width: min(230px, calc(100vw - 16px));
     height: 350px;
     min-height: 220px;
     max-height: calc(100vh - 16px);
@@ -44,15 +42,26 @@
 }
 
 .habbo-friend-list.has-requests:not(.search-mode):not(.requests-mode) {
-    grid-template-rows: 24px 17px minmax(0, 1fr) 41px 17px 17px 18px;
+    grid-template-rows: 24px 17px minmax(0, 1fr) 41px 17px 17px 33px;
 }
 
 .habbo-friend-list.requests-mode {
-    grid-template-rows: 24px 17px 17px minmax(0, 1fr) 17px 18px;
+    grid-template-rows: 24px 17px 17px minmax(0, 1fr) 17px 33px;
 }
 
 .habbo-friend-list.search-mode.has-requests {
     grid-template-rows: 24px 17px 17px 17px minmax(0, 1fr) 33px;
+}
+
+.habbo-friend-list.collapsed-mode {
+    grid-template-rows: 24px 17px 17px 33px;
+    height: auto;
+    min-height: 0;
+    resize: none;
+}
+
+.habbo-friend-list.collapsed-mode.has-requests {
+    grid-template-rows: 24px 17px 17px 17px 33px;
 }
 
 .habbo-friend-list button,
@@ -84,13 +93,13 @@
 }
 
 .hfl-titlebar::before {
-    left: 7px;
-    width: 90px;
+    left: 2px;
+    width: 88px;
 }
 
 .hfl-titlebar::after {
-    right: 23px;
-    width: 87px;
+    right: 20px;
+    width: 72px;
 }
 
 .hfl-titlebar-grip {
@@ -99,7 +108,7 @@
 
 .hfl-title {
     position: absolute;
-    inset: 0 108px 0 98px;
+    inset: 0;
     z-index: 1;
     display: flex;
     align-items: center;
@@ -163,7 +172,9 @@
     background: url("@/assets/images/friends/swf/arrow_down_black.png") no-repeat;
 }
 
-.search-mode .hfl-category-current::after {
+.search-mode .hfl-category-current::after,
+.requests-mode .hfl-category-current::after,
+.collapsed-mode .hfl-category-current::after {
     top: 3px;
     width: 5px;
     height: 9px;
@@ -306,6 +317,18 @@
     background-size: 20px 20px !important;
     box-shadow: none !important;
     image-rendering: auto !important;
+}
+
+.hfl-staff-chat-frank {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 18px;
+    max-width: none;
+    object-fit: contain;
+    image-rendering: pixelated;
+    transform: translate(-50%, -50%);
 }
 
 .hfl-friend-profile,
@@ -460,7 +483,7 @@
 .hfl-footer-border {
     display: flex;
     align-items: center;
-    width: 213px;
+    width: calc(100% - 10px);
     height: 31px;
     padding: 4px 5px;
     border: 1px solid #777;
@@ -654,8 +677,21 @@
 }
 
 .requests-mode .hfl-content {
+    display: flex;
     grid-row: 4;
+    flex-direction: column;
+    overflow: hidden;
     background: #fff;
+}
+
+.requests-mode .hfl-requests {
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow-y: auto;
+}
+
+.requests-mode .hfl-request-footer {
+    flex: 0 0 auto;
 }
 
 .requests-mode .hfl-footer {

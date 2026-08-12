@@ -1,7 +1,7 @@
 import { FC, useEffect, useMemo, useRef, useState } from 'react';
 import { GetConfigurationValue, LocalizeText } from '../../../../api';
 
-type HabbiconEntry = { id: number; x: number; y: number; width: number; height: number; name: string; };
+type HabbiconEntry = { id: number; x: number; y: number; width: number; height: number; name: string };
 
 const RECENT_STORAGE_KEY = 'nitro.messenger.habbicons.recent';
 const MAX_RECENT = 10;
@@ -57,22 +57,28 @@ export const FriendsMessengerHabbiconPickerView: FC<{ onClose: () => void; onSel
         let disposed = false;
 
         void fetch(`${assetRoot}habbicons.json`)
-            .then((response) => response.ok ? response.json() : null)
+            .then((response) => (response.ok ? response.json() : null))
             .then((data) => {
                 if (disposed || !Array.isArray(data?.habbicons)) return;
 
-                setEntries(data.habbicons.map((entry: any) => ({
-                    id: Number(entry?.id),
-                    x: Number(entry?.x) || 0,
-                    y: Number(entry?.y) || 0,
-                    width: Number(entry?.width) || 42,
-                    height: Number(entry?.height) || 42,
-                    name: String(entry?.name || '')
-                })).filter((entry: HabbiconEntry) => entry.id > 0));
+                setEntries(
+                    data.habbicons
+                        .map((entry: any) => ({
+                            id: Number(entry?.id),
+                            x: Number(entry?.x) || 0,
+                            y: Number(entry?.y) || 0,
+                            width: Number(entry?.width) || 42,
+                            height: Number(entry?.height) || 42,
+                            name: String(entry?.name || '')
+                        }))
+                        .filter((entry: HabbiconEntry) => entry.id > 0)
+                );
             })
             .catch(() => !disposed && setEntries([]));
 
-        return () => { disposed = true; };
+        return () => {
+            disposed = true;
+        };
     }, [assetRoot]);
 
     const visibleEntries = useMemo(() => {
@@ -93,20 +99,49 @@ export const FriendsMessengerHabbiconPickerView: FC<{ onClose: () => void; onSel
         onSelect(id);
     };
 
-    const grid = (items: HabbiconEntry[]) => <div className="swf-messenger-habbicon-grid">
-        {items.map((entry) => <button key={entry.id} type="button" title={entry.name || `Habbicon ${entry.id}`} onClick={() => choose(entry.id)}>
-            <span style={{ width: entry.width, height: entry.height, backgroundImage: `url(${assetRoot}habbicons_spritesheet.png)`, backgroundPosition: `-${entry.x}px -${entry.y}px` }} />
-        </button>)}
-    </div>;
+    const grid = (items: HabbiconEntry[]) => (
+        <div className="messenger-habbicon-grid">
+            {items.map((entry) => (
+                <button key={entry.id} type="button" title={entry.name || `Habbicon ${entry.id}`} onClick={() => choose(entry.id)}>
+                    <span
+                        style={{
+                            width: entry.width,
+                            height: entry.height,
+                            backgroundImage: `url(${assetRoot}habbicons_spritesheet.png)`,
+                            backgroundPosition: `-${entry.x}px -${entry.y}px`
+                        }}
+                    />
+                </button>
+            ))}
+        </div>
+    );
 
-    return <div ref={pickerRef} className="swf-messenger-habbicon-picker" role="dialog" aria-label="Habbicons">
-        <div className="swf-messenger-habbicon-controls">
-            <input autoFocus maxLength={24} placeholder={LocalizeText('generic.search') || 'Cerca'} value={search} onChange={(event) => setSearch(event.target.value)} />
-            <button type="button" onClick={onClose}>Apri menu</button>
+    return (
+        <div ref={pickerRef} className="messenger-habbicon-picker" role="dialog" aria-label="Habbicons">
+            <div className="messenger-habbicon-controls">
+                <input
+                    autoFocus
+                    maxLength={24}
+                    placeholder={LocalizeText('generic.search') || 'Cerca'}
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                />
+                <button type="button" onClick={onClose}>
+                    Apri menu
+                </button>
+            </div>
+            <div className="messenger-habbicon-scroll has-classic-scrollbar">
+                {!search && visibleEntries.recent.length > 0 && (
+                    <section>
+                        <strong>Usato di recente</strong>
+                        {grid(visibleEntries.recent)}
+                    </section>
+                )}
+                <section>
+                    <strong>{search ? LocalizeText('habbicon.search.results') : 'Habbicons'}</strong>
+                    {grid(visibleEntries.filtered)}
+                </section>
+            </div>
         </div>
-        <div className="swf-messenger-habbicon-scroll has-classic-scrollbar">
-            {!search && visibleEntries.recent.length > 0 && <section><strong>Usato di recente</strong>{grid(visibleEntries.recent)}</section>}
-            <section><strong>{search ? LocalizeText('habbicon.search.results') : 'Habbicons'}</strong>{grid(visibleEntries.filtered)}</section>
-        </div>
-    </div>;
+    );
 };
