@@ -19,11 +19,13 @@ interface NavigatorSearchResultItemInfoViewProps {
     roomData: RoomDataParser;
     isVisible?: boolean;
     onToggle?: (event: React.MouseEvent) => void;
+    onHoverEnter?: () => void;
+    onHoverLeave?: () => void;
     setIsPopoverActive?: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 export const NavigatorSearchResultItemInfoView: FC<NavigatorSearchResultItemInfoViewProps> = (props) => {
-    const { roomData = null, isVisible = undefined, onToggle, setIsPopoverActive } = props;
+    const { roomData = null, isVisible = undefined, onToggle, onHoverEnter, onHoverLeave, setIsPopoverActive } = props;
     const elementRef = useRef<HTMLButtonElement>(null);
     const [internalVisible, setInternalVisible] = useState(false);
     const { navigatorData } = useNavigatorData();
@@ -123,6 +125,8 @@ export const NavigatorSearchResultItemInfoView: FC<NavigatorSearchResultItemInfo
                     collisionPadding={8}
                     className="nitro-navigator-air__room-popover not-italic font-normal leading-normal text-left no-underline normal-case tracking-normal whitespace-normal text-[.7875rem] [word-wrap:break-word] border border-black z-[1070]"
                     style={{ width: 360, maxWidth: 'calc(100vw - 16px)' }}
+                    onMouseEnter={onHoverEnter}
+                    onMouseLeave={onHoverLeave}
                 >
                     <NitroCardContentView
                         className="nitro-navigator-air__room-popover-body image-rendering-pixelated !p-0"

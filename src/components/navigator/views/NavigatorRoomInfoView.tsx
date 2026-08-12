@@ -42,6 +42,7 @@ export const NavigatorRoomInfoView: FC<NavigatorRoomInfoViewProps> = (props) => 
     const { navigatorData } = useNavigatorData();
     const { roomSession = null } = useRoom();
     const canManageAnyRoom = useHasPermission('acc_anyroomowner');
+    const canUseRoomThumbnailCamera = useHasPermission('acc_camera');
     const canStaffPick = useHasPermission('acc_staff_pick');
 
     const enteredRoomId = navigatorData?.enteredGuestRoom?.roomId ?? 0;
@@ -168,9 +169,19 @@ export const NavigatorRoomInfoView: FC<NavigatorRoomInfoViewProps> = (props) => 
                     <Text small>{navigatorData.currentRoomRating}</Text>
                 </Flex>
                 <Text className="nitro-room-info__description">{navigatorData.enteredGuestRoom.description}</Text>
-                <LayoutRoomThumbnailView className="nitro-room-info__thumbnail" customUrl={navigatorData.enteredGuestRoom.officialRoomPicRef} roomId={navigatorData.enteredGuestRoom.roomId}>
-                    {hasPermission('settings') && (
-                        <i className="m-1 cursor-pointer nitro-icon icon-camera-small absolute b-0 r-0" onClick={() => processAction('open_room_thumbnail_camera')} />
+                <LayoutRoomThumbnailView
+                    className="nitro-room-info__thumbnail"
+                    customUrl={navigatorData.enteredGuestRoom.officialRoomPicRef}
+                    roomId={navigatorData.enteredGuestRoom.roomId}
+                >
+                    {hasPermission('settings') && canUseRoomThumbnailCamera && (
+                        <button
+                            type="button"
+                            className="m-1 cursor-pointer nitro-icon icon-camera-small absolute bottom-0 right-0 border-0 bg-transparent p-0"
+                            aria-label={LocalizeText('navigator.thumbnail.camera.title')}
+                            title={LocalizeText('navigator.thumbnail.camera.title')}
+                            onClick={() => processAction('open_room_thumbnail_camera')}
+                        />
                     )}
                 </LayoutRoomThumbnailView>
                 <Flex className="nitro-room-info__quick-actions" gap={1} justifyContent="center">

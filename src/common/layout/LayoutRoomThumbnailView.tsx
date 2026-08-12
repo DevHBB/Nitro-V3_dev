@@ -1,5 +1,5 @@
 import { FC, useEffect, useMemo, useState } from 'react';
-import { GetConfigurationValue } from '../../api';
+import { GetConfigurationValue, GetRoomThumbnailRevision, SubscribeRoomThumbnail } from '../../api';
 import { Base, BaseProps } from '../Base';
 
 export interface LayoutRoomThumbnailViewProps extends BaseProps<HTMLDivElement> {
@@ -10,6 +10,7 @@ export interface LayoutRoomThumbnailViewProps extends BaseProps<HTMLDivElement> 
 export const LayoutRoomThumbnailView: FC<LayoutRoomThumbnailViewProps> = (props) => {
     const { roomId = -1, customUrl = null, shrink = true, overflow = 'hidden', classNames = [], children = null, ...rest } = props;
     const [hasImage, setHasImage] = useState(true);
+    const [revision, setRevision] = useState(() => GetRoomThumbnailRevision(roomId));
 
     const getClassNames = useMemo(() => {
         const newClassNames: string[] = [
@@ -24,10 +25,21 @@ export const LayoutRoomThumbnailView: FC<LayoutRoomThumbnailViewProps> = (props)
     }, [classNames]);
 
     const getImageUrl = useMemo(() => {
-        if (customUrl && customUrl.length) return GetConfigurationValue<string>('image.library.url') + customUrl;
+        let imageUrl: string;
 
-        return GetConfigurationValue<string>('thumbnails.url').replace('%thumbnail%', roomId.toString());
-    }, [customUrl, roomId]);
+        if (!revision && customUrl && customUrl.length) imageUrl = GetConfigurationValue<string>('image.library.url') + customUrl;
+        else imageUrl = GetConfigurationValue<string>('thumbnails.url').replace('%thumbnail%', roomId.toString());
+
+        if (revision) imageUrl += `${imageUrl.includes('?') ? '&' : '?'}v=${revision}`;
+
+        return imageUrl;
+    }, [customUrl, revision, roomId]);
+
+    useEffect(() => {
+        setRevision(GetRoomThumbnailRevision(roomId));
+
+        return SubscribeRoomThumbnail(roomId, setRevision);
+    }, [roomId]);
 
     useEffect(() => setHasImage(true), [getImageUrl]);
 
