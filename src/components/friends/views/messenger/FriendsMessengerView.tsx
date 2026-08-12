@@ -2,18 +2,24 @@ import { AddLinkEventTracker, FollowFriendMessageComposer, GetSessionDataManager
 import { FC, KeyboardEvent, useEffect, useRef, useState } from 'react';
 import { FaTimes } from 'react-icons/fa';
 import { GetUserProfile, LocalizeText, ReportType, SendMessageComposer } from '../../../../api';
+import staffChatFrankIcon from '../../../../assets/images/friends/staff-chat-frank.svg';
 import { UseHabbiconIcon } from '../../../../assets/images/habbicons';
 import { DraggableWindow, DraggableWindowPosition, LayoutAvatarImageView } from '../../../../common';
 import { useFriends, useHelp, useMessenger, useTranslation } from '../../../../hooks';
+import { isStaffChatIdentity } from '../../staffChatIdentity';
 import { resolveAvatarFigure } from '../friends-list/resolveAvatarFigure';
+import './FriendsMessengerView.css';
 import { FriendsMessengerHabbiconPickerView } from './FriendsMessengerHabbiconPickerView';
 import { FriendsMessengerThreadView } from './messenger-thread/FriendsMessengerThreadView';
+
+const MESSENGER_VISIBLE_AVATARS = 7;
 
 export const FriendsMessengerView: FC<{}> = (props) => {
     const [isVisible, setIsVisible] = useState(false);
     const [lastThreadId, setLastThreadId] = useState(-1);
     const [messageText, setMessageText] = useState('');
     const [isHabbiconPickerVisible, setIsHabbiconPickerVisible] = useState(false);
+    const [avatarStartIndex, setAvatarStartIndex] = useState(0);
     const {
         visibleThreads = [],
         activeThread = null,
@@ -128,7 +134,7 @@ export const FriendsMessengerView: FC<{}> = (props) => {
 
                     const participantId = parseInt(parts[1]);
                     const friend = getFriend(participantId);
-                    if(!friend) return;
+                    if (!friend) return;
 
                     // Staff Chat (participantId -1) and direct chats resolve the same
                     // way — one path, so both open in the same messenger window.
@@ -150,7 +156,7 @@ export const FriendsMessengerView: FC<{}> = (props) => {
 
     useEffect(() => {
         if (!isVisible || !activeThread) return;
-        if(!messagesBox.current) return;
+        if (!messagesBox.current) return;
 
         messagesBox.current.scrollTop = messagesBox.current.scrollHeight;
     }, [isVisible, activeThread]);
@@ -178,45 +184,85 @@ export const FriendsMessengerView: FC<{}> = (props) => {
         }
     }, [isVisible, activeThread, lastThreadId, visibleThreads, setActiveThreadId]);
 
+    useEffect(() => {
+        const maximumStart = Math.max(0, visibleThreads.length - MESSENGER_VISIBLE_AVATARS);
+        const activeIndex = activeThread ? visibleThreads.findIndex((thread) => thread.threadId === activeThread.threadId) : -1;
+
+        setAvatarStartIndex((current) => {
+            const clamped = Math.min(current, maximumStart);
+
+            if (activeIndex < 0) return clamped;
+            if (activeIndex < clamped) return activeIndex;
+            if (activeIndex >= clamped + MESSENGER_VISIBLE_AVATARS) return Math.min(activeIndex - MESSENGER_VISIBLE_AVATARS + 1, maximumStart);
+
+            return clamped;
+        });
+    }, [activeThread, visibleThreads]);
+
+    const maximumAvatarStart = Math.max(0, visibleThreads.length - MESSENGER_VISIBLE_AVATARS);
+    const displayedThreads = visibleThreads.slice(avatarStartIndex, avatarStartIndex + MESSENGER_VISIBLE_AVATARS);
+    const scrollAvatars = (direction: -1 | 1) => setAvatarStartIndex((current) => Math.max(0, Math.min(maximumAvatarStart, current + direction)));
+
     if (!isVisible) return null;
 
     return (
-        <DraggableWindow handleSelector=".swf-messenger-drag" windowPosition={DraggableWindowPosition.TOP_CENTER} offsetTop={8}>
-            <div className="swf-messenger-window">
-                <div className="swf-messenger-drag" />
-                <button className="swf-messenger-minimize" onClick={(event) => setIsVisible(false)} />
-                <div className="swf-messenger-open-title">
-                    {LocalizeText('messenger.window.title', ['OPEN_CHAT_COUNT'], [visibleThreads.length.toString()])}
-                </div>
-                <div className="messenger-avatar-bar">
-                    {visibleThreads &&
-                        visibleThreads.length > 0 &&
-                        visibleThreads.map((thread) => {
-                            const isStaff = thread.participant.id <= 0;
-                            const liveFriend = isStaff ? null : getFriend(thread.participant.id);
-                            const figure = isStaff
-                                ? thread.participant.figure === 'ADM'
-                                    ? 'ha-3409-1413-70.lg-285-89.ch-3032-1334-109.sh-3016-110.hd-185-1359.ca-3225-110-62.wa-3264-62-62.fa-1206-90.hr-3322-1403'
-                                    : thread.participant.figure
-                                : resolveAvatarFigure(liveFriend?.figure || thread.participant.figure, liveFriend?.gender ?? thread.participant.gender);
+        <DraggableWindow handleSelector=".messenger-drag" windowPosition={DraggableWindowPosition.TOP_CENTER} offsetTop={8}>
+            <div className="messenger-window">
+                <div className="messenger-drag" />
+                <button className="messenger-minimize" onClick={() => setIsVisible(false)} />
+                <div className="messenger-open-title">{LocalizeText('messenger.window.title', ['OPEN_CHAT_COUNT'], [visibleThreads.length.toString()])}</div>
+                <div className="messenger-avatar-navigation">
+                    <button
+                        type="button"
+                        className="messenger-avatar-scroll left"
+                        data-action="scroll-left"
+                        aria-label={LocalizeText('generic.previous')}
+                        disabled={avatarStartIndex === 0}
+                        onClick={() => scrollAvatars(-1)}
+                    />
+                    <div className="messenger-avatar-bar">
+                        {displayedThreads.map((thread) => {
+                            const isStaff = isStaffChatIdentity(thread.participant);
+                            const liveFriend = thread.participant.id > 0 ? getFriend(thread.participant.id) : null;
+                            const figure = resolveAvatarFigure(
+                                liveFriend?.figure || thread.participant.figure,
+                                liveFriend?.gender ?? thread.participant.gender
+                            );
 
                             return (
                                 <button
                                     key={thread.threadId}
+                                    type="button"
+                                    data-participant-id={thread.participant.id}
                                     className={'messenger-avatar-tab' + (activeThread === thread ? ' active' : '') + (thread.unread ? ' unread' : '')}
-                                    onClick={(event) => setActiveThreadId(thread.threadId)}
+                                    aria-label={thread.participant.name}
+                                    aria-selected={activeThread === thread}
+                                    onClick={() => setActiveThreadId(thread.threadId)}
                                 >
-                                    <LayoutAvatarImageView
-                                        figure={figure}
-                                        headOnly={true}
-                                        compactHead={true}
-                                        compactHeadSize={35}
-                                        compactHeadPadding={0}
-                                        direction={isStaff ? 3 : 2}
-                                    />
+                                    {isStaff ? (
+                                        <img className="staff-chat-frank" src={staffChatFrankIcon} alt="" />
+                                    ) : (
+                                        <LayoutAvatarImageView
+                                            figure={figure}
+                                            headOnly={true}
+                                            compactHead={true}
+                                            compactHeadSize={35}
+                                            compactHeadPadding={0}
+                                            direction={thread.participant.id < 0 ? 3 : 2}
+                                        />
+                                    )}
                                 </button>
                             );
                         })}
+                    </div>
+                    <button
+                        type="button"
+                        className="messenger-avatar-scroll right"
+                        data-action="scroll-right"
+                        aria-label={LocalizeText('generic.next')}
+                        disabled={avatarStartIndex >= maximumAvatarStart}
+                        onClick={() => scrollAvatars(1)}
+                    />
                 </div>
 
                 {activeThread && (
@@ -228,9 +274,20 @@ export const FriendsMessengerView: FC<{}> = (props) => {
                             <div className="messenger-actions">
                                 {activeThread.participant.id > 0 && (
                                     <>
-                                        <button className="messenger-btn icon-btn follow" aria-label={LocalizeText('friendlist.tip.follow')} onClick={followFriend} />
-                                        <button className="messenger-btn icon-btn profile" aria-label={LocalizeText('infostand.profile.link.tooltip')} onClick={openProfile} />
-                                        <button className="messenger-btn danger" onClick={() => report(ReportType.IM, { reportedUserId: activeThread.participant.id })}>
+                                        <button
+                                            className="messenger-btn icon-btn follow"
+                                            aria-label={LocalizeText('friendlist.tip.follow')}
+                                            onClick={followFriend}
+                                        />
+                                        <button
+                                            className="messenger-btn icon-btn profile"
+                                            aria-label={LocalizeText('infostand.profile.link.tooltip')}
+                                            onClick={openProfile}
+                                        />
+                                        <button
+                                            className="messenger-btn danger"
+                                            onClick={() => report(ReportType.IM, { reportedUserId: activeThread.participant.id })}
+                                        >
                                             {LocalizeText('messenger.window.button.report')}
                                         </button>
                                     </>
@@ -263,11 +320,18 @@ export const FriendsMessengerView: FC<{}> = (props) => {
                             <button className="messenger-btn send" onClick={() => void send()}>
                                 {LocalizeText('widgets.chatinput.say')}
                             </button>
-                            <button className="messenger-btn habbicon" aria-label={LocalizeText('messenger.habbicons.tooltip')} onMouseDown={(event) => event.stopPropagation()} onClick={() => setIsHabbiconPickerVisible((value) => !value)}>
+                            <button
+                                className="messenger-btn habbicon"
+                                aria-label={LocalizeText('messenger.habbicons.tooltip')}
+                                onMouseDown={(event) => event.stopPropagation()}
+                                onClick={() => setIsHabbiconPickerVisible((value) => !value)}
+                            >
                                 <img alt="" src={UseHabbiconIcon} />
                             </button>
                         </div>
-                        {isHabbiconPickerVisible && <FriendsMessengerHabbiconPickerView onClose={() => setIsHabbiconPickerVisible(false)} onSelect={sendHabbicon} />}
+                        {isHabbiconPickerVisible && (
+                            <FriendsMessengerHabbiconPickerView onClose={() => setIsHabbiconPickerVisible(false)} onSelect={sendHabbicon} />
+                        )}
                     </>
                 )}
             </div>
