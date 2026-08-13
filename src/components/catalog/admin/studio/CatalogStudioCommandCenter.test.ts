@@ -33,6 +33,7 @@ describe('Catalog Studio command center state', () => {
         });
 
         expect(state.phase).toBe('ready');
+        expect(state.canValidate).toBe(false);
         expect(state.canPublish).toBe(true);
     });
 

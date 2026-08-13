@@ -34,8 +34,8 @@ export const getCatalogStudioPageLockKey = (pageId: number, catalogType: string)
 export const getCatalogStudioCommandState = (input: CatalogStudioCommandInput): CatalogStudioCommandState => {
     const hasPending = input.pendingCount > 0;
     const hasIssues = input.validationIssueCount > 0;
-    const canValidate = input.sessionReady && hasPending && !input.loading;
-    const canPublish = canValidate && input.validationCurrent && !hasIssues;
+    const canValidate = input.sessionReady && hasPending && !input.validationCurrent && !input.loading;
+    const canPublish = input.sessionReady && hasPending && input.validationCurrent && !hasIssues && !input.loading;
     let phase: CatalogStudioCommandState['phase'] = 'offline';
 
     if (!input.sessionReady && input.loading) {

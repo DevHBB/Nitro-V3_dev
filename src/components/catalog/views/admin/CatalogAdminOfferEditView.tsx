@@ -1,4 +1,4 @@
-import { FC, useCallback, useEffect, useRef, useState } from 'react';
+import { FC, useCallback, useEffect, useRef } from 'react';
 import { FaCubes, FaSave, FaSpinner, FaTrash, FaUndo } from 'react-icons/fa';
 import { CatalogType, GetConfigurationValue, IPurchasableOffer, LocalizeText, localizeWithFallback, ProductTypeEnum } from '../../../../api';
 import { useCatalogData, useCatalogUiState, usePurse } from '../../../../hooks';
@@ -10,7 +10,10 @@ import { claimCatalogAdminHydration } from './CatalogAdminFormHydration';
 import { CatalogStudioOfferSnapshot } from '../../admin/studio/CatalogStudioTypes';
 import { useCatalogAdminSmartSave } from './useCatalogAdminSmartSave';
 
-const getOfferIconUrl = (offer: IPurchasableOffer | null): string | null => {
+export const isCatalogAdminNewOffer = (offer: IPurchasableOffer | null): boolean =>
+    offer?.offerId === -1;
+
+export const getOfferIconUrl = (offer: IPurchasableOffer | null): string | null => {
     const product = offer?.product;
     if (!product) return null;
 
@@ -30,6 +33,8 @@ const getOfferIconUrl = (offer: IPurchasableOffer | null): string | null => {
             if (configuredIconUrl?.length) return configuredIconUrl.replace('%libname%', className).replace('%param%', param);
         }
     }
+
+    if (typeof product.getIconUrl !== 'function') return null;
 
     return product.getIconUrl(offer) ?? null;
 };
@@ -123,7 +128,6 @@ export const CatalogAdminOfferEditView: FC<{}> = () => {
     const ensureOfferLock = catalogAdmin?.ensureOfferLock;
     const hasOfferLock = catalogAdmin?.hasOfferLock;
 
-    const [isNew, setIsNew] = useState(false);
     const initializationClaimRef = useRef({ current: null as string | null });
     const detailsClaimRef = useRef({ current: null as string | null });
     const catalogNameInputRef = useRef<HTMLInputElement>(null);
@@ -189,13 +193,12 @@ export const CatalogAdminOfferEditView: FC<{}> = () => {
     const setLimitedStack = (value: number) => patchForm({ limitedStack: value });
     const setOrderNumber = (value: number) => patchForm({ orderNumber: value });
     const effectiveOfferId = smartSave.draft.offerId ?? editingOffer?.offerId ?? -1;
-    const isNewOffer = isNew && smartSave.baseline.offerId == null;
+    const isNewOffer = isCatalogAdminNewOffer(editingOffer) && smartSave.baseline.offerId == null;
 
     useEffect(() => {
         if (!editingOffer) {
             claimCatalogAdminHydration(initializationClaimRef.current, null);
             claimCatalogAdminHydration(detailsClaimRef.current, null);
-            setIsNew(false);
             return;
         }
 
@@ -211,10 +214,8 @@ export const CatalogAdminOfferEditView: FC<{}> = () => {
                 .filter((offer) => offer.catalogType === catalogType && offer.pageId === pageId)
                 .map((offer) => offer.orderNumber);
             const form = createCatalogAdminNewOfferFormState(pageId, siblingOrders.length ? Math.max(...siblingOrders) + 1 : 0);
-            setIsNew(true);
             smartSave.hydrate(form);
         } else {
-            setIsNew(false);
             smartSave.hydrate({
                 offerId: editingOffer.offerId,
                 pageId: currentPage?.pageId || 0,
@@ -301,7 +302,9 @@ export const CatalogAdminOfferEditView: FC<{}> = () => {
     const previewIconUrl = isNewOffer ? null : getOfferIconUrl(editingOffer);
     const previewName =
         catalogName || editingOffer.localizationName || (isNewOffer ? localizeWithFallback('catalog.admin.offer.new', 'New offer') : `#${effectiveOfferId}`);
-    const previewFallbackIcon = isNewOffer ? null : editingOffer.product?.getIconUrl(editingOffer);
+    const previewFallbackIcon = !isNewOffer && typeof editingOffer.product?.getIconUrl === 'function'
+        ? editingOffer.product.getIconUrl(editingOffer)
+        : null;
 
     return (
         <CatalogAdminModalView
