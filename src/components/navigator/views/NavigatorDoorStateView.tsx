@@ -45,9 +45,12 @@ export const NavigatorDoorStateView: FC<{}> = (props) => {
     const isDoorbell = DOORBELL_STATES.indexOf(snapshot.state) >= 0;
 
     return (
-        <NitroCardView className="nitro-navigator-doorbell min-w-0 w-[min(320px,calc(100vw-16px))] max-w-[calc(100vw-16px)] max-h-[calc(100vh-16px)]" theme="primary-slim">
+        <NitroCardView
+            className="nitro-navigator-doorbell min-w-0 w-[min(320px,calc(100vw-16px))] max-w-[calc(100vw-16px)] max-h-[calc(100vh-16px)]"
+            theme="primary-slim"
+        >
             <NitroCardHeaderView headerText={LocalizeText(isDoorbell ? 'navigator.doorbell.title' : 'navigator.password.title')} onCloseClick={onClose} />
-            <NitroCardContentView>
+            <NitroCardContentView className="nitro-navigator-air__door-state">
                 <div className="flex flex-col gap-1">
                     <Text bold>{snapshot.roomInfo && snapshot.roomInfo.roomName}</Text>
                     {snapshot.state === DoorStateType.START_DOORBELL && <Text>{LocalizeText('navigator.doorbell.info')}</Text>}
@@ -72,10 +75,18 @@ export const NavigatorDoorStateView: FC<{}> = (props) => {
                     <>
                         <div className="flex flex-col gap-1">
                             <Text>{LocalizeText('navigator.password.enter')}</Text>
-                            <NitroInput type="password" onChange={(event) => setPassword(event.target.value)} />
+                            <NitroInput
+                                autoFocus
+                                type="password"
+                                value={password}
+                                onChange={(event) => setPassword(event.target.value)}
+                                onKeyDown={(event) => {
+                                    if (event.key === 'Enter' && password.length) tryEntering();
+                                }}
+                            />
                         </div>
                         <div className="flex flex-col gap-1">
-                            <Button variant="success" onClick={tryEntering}>
+                            <Button disabled={!password.length} variant="success" onClick={tryEntering}>
                                 {LocalizeText('navigator.password.button.try')}
                             </Button>
                             <Button variant="danger" onClick={onClose}>

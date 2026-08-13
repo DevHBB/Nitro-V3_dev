@@ -1,8 +1,7 @@
 import { NavigatorSearchResultSet } from '@nitrots/nitro-renderer';
-import { FC, useEffect, useRef, useState } from 'react';
+import { FC, useEffect, useState } from 'react';
 import { FaSearch } from 'react-icons/fa';
 import { INavigatorSearchFilter, LocalizeText, SearchFilterOptions } from '../../../../api';
-import { Button } from '../../../../common';
 import { useNavigatorData, useNavigatorUiStore } from '../../../../hooks';
 import { NavigatorFilterChipsView } from './NavigatorFilterChipsView';
 
@@ -14,7 +13,6 @@ export const NavigatorSearchView: FC<NavigatorSearchViewProps> = (props) => {
     const { searchResult } = props;
     const [searchFilterIndex, setSearchFilterIndex] = useState(0);
     const [inputText, setInputText] = useState('');
-    const formRef = useRef<HTMLFormElement>(null);
     const { topLevelContext } = useNavigatorData();
 
     // Sync the input text display when a server result arrives (e.g. on tab switch
@@ -66,21 +64,26 @@ export const NavigatorSearchView: FC<NavigatorSearchViewProps> = (props) => {
     };
 
     return (
-        <div className="flex w-full flex-col gap-1">
+        <form action={submitSearch} className="nitro-navigator-air__search flex w-full gap-2">
             <NavigatorFilterChipsView value={searchFilterIndex} onChange={setSearchFilterIndex} />
-            <form ref={formRef} action={submitSearch} className="flex w-full gap-1">
+            <div className="nitro-navigator-air__search-field">
                 <input
-                    className="w-full form-control"
+                    className="w-full form-control nitro-navigator-air__search-input"
                     name="q"
                     placeholder={LocalizeText('navigator.filter.input.placeholder')}
                     type="text"
                     value={inputText}
                     onChange={(event) => setInputText(event.target.value)}
                 />
-                <Button variant="primary" onClick={() => formRef.current?.requestSubmit()}>
+                <button
+                    type="submit"
+                    className="nitro-navigator-air__search-submit"
+                    aria-label={LocalizeText('navigator.filter.input.placeholder')}
+                    title={LocalizeText('navigator.filter.input.placeholder')}
+                >
                     <FaSearch className="fa-icon" />
-                </Button>
-            </form>
-        </div>
+                </button>
+            </div>
+        </form>
     );
 };

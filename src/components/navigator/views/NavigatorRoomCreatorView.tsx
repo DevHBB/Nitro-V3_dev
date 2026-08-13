@@ -9,8 +9,8 @@ import { useRoomCreatorStore } from './navigatorRoomCreatorStore';
 const MAX_VISITORS_LIST: number[] = Array.from({ length: 10 }, (_, i) => (i + 1) * 10);
 
 export const NavigatorRoomCreatorView: FC = () => {
-    const [name, setName] = useState<string>(null);
-    const [description, setDescription] = useState<string>(null);
+    const [name, setName] = useState<string>('');
+    const [description, setDescription] = useState<string>('');
     const [category, setCategory] = useState<number>(null);
     const [visitorsCount, setVisitorsCount] = useState<number>(MAX_VISITORS_LIST[0]);
     const [tradesSetting, setTradesSetting] = useState<number>(0);
@@ -40,7 +40,7 @@ export const NavigatorRoomCreatorView: FC = () => {
         beginCreate();
 
         SendMessageComposer(
-            new CreateFlatMessageComposer(name, description, 'model_' + selectedModelName, Number(category), Number(visitorsCount), tradesSetting)
+            new CreateFlatMessageComposer(name.trim(), description.trim(), 'model_' + selectedModelName, Number(category), Number(visitorsCount), tradesSetting)
         );
     };
 
@@ -49,15 +49,23 @@ export const NavigatorRoomCreatorView: FC = () => {
     }, [categories]);
 
     return (
-        <div className="flex flex-col overflow-auto">
-            <Grid overflow="hidden">
-                <div className="flex flex-col gap-1 overflow-auto col-span-6">
+        <form
+            className="nitro-navigator-air__creator flex h-full min-h-0 flex-col"
+            onSubmit={(event) => {
+                event.preventDefault();
+                if (name.trim().length >= 3) createRoom();
+            }}
+        >
+            <Grid className="nitro-navigator-air__creator-grid" overflow="hidden">
+                <div className="nitro-navigator-air__creator-details flex flex-col gap-2 overflow-auto col-span-6">
                     <div className="flex flex-col gap-1">
                         <Text>{LocalizeText('navigator.createroom.roomnameinfo')}</Text>
                         <NitroInput
+                            autoFocus
                             maxLength={60}
                             placeholder={LocalizeText('navigator.createroom.roomnameinfo')}
                             type="text"
+                            value={name}
                             onChange={(event) => setName(event.target.value)}
                         />
                     </div>
@@ -67,6 +75,7 @@ export const NavigatorRoomCreatorView: FC = () => {
                             className="grow! form-control form-control-sm w-full"
                             maxLength={255}
                             placeholder={LocalizeText('navigator.createroom.roomdescinfo')}
+                            value={description}
                             onChange={(event) => setDescription(event.target.value)}
                         />
                     </div>
@@ -105,7 +114,7 @@ export const NavigatorRoomCreatorView: FC = () => {
                         </select>
                     </div>
                 </div>
-                <div className="flex flex-col gap-1 overflow-auto col-span-6">
+                <div className="nitro-navigator-air__models flex flex-col gap-1 overflow-auto col-span-6">
                     {roomModels.map((model, index) => {
                         return (
                             <LayoutGridItem
@@ -116,7 +125,12 @@ export const NavigatorRoomCreatorView: FC = () => {
                                 gap={0}
                                 itemActive={selectedModelName === model.name}
                                 overflow="unset"
+                                role="button"
+                                tabIndex={GetClubMemberLevel() < model.clubLevel ? -1 : 0}
                                 onClick={() => selectModel(model, index)}
+                                onKeyDown={(event) => {
+                                    if (event.key === 'Enter' || event.key === ' ') selectModel(model, index);
+                                }}
                             >
                                 <Flex center fullHeight overflow="hidden">
                                     <img alt="" src={getRoomModelImage(model.name)} />
@@ -134,12 +148,12 @@ export const NavigatorRoomCreatorView: FC = () => {
             </Grid>
             <Button
                 fullWidth
-                disabled={isCreating || !name || name.length < 3}
-                variant={isCreating || !name || name.length < 3 ? 'danger' : 'success'}
+                disabled={isCreating || name.trim().length < 3 || category === null || !selectedModelName}
+                variant={isCreating || name.trim().length < 3 || category === null || !selectedModelName ? 'danger' : 'success'}
                 onClick={createRoom}
             >
                 {LocalizeText('navigator.createroom.create')}
             </Button>
-        </div>
+        </form>
     );
 };

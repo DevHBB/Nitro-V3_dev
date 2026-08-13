@@ -1,10 +1,11 @@
 import { CreateLinkEvent, Dispose, DropBounce, EaseOut, FindNewFriendsMessageComposer, JumpBy, Motions, NitroToolbarAnimateIconEvent, PerkAllowancesMessageEvent, PerkEnum, Queue, Wait, YouTubeRoomSettingsEvent } from '@nitrots/nitro-renderer';
 import { AnimatePresence, motion, Variants } from 'framer-motion';
-import { FC, useEffect, useMemo, useRef, useState } from 'react';
-import { GetConfigurationValue, isHousekeepingEnabled, MessengerIconState, OpenMessengerChat, SendMessageComposer, setYoutubeRoomEnabled, VisitDesktop , localizeWithFallback} from '../../api';
+import { CSSProperties, FC, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { GetConfigurationValue, isHousekeepingEnabled, localizeWithFallback, MessengerIconState, OpenMessengerChat, SendMessageComposer, setYoutubeRoomEnabled, VisitDesktop } from '../../api';
 import { Flex, LayoutAvatarImageView, LayoutItemCountView } from '../../common';
 import { SoundboardRoomMessageEvent } from '../../events';
-import { useAchievements, useFriends, useHasPermission, useInventoryUnseenTracker, useMentionsSnapshot, useMessageEvent, useMessenger, useModTools, useNitroEvent, useSessionInfo, useSoundboard, useBuildHeight, useUiEvent, useWiredTools } from '../../hooks';
+import { useAchievements, useBuildHeight, useFriends, useHasPermission, useInventoryUnseenTracker, useMentionsSnapshot, useMessageEvent, useMessenger, useModTools, useNitroEvent, useSessionInfo, useSoundboard, useUiEvent, useWiredTools } from '../../hooks';
+import { BottomDockLayout, resolveBottomDockLayout } from './bottomDockLayout';
 import { ToolbarItemView } from './ToolbarItemView';
 import { ToolbarMeView } from './ToolbarMeView';
 import { YouTubePlayerView } from './YouTubePlayerView';
@@ -26,19 +27,38 @@ const shellVariants: Variants = {
 const SHELL_TRANSITION = { type: 'spring' as const, stiffness: 260, damping: 26 };
 const NAV_TRANSITION = { type: 'spring' as const, stiffness: 300, damping: 28 };
 const ME_POPOVER_TRANSITION = { type: 'spring' as const, stiffness: 420, damping: 28 };
+const LEFT_COLLAPSED_STORAGE_KEY = 'nitro.toolbar.leftCollapsed';
+const RIGHT_COLLAPSED_STORAGE_KEY = 'nitro.toolbar.rightCollapsed';
+
+const readCollapsedPreference = (key: string): boolean =>
+{
+    if(typeof window === 'undefined') return false;
+
+    try
+    {
+        return window.localStorage.getItem(key) === '1';
+    }
+    catch
+    {
+        return false;
+    }
+};
 
 export const ToolbarView: FC<{ isInRoom: boolean }> = props =>
 {
     const { isInRoom } = props;
     const [ isMeExpanded, setMeExpanded ] = useState(false);
     const [ isTouchLayout, setIsTouchLayout ] = useState(false);
-    const [ leftCollapsed, setLeftCollapsed ] = useState(false);
-    const [ rightCollapsed, setRightCollapsed ] = useState(false);
+    const [ leftCollapsed, setLeftCollapsed ] = useState(() => readCollapsedPreference(LEFT_COLLAPSED_STORAGE_KEY));
+    const [ rightCollapsed, setRightCollapsed ] = useState(() => readCollapsedPreference(RIGHT_COLLAPSED_STORAGE_KEY));
+    const [ dockLayout, setDockLayout ] = useState<BottomDockLayout>({ chatRaised: false, chatBottom: 7 });
     const [ staffStackBottom, setStaffStackBottom ] = useState<number | null>(null);
     const [ useGuideTool, setUseGuideTool ] = useState(false);
     const [ youtubeEnabled, setYoutubeEnabled ] = useState(false);
     const [ soundboardPulse, setSoundboardPulse ] = useState(false);
     const soundboardPulseTimerRef = useRef<number | null>(null);
+    const leftDockRef = useRef<HTMLDivElement>(null);
+    const rightDockRef = useRef<HTMLDivElement>(null);
     const { userFigure = null } = useSessionInfo();
     const { getFullCount = 0 } = useInventoryUnseenTracker();
     const { getTotalUnseen = 0 } = useAchievements();
@@ -61,10 +81,13 @@ export const ToolbarView: FC<{ isInRoom: boolean }> = props =>
     );
     const visibilityVariant = 'visible';
 
-    const compactFramePosition = 'bottom-[90px] min-[1700px]:bottom-[7px]';
-    const mobileOnlyClasses = isTouchLayout ? '' : 'min-[1700px]:hidden';
-    const desktopBlockClasses = isTouchLayout ? 'hidden' : 'hidden min-[1700px]:block';
-    const desktopFlexClasses = isTouchLayout ? 'hidden' : 'hidden min-[1700px]:flex';
+    const mobileOnlyClasses = isTouchLayout ? '' : 'hidden';
+    const desktopBlockClasses = isTouchLayout ? 'hidden' : 'block';
+    const desktopFlexClasses = isTouchLayout ? 'hidden' : 'flex';
+    const chatFrameStyle = useMemo<CSSProperties | undefined>(() => isTouchLayout
+        ? undefined
+        : { bottom: `${ dockLayout.chatBottom }px` }, [ dockLayout.chatBottom, isTouchLayout ]);
+    const chatFramePositionClass = isTouchLayout ? 'bottom-[90px]' : '';
     const leftNavVariants = useMemo<Variants>(() => ({
         hidden: { opacity: 0, x: isInRoom ? -10 : 0, y: isInRoom ? 0 : 8, pointerEvents: 'none' },
         visible: { opacity: 1, x: 0, y: 0, pointerEvents: 'auto' }
@@ -121,6 +144,99 @@ export const ToolbarView: FC<{ isInRoom: boolean }> = props =>
 
         return () => query.removeEventListener('change', updateTouchLayout);
     }, []);
+
+    useEffect(() =>
+    {
+        try
+        {
+            window.localStorage.setItem(LEFT_COLLAPSED_STORAGE_KEY, leftCollapsed ? '1' : '0');
+        }
+        catch
+        {
+            // Storage may be unavailable in private or embedded browser contexts.
+        }
+    }, [ leftCollapsed ]);
+
+    useEffect(() =>
+    {
+        try
+        {
+            window.localStorage.setItem(RIGHT_COLLAPSED_STORAGE_KEY, rightCollapsed ? '1' : '0');
+        }
+        catch
+        {
+            // Storage may be unavailable in private or embedded browser contexts.
+        }
+    }, [ rightCollapsed ]);
+
+    useLayoutEffect(() =>
+    {
+        if(isTouchLayout || !isInRoom) return;
+
+        const leftDock = leftDockRef.current;
+        const rightDock = rightDockRef.current;
+
+        if(!leftDock || !rightDock) return;
+
+        let frame = 0;
+
+        const measure = () =>
+        {
+            window.cancelAnimationFrame(frame);
+            frame = window.requestAnimationFrame(() =>
+            {
+                const leftRect = leftDock.getBoundingClientRect();
+                const rightRect = rightDock.getBoundingClientRect();
+                const roomTools = document.querySelector('.nitro-room-tools-container') as HTMLElement | null;
+                const roomToolsBottom = roomTools
+                    ? Math.max(0, Math.round(window.innerHeight - roomTools.getBoundingClientRect().top))
+                    : 0;
+                const next = resolveBottomDockLayout({
+                    viewportWidth: window.innerWidth,
+                    leftEdge: leftRect.right,
+                    rightEdge: rightRect.left,
+                    roomToolsBottom
+                });
+
+                setDockLayout(previous => (
+                    previous.chatRaised === next.chatRaised && previous.chatBottom === next.chatBottom
+                        ? previous
+                        : next
+                ));
+            });
+        };
+
+        measure();
+
+        const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
+
+        observer?.observe(leftDock);
+        observer?.observe(rightDock);
+        window.addEventListener('resize', measure);
+
+        return () =>
+        {
+            window.cancelAnimationFrame(frame);
+            observer?.disconnect();
+            window.removeEventListener('resize', measure);
+        };
+    }, [
+        buildHeightAvailable,
+        buildersClubEnabled,
+        fortuneWheelEnabled,
+        hkEnabled,
+        iconState,
+        isHk,
+        isInRoom,
+        isMod,
+        isTouchLayout,
+        leftCollapsed,
+        mentionsEnabled,
+        rightCollapsed,
+        showToolbarButton,
+        soundboardEnabled,
+        youtubeEnabled
+    ]);
 
     // Keep the left staff-tools stack pinned 15px above the room tools rail
     // (its height is dynamic, so measure it). Falls back to null (CSS
@@ -198,7 +314,10 @@ export const ToolbarView: FC<{ isInRoom: boolean }> = props =>
             { youtubeEnabled && <YouTubePlayerView /> }
 
             { isInRoom &&
-                <div className={ `tb-frame fixed ${ compactFramePosition } left-1/2 -translate-x-1/2 z-[71] flex h-[38px] w-[466px] max-w-[95vw] items-center p-0 pointer-events-none` }>
+                <div
+                    data-chat-raised={ dockLayout.chatRaised ? 'true' : 'false' }
+                    style={ chatFrameStyle }
+                    className={ `tb-frame fixed ${ chatFramePositionClass } left-1/2 -translate-x-1/2 z-[71] flex h-[38px] w-[466px] max-w-[95vw] items-center p-0 pointer-events-none` }>
                     <Flex
                         alignItems="center"
                         justifyContent="center"
@@ -214,6 +333,7 @@ export const ToolbarView: FC<{ isInRoom: boolean }> = props =>
                 className={ `nitro-toolbar nitro-toolbar-hobba absolute bottom-0 left-0 right-0 z-[70] h-[55px] ${ desktopBlockClasses }` } />
 
             <motion.div
+                ref={ leftDockRef }
                 initial="visible"
                 animate={ visibilityVariant }
                 variants={ leftNavVariants }
@@ -262,8 +382,6 @@ export const ToolbarView: FC<{ isInRoom: boolean }> = props =>
                         </AnimatePresence>
                         <motion.div
                             className="cursor-pointer relative h-[40px] w-[40px] overflow-hidden"
-                            whileHover={ { scale: 1.08 } }
-                            whileTap={ { scale: 0.95 } }
                             onClick={ event =>
                             {
                                 setMeExpanded(value => !value);
@@ -324,6 +442,7 @@ export const ToolbarView: FC<{ isInRoom: boolean }> = props =>
                 </motion.div>
             </motion.div>
             <motion.div
+                ref={ rightDockRef }
                 initial="visible"
                 animate={ visibilityVariant }
                 variants={ rightNavVariants }
@@ -337,10 +456,9 @@ export const ToolbarView: FC<{ isInRoom: boolean }> = props =>
                         { (requests.length > 0) &&
                             <LayoutItemCountView count={ requests.length } className="absolute -right-2 -top-1" /> }
                     </motion.div>
-                    { rightCollapsed &&
-                        <motion.div variants={ itemVariants }>
-                            <ToolbarItemView icon="friendsearch" onClick={ () => SendMessageComposer(new FindNewFriendsMessageComposer()) } className="tb-icon" />
-                        </motion.div> }
+                    <motion.div variants={ itemVariants }>
+                        <ToolbarItemView icon="friendsearch" onClick={ () => SendMessageComposer(new FindNewFriendsMessageComposer()) } className="tb-icon" />
+                    </motion.div>
                     { !rightCollapsed && (<>
                     { mentionsEnabled &&
                         <motion.div variants={ itemVariants } className="relative">
@@ -404,8 +522,6 @@ export const ToolbarView: FC<{ isInRoom: boolean }> = props =>
                         </AnimatePresence>
                         <motion.div
                             className="cursor-pointer relative h-[40px] w-[40px] overflow-hidden"
-                            whileHover={ { scale: 1.08 } }
-                            whileTap={ { scale: 0.95 } }
                             onClick={ event =>
                             {
                                 setMeExpanded(value => !value);

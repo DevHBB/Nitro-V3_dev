@@ -1,8 +1,16 @@
 import { RoomDataParser, RoomSettingsComposer, UpdateHomeRoomMessageComposer } from '@nitrots/nitro-renderer';
 import * as Popover from '@radix-ui/react-popover';
 import React, { FC, useRef, useState } from 'react';
-import { FaUser } from 'react-icons/fa';
-import { GetGroupInformation, GetSessionDataManager, GetUserProfile, LocalizeText, ReportType, SendMessageComposer } from '../../../../api';
+import {
+    FriendlyTime,
+    GetConfigurationValue,
+    GetGroupInformation,
+    GetSessionDataManager,
+    GetUserProfile,
+    LocalizeText,
+    ReportType,
+    SendMessageComposer
+} from '../../../../api';
 import { Column, Flex, LayoutBadgeImageView, LayoutRoomThumbnailView, NitroCardContentView, Text, UserProfileIconView } from '../../../../common';
 import { useHelp, useNavigatorData, useNavigatorFavourite } from '../../../../hooks';
 import { classNames } from '../../../../layout';
@@ -10,13 +18,15 @@ import { classNames } from '../../../../layout';
 interface NavigatorSearchResultItemInfoViewProps {
     roomData: RoomDataParser;
     isVisible?: boolean;
-    onToggle?: (e: React.MouseEvent) => void;
+    onToggle?: (event: React.MouseEvent) => void;
+    onHoverEnter?: () => void;
+    onHoverLeave?: () => void;
     setIsPopoverActive?: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 export const NavigatorSearchResultItemInfoView: FC<NavigatorSearchResultItemInfoViewProps> = (props) => {
-    const { roomData = null, isVisible = undefined, onToggle, setIsPopoverActive } = props;
-    const elementRef = useRef<HTMLDivElement>(null);
+    const { roomData = null, isVisible = undefined, onToggle, onHoverEnter, onHoverLeave, setIsPopoverActive } = props;
+    const elementRef = useRef<HTMLButtonElement>(null);
     const [internalVisible, setInternalVisible] = useState(false);
     const { navigatorData } = useNavigatorData();
     const { isFavourite, toggle: toggleFavourite } = useNavigatorFavourite(roomData?.roomId);
@@ -24,22 +34,16 @@ export const NavigatorSearchResultItemInfoView: FC<NavigatorSearchResultItemInfo
 
     const isControlled = isVisible !== undefined;
     const popoverOpen = isControlled ? isVisible : internalVisible;
+    const hasGroup = roomData?.groupBadgeCode?.length > 0;
+    const showOwner = roomData?.showOwner && roomData.ownerName?.length > 0;
+    const hasOwnerOrGroup = showOwner || hasGroup;
+    const hasActiveRoomAd = roomData?.roomAdExpiresInMin > 0;
+    const rankingEnabled = GetConfigurationValue<boolean>('room.ranking.enabled', false);
+    const roomReportingEnabled = GetConfigurationValue<boolean>('room.report.enabled', true);
 
     const handleOpenChange = (open: boolean) => {
         if (!isControlled) setInternalVisible(open);
         if (!open && setIsPopoverActive) setIsPopoverActive(false);
-    };
-
-    const getUserCounterColor = () => {
-        if (roomData.maxUserCount <= 0) return roomData.userCount > 0 ? 'bg-success' : 'bg-primary';
-
-        const num: number = 100 * (roomData.userCount / roomData.maxUserCount);
-
-        if (num >= 92) return 'bg-danger';
-        if (num >= 50) return 'bg-warning';
-        if (num > 0) return 'bg-success';
-
-        return 'bg-primary';
     };
 
     const processAction = (action: string) => {
@@ -47,16 +51,14 @@ export const NavigatorSearchResultItemInfoView: FC<NavigatorSearchResultItemInfo
 
         switch (action) {
             case 'set_home_room': {
-                let newRoomId = -1;
-                if (navigatorData.homeRoomId !== roomData.roomId) newRoomId = roomData.roomId;
-                if (newRoomId > 0) SendMessageComposer(new UpdateHomeRoomMessageComposer(newRoomId));
+                if (navigatorData.homeRoomId !== roomData.roomId) SendMessageComposer(new UpdateHomeRoomMessageComposer(roomData.roomId));
                 return;
             }
             case 'open_room_settings':
                 SendMessageComposer(new RoomSettingsComposer(roomData.roomId));
                 return;
             case 'report_room':
-                report(ReportType.ROOM, { roomId: roomData.roomId, roomName: roomData.roomName });
+                report?.(ReportType.ROOM, { roomId: roomData.roomId, roomName: roomData.roomName });
                 return;
             case 'room_favourite':
                 toggleFavourite();
@@ -64,33 +66,49 @@ export const NavigatorSearchResultItemInfoView: FC<NavigatorSearchResultItemInfo
         }
     };
 
-    const handleOwnerClick = (e: React.MouseEvent) => {
-        e.stopPropagation();
+    const handleOwnerClick = (event: React.MouseEvent) => {
+        event.stopPropagation();
         GetUserProfile(roomData.ownerId);
     };
 
-    const handleGroupClick = (e: React.MouseEvent) => {
-        e.stopPropagation();
+    const handleGroupClick = (event: React.MouseEvent) => {
+        event.stopPropagation();
         GetGroupInformation(roomData.habboGroupId);
     };
 
-    const getTradeModeText = (): string => {
-        if (roomData.tradeMode === 1) return LocalizeText('trading.mode.free');
-        return LocalizeText('trading.mode.not.allowed');
+    const getTradeModeText = () => {
+        switch (roomData.tradeMode) {
+            case 1:
+                return LocalizeText('trading.mode.controller');
+            case 2:
+                return LocalizeText('trading.mode.free');
+            default:
+                return LocalizeText('trading.mode.not.allowed');
+        }
     };
 
-    const handleIconClick = (e: React.MouseEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (onToggle) onToggle(e);
+    const getDoorIcon = () => {
+        if (roomData.doorMode === RoomDataParser.DOORBELL_STATE) return 'locked';
+        if (roomData.doorMode === RoomDataParser.PASSWORD_STATE) return 'password';
+        if (roomData.doorMode === RoomDataParser.INVISIBLE_STATE) return 'invisible';
+
+        return '';
+    };
+
+    const handleIconClick = (event: React.MouseEvent) => {
+        event.preventDefault();
+        event.stopPropagation();
+        onToggle?.(event);
     };
 
     return (
         <Popover.Root open={popoverOpen} onOpenChange={handleOpenChange}>
             <Popover.Trigger asChild>
-                <div
+                <button
+                    type="button"
                     ref={elementRef}
-                    className="cursor-pointer nitro-icon icon-navigator-info"
+                    className="nitro-navigator-air__room-info nitro-icon icon-navigator-info"
+                    aria-label={LocalizeText('navigator.room.popup.room.info')}
                     onClick={handleIconClick}
                     onMouseOver={() => {
                         if (!isControlled) setInternalVisible(true);
@@ -105,20 +123,23 @@ export const NavigatorSearchResultItemInfoView: FC<NavigatorSearchResultItemInfo
                     side="right"
                     sideOffset={10}
                     collisionPadding={8}
-                    className="max-w-[276px] not-italic font-normal leading-normal text-left no-underline normal-case tracking-normal whitespace-normal text-[.7875rem] [word-wrap:break-word] bg-[#f2f2eb] border border-black rounded-[8px] shadow-none z-[1070]"
+                    className="nitro-navigator-air__room-popover not-italic font-normal leading-normal text-left no-underline normal-case tracking-normal whitespace-normal text-[.7875rem] [word-wrap:break-word] border border-black z-[1070]"
+                    style={{ width: 360, maxWidth: 'calc(100vw - 16px)' }}
+                    onMouseEnter={onHoverEnter}
+                    onMouseLeave={onHoverLeave}
                 >
                     <NitroCardContentView
-                        className="bg-transparent room-info image-rendering-pixelated !p-0"
+                        className="nitro-navigator-air__room-popover-body image-rendering-pixelated !p-0"
                         overflow="hidden"
-                        onClick={(e) => e.stopPropagation()}
+                        onClick={(event) => event.stopPropagation()}
                     >
-                        <Flex gap={1} overflow="hidden" className="p-2">
+                        <div className="nitro-navigator-air__room-popover-header">
                             <LayoutRoomThumbnailView
-                                className="flex flex-col items-center justify-end mb-1"
+                                className="nitro-navigator-air__room-popover-thumbnail flex flex-col items-center justify-end"
                                 customUrl={roomData.officialRoomPicRef}
                                 roomId={roomData.roomId}
                             >
-                                {roomData.habboGroupId > 0 && (
+                                {hasGroup && (
                                     <LayoutBadgeImageView
                                         badgeCode={roomData.groupBadgeCode}
                                         className="absolute! bottom-0 left-1/2 z-10 mb-1 -translate-x-1/2"
@@ -126,100 +147,98 @@ export const NavigatorSearchResultItemInfoView: FC<NavigatorSearchResultItemInfo
                                     />
                                 )}
                                 {roomData.doorMode !== RoomDataParser.OPEN_STATE && (
-                                    <i
-                                        className={
-                                            'absolute inset-e-0 mb-1 me-1 icon icon-navigator-room-' +
-                                            (roomData.doorMode === RoomDataParser.DOORBELL_STATE
-                                                ? 'locked'
-                                                : roomData.doorMode === RoomDataParser.PASSWORD_STATE
-                                                  ? 'password'
-                                                  : roomData.doorMode === RoomDataParser.INVISIBLE_STATE
-                                                    ? 'invisible'
-                                                    : '')
-                                        }
-                                    />
+                                    <i className={`absolute inset-e-0 mb-1 me-1 icon icon-navigator-room-${getDoorIcon()}`} />
                                 )}
                             </LayoutRoomThumbnailView>
-                            <Column gap={1}>
-                                <Text bold className="grow" style={{ maxHeight: 13 }}>
+                            <Column gap={1} className="nitro-navigator-air__room-popover-copy">
+                                <Text bold className="nitro-navigator-air__room-popover-title">
                                     {roomData.roomName.length > 35 ? roomData.roomName.substring(0, 35) + '…' : roomData.roomName}
                                 </Text>
-                                <Text className="grow text-xs">{roomData.description}</Text>
+                                {roomData.description && <Text className="nitro-navigator-air__room-popover-description">{roomData.description}</Text>}
                             </Column>
-                        </Flex>
-                        <Column gap={0} className="px-2 pb-2">
-                            <Flex alignItems="center" className="mb-2">
-                                {roomData.ownerName && roomData.ownerName.length > 0 && (
-                                    <Flex onClick={handleOwnerClick} gap={1} className="w-1/2 items-center cursor-pointer">
-                                        <UserProfileIconView userId={roomData.ownerId} />
-                                        <Text pointer bold underline>
-                                            {roomData.ownerName}
-                                        </Text>
-                                    </Flex>
-                                )}
-                                {roomData.habboGroupId > 0 && (
-                                    <Flex onClick={handleGroupClick} gap={1} className="w-1/2 items-center cursor-pointer">
-                                        <i className="icon icon-navigator-room-group" />
-                                        <Text bold underline className="truncate" style={{ maxWidth: 100 }}>
-                                            {roomData.groupName}
-                                        </Text>
-                                    </Flex>
-                                )}
-                            </Flex>
-                            <Flex gap={4} className="w-full">
-                                <Column className="w-3/5" gap={1}>
-                                    <Flex gap={2} alignItems="center">
-                                        <Text bold className="text-xs">
-                                            {LocalizeText('navigator.roompopup.property.trading')}
-                                        </Text>
-                                        <Text className="text-xs">{getTradeModeText()}</Text>
-                                    </Flex>
-                                    <Flex gap={2} alignItems="center">
-                                        <Text bold className="text-xs">
-                                            {LocalizeText('navigator.roompopup.property.max_users')}
-                                        </Text>
-                                        <Text className="text-xs">{roomData.maxUserCount}</Text>
-                                    </Flex>
-                                    <Flex gap={1} alignItems="center">
-                                        <Flex center className={'rounded px-1 py-0.5 text-xs font-bold text-white ' + getUserCounterColor()} gap={1}>
-                                            <FaUser className="fa-icon" />
-                                            {roomData.userCount}
+                        </div>
+                        <Column gap={0} className="nitro-navigator-air__room-popover-content">
+                            {hasOwnerOrGroup && (
+                                <Flex alignItems="center" className="nitro-navigator-air__room-popover-owner-row">
+                                    {showOwner && (
+                                        <Flex onClick={handleOwnerClick} gap={1} className="items-center cursor-pointer">
+                                            <UserProfileIconView userId={roomData.ownerId} />
+                                            <Text pointer bold underline>
+                                                {roomData.ownerName}
+                                            </Text>
                                         </Flex>
-                                    </Flex>
-                                </Column>
-                                <Column alignItems="start" gap={2} className="w-2/5">
-                                    <Flex pointer alignItems="center" gap={2} onClick={() => processAction('room_favourite')}>
+                                    )}
+                                    {hasGroup && (
+                                        <Flex onClick={handleGroupClick} gap={1} className="items-center cursor-pointer ms-auto">
+                                            <i className="icon icon-navigator-room-group" />
+                                            <Text bold underline className="truncate" style={{ maxWidth: 130 }}>
+                                                {roomData.groupName}
+                                            </Text>
+                                        </Flex>
+                                    )}
+                                </Flex>
+                            )}
+                            <div className="nitro-navigator-air__room-popover-details">
+                                <div className="nitro-navigator-air__room-popover-properties">
+                                    <Text bold>{LocalizeText('navigator.roompopup.property.trading')}</Text>
+                                    <Text>{getTradeModeText()}</Text>
+                                    {rankingEnabled && (
+                                        <>
+                                            <Text bold>{LocalizeText('navigator.roompopup.property.ranking')}</Text>
+                                            <Text>{roomData.ranking}</Text>
+                                        </>
+                                    )}
+                                    <Text bold>{LocalizeText('navigator.roompopup.property.max_users')}</Text>
+                                    <Text>{roomData.maxUserCount}</Text>
+                                </div>
+                                <div className="nitro-navigator-air__room-popover-actions">
+                                    <button type="button" onClick={() => processAction('room_favourite')}>
                                         <i className={classNames('icon icon-navigator-favorite-room', isFavourite ? 'active' : '')} />
-                                        <Text className="text-xs">{LocalizeText('navigator.room.popup.room.info.favorite')}</Text>
-                                    </Flex>
-                                    <Flex pointer alignItems="center" gap={2} onClick={() => processAction('set_home_room')}>
+                                        <span>{LocalizeText('navigator.room.popup.room.info.favorite')}</span>
+                                    </button>
+                                    <button type="button" onClick={() => processAction('set_home_room')}>
                                         <i
-                                            className={classNames('icon icon-navigator-my-room', navigatorData?.homeRoomId !== roomData.roomId ? '' : 'active')}
+                                            className={classNames('icon icon-navigator-my-room', navigatorData?.homeRoomId === roomData.roomId ? 'active' : '')}
                                         />
-                                        <Text className="text-xs">{LocalizeText('navigator.room.popup.room.info.home')}</Text>
-                                    </Flex>
+                                        <span>{LocalizeText('navigator.room.popup.room.info.home')}</span>
+                                    </button>
                                     {GetSessionDataManager().userId === roomData.ownerId && (
-                                        <Flex pointer alignItems="center" gap={2} onClick={() => processAction('open_room_settings')}>
+                                        <button type="button" onClick={() => processAction('open_room_settings')}>
                                             <i className="icon icon-navigator-room-settings" />
-                                            <Text className="text-xs">{LocalizeText('navigator.room.popup.info.room.settings')}</Text>
-                                        </Flex>
+                                            <span>{LocalizeText('navigator.room.popup.info.room.settings')}</span>
+                                        </button>
                                     )}
-                                    {GetSessionDataManager().userId !== roomData.ownerId && (
-                                        <Flex pointer alignItems="center" gap={2} onClick={() => processAction('report_room')}>
+                                    {roomReportingEnabled && GetSessionDataManager().userId !== roomData.ownerId && (
+                                        <button type="button" onClick={() => processAction('report_room')}>
                                             <i className="icon icon-navigator-room-report" />
-                                            <Text className="text-xs">{LocalizeText('navigator.room.popup.report.room')}</Text>
-                                        </Flex>
+                                            <span>{LocalizeText('navigator.room.popup.report.room')}</span>
+                                        </button>
                                     )}
-                                </Column>
-                            </Flex>
+                                </div>
+                            </div>
                             {roomData.tags && roomData.tags.length > 0 && (
-                                <Flex gap={1} className="mt-1">
-                                    {roomData.tags.map((tag, i) => (
-                                        <Text key={i} variant="white" className="bg-orange-500 px-1 rounded text-xs">
+                                <Flex gap={1} className="nitro-navigator-air__room-popover-tags">
+                                    {roomData.tags.map((tag, index) => (
+                                        <Text key={index} variant="white" className="bg-orange-500 px-1 rounded text-xs">
                                             #{tag}
                                         </Text>
                                     ))}
                                 </Flex>
+                            )}
+                            {hasActiveRoomAd && (
+                                <div className="nitro-navigator-air__room-popover-event">
+                                    <i className="nitro-navigator-air__room-popover-event-icon" aria-hidden="true" />
+                                    <div className="nitro-navigator-air__room-popover-event-copy">
+                                        <Text bold className="nitro-navigator-air__room-popover-event-name">
+                                            {LocalizeText('navigator.eventsettings.name')}: {roomData.roomAdName}
+                                        </Text>
+                                        <Text className="nitro-navigator-air__room-popover-event-description">
+                                            {LocalizeText('navigator.eventsettings.desc')}: {roomData.roomAdDescription}
+                                            <br />
+                                            {LocalizeText('roomad.event.expiration_time')} {FriendlyTime.format(roomData.roomAdExpiresInMin * 60)}
+                                        </Text>
+                                    </div>
+                                </div>
                             )}
                         </Column>
                     </NitroCardContentView>
