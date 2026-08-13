@@ -7,6 +7,7 @@ export * from './IRoomModel';
 export * from './IRoomModerationSettings';
 export * from './NavigatorSearchResultViewDisplayMode';
 export * from './RoomInfoData';
+export * from './RoomThumbnailCache';
 export * from './RoomSettingsUtils';
 export * from './SearchFilterOptions';
 export * from './ToggleFavoriteRoom';

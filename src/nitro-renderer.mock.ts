@@ -198,6 +198,7 @@ export class NitroAlphaFilter extends StubClass {}
 export class NitroContainer extends StubClass {}
 export class NitroRectangle extends StubClass {}
 export class NitroSprite extends StubClass {}
+export class NitroRenderTexture extends StubClass {}
 export class NitroTexture extends StubClass {}
 export class NitroSoundEvent extends StubClass {}
 export class NitroEvent extends StubClass {}
@@ -250,6 +251,7 @@ export class RoomDoorbellAcceptedEvent extends MessageEvent {}
 export class FlatAccessDeniedMessageEvent extends MessageEvent {}
 export class GenericErrorEvent extends MessageEvent {}
 export class GetGuestRoomResultEvent extends MessageEvent {}
+export class ThumbnailStatusMessageEvent extends MessageEvent {}
 
 // Mentions system — incoming events extend MessageEvent (they expose
 // getParser()); the request/mark composers are symbol-only constructors.

@@ -1,5 +1,5 @@
 import { GetSessionDataManager, RoomDataParser } from '@nitrots/nitro-renderer';
-import React, { FC, MouseEvent, useEffect } from 'react';
+import React, { FC, KeyboardEvent, MouseEvent, useEffect, useRef } from 'react';
 import { FaUser } from 'react-icons/fa';
 import { CreateRoomSession, DoorStateType, TryVisitRoom } from '../../../../api';
 import { Column, Flex, LayoutBadgeImageView, LayoutGridItemProps, LayoutRoomThumbnailView, Text } from '../../../../common';
@@ -18,21 +18,43 @@ export interface NavigatorSearchResultItemViewProps extends LayoutGridItemProps 
 export const NavigatorSearchResultItemView: FC<NavigatorSearchResultItemViewProps> = (props) => {
     const { roomData = null, children = null, thumbnail = false, selectedRoomId, setSelectedRoomId, isPopoverActive, setIsPopoverActive, ...rest } = props;
     const { setSnapshot: setDoorData } = useDoorState();
+    const closeTimeoutRef = useRef<ReturnType<typeof setTimeout>>(null);
+    const selectedRoomIdRef = useRef(selectedRoomId);
 
-    const handleMouseEnter = () => {
-        if (isPopoverActive && setSelectedRoomId) setSelectedRoomId(roomData.roomId);
+    selectedRoomIdRef.current = selectedRoomId;
+
+    const cancelPopoverClose = () => {
+        if (!closeTimeoutRef.current) return;
+
+        clearTimeout(closeTimeoutRef.current);
+        closeTimeoutRef.current = null;
     };
 
-    const handleMouseLeave = () => {
-        if (setSelectedRoomId && setIsPopoverActive) {
+    const schedulePopoverClose = () => {
+        if (!setSelectedRoomId || !setIsPopoverActive) return;
+
+        cancelPopoverClose();
+        closeTimeoutRef.current = setTimeout(() => {
+            closeTimeoutRef.current = null;
+            if (selectedRoomIdRef.current !== roomData.roomId) return;
+
             setSelectedRoomId(null);
             setIsPopoverActive(false);
-        }
+        }, 150);
+    };
+
+    const handleMouseEnter = () => {
+        if (!setSelectedRoomId || !setIsPopoverActive) return;
+
+        cancelPopoverClose();
+        setSelectedRoomId(roomData.roomId);
+        setIsPopoverActive(true);
     };
 
     const handleInfoClick = (e: React.MouseEvent) => {
         e.preventDefault();
         e.stopPropagation();
+        cancelPopoverClose();
 
         if (setIsPopoverActive && setSelectedRoomId) {
             if (!isPopoverActive) {
@@ -59,7 +81,19 @@ export const NavigatorSearchResultItemView: FC<NavigatorSearchResultItemViewProp
         };
 
         document.addEventListener('click', handleClickOutside);
-        return () => document.removeEventListener('click', handleClickOutside);
+        const handleEscape = (event: globalThis.KeyboardEvent) => {
+            if (event.key !== 'Escape' || !setIsPopoverActive || !setSelectedRoomId) return;
+
+            setIsPopoverActive(false);
+            setSelectedRoomId(null);
+        };
+
+        document.addEventListener('keydown', handleEscape);
+        return () => {
+            if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
+            document.removeEventListener('click', handleClickOutside);
+            document.removeEventListener('keydown', handleEscape);
+        };
     }, [setIsPopoverActive, setSelectedRoomId]);
 
     const getUserCounterColor = () => {
@@ -104,6 +138,13 @@ export const NavigatorSearchResultItemView: FC<NavigatorSearchResultItemViewProp
         CreateRoomSession(roomData.roomId);
     };
 
+    const handleKeyDown = (event: KeyboardEvent) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+
+        event.preventDefault();
+        visitRoom(event as unknown as MouseEvent);
+    };
+
     if (thumbnail)
         return (
             <Column
@@ -111,10 +152,14 @@ export const NavigatorSearchResultItemView: FC<NavigatorSearchResultItemViewProp
                 overflow="hidden"
                 alignItems="center"
                 className="navigator-item nitro-card-row p-1 small mb-1 flex-col"
+                role="button"
+                tabIndex={0}
+                aria-label={roomData.roomName}
                 gap={0}
                 onClick={visitRoom}
+                onKeyDown={handleKeyDown}
                 onMouseEnter={handleMouseEnter}
-                onMouseLeave={handleMouseLeave}
+                onMouseLeave={schedulePopoverClose}
                 {...rest}
             >
                 <LayoutRoomThumbnailView
@@ -163,6 +208,8 @@ export const NavigatorSearchResultItemView: FC<NavigatorSearchResultItemViewProp
                         <NavigatorSearchResultItemInfoView
                             isVisible={selectedRoomId === roomData.roomId}
                             onToggle={handleInfoClick}
+                            onHoverEnter={cancelPopoverClose}
+                            onHoverLeave={schedulePopoverClose}
                             setIsPopoverActive={setIsPopoverActive}
                             roomData={roomData}
                         />
@@ -177,11 +224,15 @@ export const NavigatorSearchResultItemView: FC<NavigatorSearchResultItemViewProp
             pointer
             alignItems="center"
             className="navigator-item px-2 py-1 small"
+            role="button"
+            tabIndex={0}
+            aria-label={roomData.roomName}
             gap={2}
             overflow="hidden"
             onClick={visitRoom}
+            onKeyDown={handleKeyDown}
             onMouseEnter={handleMouseEnter}
-            onMouseLeave={handleMouseLeave}
+            onMouseLeave={schedulePopoverClose}
             {...rest}
         >
             <Flex
@@ -202,6 +253,8 @@ export const NavigatorSearchResultItemView: FC<NavigatorSearchResultItemViewProp
                 <NavigatorSearchResultItemInfoView
                     isVisible={selectedRoomId === roomData.roomId && isPopoverActive}
                     onToggle={handleInfoClick}
+                    onHoverEnter={cancelPopoverClose}
+                    onHoverLeave={schedulePopoverClose}
                     setIsPopoverActive={setIsPopoverActive}
                     roomData={roomData}
                 />

@@ -456,10 +456,9 @@ export const ToolbarView: FC<{ isInRoom: boolean }> = props =>
                         { (requests.length > 0) &&
                             <LayoutItemCountView count={ requests.length } className="absolute -right-2 -top-1" /> }
                     </motion.div>
-                    { rightCollapsed &&
-                        <motion.div variants={ itemVariants }>
-                            <ToolbarItemView icon="friendsearch" onClick={ () => SendMessageComposer(new FindNewFriendsMessageComposer()) } className="tb-icon" />
-                        </motion.div> }
+                    <motion.div variants={ itemVariants }>
+                        <ToolbarItemView icon="friendsearch" onClick={ () => SendMessageComposer(new FindNewFriendsMessageComposer()) } className="tb-icon" />
+                    </motion.div>
                     { !rightCollapsed && (<>
                     { mentionsEnabled &&
                         <motion.div variants={ itemVariants } className="relative">

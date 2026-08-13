@@ -10,21 +10,19 @@ export const NavigatorFilterChipsView: FC<NavigatorFilterChipsViewProps> = (prop
     const { value, onChange } = props;
 
     return (
-        <div className="flex flex-wrap gap-1">
+        <select
+            className="nitro-navigator-air__filter form-select form-select-sm"
+            aria-label={LocalizeText('navigator.filter.anything')}
+            value={value}
+            onChange={(event) => onChange(Number(event.target.value))}
+        >
             {SearchFilterOptions.map((filter, index) => {
-                const isActive = value === index;
-
                 return (
-                    <button
-                        key={index}
-                        type="button"
-                        onClick={() => onChange(index)}
-                        className={`px-2 py-0.5 rounded-full text-[11px] border cursor-pointer transition-colors ${isActive ? 'bg-primary text-white border-primary' : 'bg-card-grid-item text-gray-600 border-card-grid-item-border hover:bg-primary hover:text-white hover:border-primary'}`}
-                    >
+                    <option key={index} value={index}>
                         {LocalizeText('navigator.filter.' + filter.name)}
-                    </button>
+                    </option>
                 );
             })}
-        </div>
+        </select>
     );
 };

@@ -13,14 +13,14 @@ export const NavigatorSearchSavesResultView: FC<NavigatorSearchSavesResultViewPr
     const { searches = [] } = props;
 
     return (
-        <Column className="nitro-navigator-search-saves-result h-full min-w-[100px] sm:w-[150px]" gap={1}>
-            <Flex className="rounded px-2 py-1 bg-orange-500 shrink-0" gap={1} alignItems="center">
+        <Column className="nitro-navigator-search-saves-result h-full" gap={0}>
+            <Flex className="nitro-navigator-search-saves-result__header shrink-0" gap={1} alignItems="center">
                 <FaBolt color="white" />
                 <Text variant="white" truncate>
                     {LocalizeText('navigator.quick.links.title')}
                 </Text>
             </Flex>
-            <Column className="flex-1 min-h-0 p-1 overflow-x-hidden overflow-y-auto" gap={0}>
+            <Column className="nitro-navigator-search-saves-result__list flex-1 min-h-0 overflow-x-hidden overflow-y-auto" gap={0}>
                 {searches && searches.length > 0 ? (
                     searches.map((search: NavigatorSavedSearch) => <NavigatorSearchSavesResultItemView key={search.id} search={search} />)
                 ) : (
