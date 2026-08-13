@@ -1,7 +1,27 @@
 import { describe, expect, it } from 'vitest';
+import type { IPurchasableOffer } from '../../../../api';
 import * as OfferEditor from './CatalogAdminOfferEditView';
 
 describe('catalog admin offer form state', () => {
+    it('recognizes a new offer before effects hydrate its form', () => {
+        const isNewOffer = OfferEditor.isCatalogAdminNewOffer;
+
+        expect(isNewOffer({ offerId: -1 } as IPurchasableOffer)).toBe(true);
+        expect(isNewOffer({ offerId: 42 } as IPurchasableOffer)).toBe(false);
+        expect(isNewOffer(null)).toBe(false);
+    });
+
+    it('does not call a missing icon method on the new-offer placeholder', () => {
+        const getOfferIconUrl = OfferEditor.getOfferIconUrl;
+        const placeholder = {
+            offerId: -1,
+            product: { productClassId: 0, productType: 'i', productCount: 1, extraParam: '' }
+        } as unknown as IPurchasableOffer;
+
+        expect(() => getOfferIconUrl(placeholder)).not.toThrow();
+        expect(getOfferIconUrl(placeholder)).toBeNull();
+    });
+
     it('explains session and detail loading states before saving an offer', () => {
         const resolveInteraction = (OfferEditor as any).resolveCatalogAdminOfferInteraction;
 

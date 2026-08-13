@@ -1,8 +1,6 @@
 import {
     CatalogStudioAcquireLockComposer,
     CatalogStudioAcquireLockEvent,
-    CatalogStudioDiscardComposer,
-    CatalogStudioDiscardEvent,
     CatalogStudioDocumentApplyComposer,
     CatalogStudioDocumentDryRunComposer,
     CatalogStudioDocumentResultEvent,
@@ -12,14 +10,10 @@ import {
     CatalogStudioOpenSessionComposer,
     CatalogStudioPublishComposer,
     CatalogStudioPublishEvent,
-    CatalogStudioPreviewComposer,
-    CatalogStudioPreviewEvent,
     CatalogStudioReleaseLockComposer,
     CatalogStudioReleaseLockEvent,
     CatalogStudioRenewLockComposer,
     CatalogStudioRenewLockEvent,
-    CatalogStudioRestoreComposer,
-    CatalogStudioRestoreEvent,
     CatalogStudioSessionEvent,
     CatalogStudioUndoComposer,
     CatalogStudioUndoEvent,
@@ -29,8 +23,7 @@ import {
 import { FC, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { SendMessageComposer } from '../../../../api';
 import { useConnectionState, useMessageEvent } from '../../../../hooks';
-import { CatalogStudioDocumentResult, CatalogStudioHistoryGroup, CatalogStudioLock, CatalogStudioMutationResult, CatalogStudioPreviewState, CatalogStudioSession, CatalogStudioValidationState } from './CatalogStudioTypes';
-import { CatalogPreviewPersona } from './CatalogPreviewPersona';
+import { CatalogStudioDocumentResult, CatalogStudioHistoryGroup, CatalogStudioLock, CatalogStudioMutationResult, CatalogStudioSession, CatalogStudioValidationState } from './CatalogStudioTypes';
 import { applyCatalogStudioMutation } from './CatalogStudioMutationState';
 import { nextCatalogStudioOperationId } from './CatalogStudioOperationId';
 import { CatalogStudioContext, CatalogStudioContextValue } from './useCatalogStudio';
@@ -39,7 +32,7 @@ const lockKey = (entityType: string, entityId: number, catalogType: string = 'NO
     catalogType === 'NORMAL' ? `${entityType}:${entityId}` : `${catalogType}:${entityType}:${entityId}`;
 const CATALOG_ROOT_LOCK_ID = 2147483647;
 type PendingDocumentApply = {
-    format: 'JSONC' | 'SQL' | 'BULK';
+    format: 'SQL';
     document: string;
     fingerprint: string;
     summary: string;
@@ -52,7 +45,6 @@ export const CatalogStudioProvider: FC<{ active: boolean; children: ReactNode }>
     const [history, setHistory] = useState<CatalogStudioHistoryGroup[]>([]);
     const [historyTotalCount, setHistoryTotalCount] = useState(0);
     const [validation, setValidation] = useState<CatalogStudioValidationState | null>(null);
-    const [preview, setPreview] = useState<CatalogStudioPreviewState | null>(null);
     const [documentResult, setDocumentResult] = useState<CatalogStudioDocumentResult | null>(null);
     const [locks, setLocks] = useState<Record<string, CatalogStudioLock>>({});
     const [loading, setLoading] = useState(false);
@@ -73,6 +65,12 @@ export const CatalogStudioProvider: FC<{ active: boolean; children: ReactNode }>
         setLoading(true);
         SendMessageComposer(new CatalogStudioOpenSessionComposer());
     }, [active, authenticated]);
+
+    const refreshHistory = useCallback(() => {
+        const current = sessionRef.current;
+        if (!current) return;
+        SendMessageComposer(new CatalogStudioHistoryComposer(current.draftVersionId, 0, 50));
+    }, []);
 
     const updateRevision = useCallback((revision: number) => {
         setSession((current) => {
@@ -151,7 +149,7 @@ export const CatalogStudioProvider: FC<{ active: boolean; children: ReactNode }>
     useMessageEvent<CatalogStudioAcquireLockEvent>(CatalogStudioAcquireLockEvent, handleLock);
     useMessageEvent<CatalogStudioRenewLockEvent>(CatalogStudioRenewLockEvent, handleLock);
 
-    const handleOperation = useCallback((event: CatalogStudioReleaseLockEvent | CatalogStudioUndoEvent | CatalogStudioPublishEvent | CatalogStudioDiscardEvent | CatalogStudioRestoreEvent) => {
+    const handleOperation = useCallback((event: CatalogStudioReleaseLockEvent | CatalogStudioUndoEvent | CatalogStudioPublishEvent) => {
         const parser = event.getParser();
         updateRevision(parser.revision);
         setLoading(false);
@@ -164,7 +162,7 @@ export const CatalogStudioProvider: FC<{ active: boolean; children: ReactNode }>
         refresh();
     }, [refresh, updateRevision]);
 
-    const handleLifecycleOperation = useCallback((event: CatalogStudioPublishEvent | CatalogStudioDiscardEvent | CatalogStudioRestoreEvent) => {
+    const handleLifecycleOperation = useCallback((event: CatalogStudioPublishEvent) => {
         if (event.getParser().success) {
             locksRef.current = {};
             setLocks({});
@@ -173,10 +171,11 @@ export const CatalogStudioProvider: FC<{ active: boolean; children: ReactNode }>
     }, [handleOperation]);
 
     useMessageEvent<CatalogStudioReleaseLockEvent>(CatalogStudioReleaseLockEvent, handleOperation);
-    useMessageEvent<CatalogStudioUndoEvent>(CatalogStudioUndoEvent, handleOperation);
+    useMessageEvent<CatalogStudioUndoEvent>(CatalogStudioUndoEvent, (event) => {
+        handleOperation(event);
+        if (event.getParser().success) refreshHistory();
+    });
     useMessageEvent<CatalogStudioPublishEvent>(CatalogStudioPublishEvent, handleLifecycleOperation);
-    useMessageEvent<CatalogStudioDiscardEvent>(CatalogStudioDiscardEvent, handleLifecycleOperation);
-    useMessageEvent<CatalogStudioRestoreEvent>(CatalogStudioRestoreEvent, handleLifecycleOperation);
 
     useMessageEvent<CatalogStudioHistoryEvent>(CatalogStudioHistoryEvent, (event) => {
         const parser = event.getParser();
@@ -205,23 +204,6 @@ export const CatalogStudioProvider: FC<{ active: boolean; children: ReactNode }>
         setLastError(parser.success ? null : parser.message || parser.code);
     });
 
-    useMessageEvent<CatalogStudioPreviewEvent>(CatalogStudioPreviewEvent, (event) => {
-        const parser = event.getParser();
-        setPreview({
-            revision: parser.revision,
-            pages: parser.pages.map((page) => ({ ...page })),
-            offers: parser.offers.map((entry) => ({
-                offer: { ...entry.offer },
-                eligible: entry.eligible,
-                reasons: [ ...entry.reasons ],
-                products: entry.products.map(product => ({ ...product })),
-                giftable: entry.giftable
-            }))
-        });
-        setLoading(false);
-        setLastError(null);
-    });
-
     useMessageEvent<CatalogStudioDocumentResultEvent>(CatalogStudioDocumentResultEvent, (event) => {
         const parser = event.getParser();
         const result: CatalogStudioDocumentResult = {
@@ -238,7 +220,10 @@ export const CatalogStudioProvider: FC<{ active: boolean; children: ReactNode }>
         setDocumentResult(result);
         setLoading(false);
         setLastError(result.success ? null : result.message || result.code);
-        if(result.code === 'APPLIED' || result.code === 'ALREADY_APPLIED') refresh();
+        if(result.code === 'APPLIED' || result.code === 'ALREADY_APPLIED') {
+            refresh();
+            refreshHistory();
+        }
     });
 
     useEffect(() => {
@@ -298,14 +283,13 @@ export const CatalogStudioProvider: FC<{ active: boolean; children: ReactNode }>
         SendMessageComposer(new CatalogStudioHistoryComposer(current.draftVersionId, offset, limit));
     }, []);
 
-    const revisionAction = useCallback((action: 'validate' | 'publish' | 'discard') => {
+    const revisionAction = useCallback((action: 'validate' | 'publish') => {
         const current = sessionRef.current;
         if (!current) return;
         setLoading(true);
         const operationId = nextCatalogStudioOperationId(action);
         if (action === 'validate') SendMessageComposer(new CatalogStudioValidateComposer(operationId, current.draftVersionId, current.revision));
         if (action === 'publish') SendMessageComposer(new CatalogStudioPublishComposer(operationId, current.draftVersionId, current.revision));
-        if (action === 'discard') SendMessageComposer(new CatalogStudioDiscardComposer(operationId, current.draftVersionId, current.revision));
     }, []);
 
     const undo = useCallback((groupId: number) => {
@@ -315,24 +299,7 @@ export const CatalogStudioProvider: FC<{ active: boolean; children: ReactNode }>
         SendMessageComposer(new CatalogStudioUndoComposer(nextCatalogStudioOperationId('undo'), current.draftVersionId, current.revision, groupId));
     }, []);
 
-    const restore = useCallback((sourceVersionId: number) => {
-        const current = sessionRef.current;
-        if (!current) return;
-        setLoading(true);
-        SendMessageComposer(new CatalogStudioRestoreComposer(nextCatalogStudioOperationId('restore'), current.draftVersionId, current.revision, sourceVersionId));
-    }, []);
-
-    const requestPreview = useCallback((persona: CatalogPreviewPersona) => {
-        const current = sessionRef.current;
-        if(!current) return;
-        setLoading(true);
-        SendMessageComposer(new CatalogStudioPreviewComposer(
-            nextCatalogStudioOperationId('preview'), current.draftVersionId, current.revision, persona.rank,
-            persona.hc, persona.vip, persona.buildersClub, persona.showHidden, persona.credits, persona.currencies
-        ));
-    }, []);
-
-    const exportDocument = useCallback((format: 'JSONC' | 'SQL') => {
+    const exportDocument = useCallback((format: 'SQL') => {
         const current = sessionRef.current;
         if(!current) return;
         setLoading(true);
@@ -341,7 +308,7 @@ export const CatalogStudioProvider: FC<{ active: boolean; children: ReactNode }>
         ));
     }, []);
 
-    const dryRunDocument = useCallback((format: 'JSONC' | 'SQL' | 'BULK', document: string) => {
+    const dryRunDocument = useCallback((format: 'SQL', document: string) => {
         const current = sessionRef.current;
         if(!current) return;
         setLoading(true);
@@ -350,7 +317,7 @@ export const CatalogStudioProvider: FC<{ active: boolean; children: ReactNode }>
         ));
     }, []);
 
-    const applyDocument = useCallback((format: 'JSONC' | 'SQL' | 'BULK', document: string, fingerprint: string, summary: string) => {
+    const applyDocument = useCallback((format: 'SQL', document: string, fingerprint: string, summary: string) => {
         const current = sessionRef.current;
         if(!current) return;
         const rootLock = locksRef.current[lockKey('PAGE', CATALOG_ROOT_LOCK_ID)];
@@ -388,7 +355,6 @@ export const CatalogStudioProvider: FC<{ active: boolean; children: ReactNode }>
         history,
         historyTotalCount,
         validation,
-        preview,
         documentResult,
         locks,
         loading,
@@ -400,14 +366,11 @@ export const CatalogStudioProvider: FC<{ active: boolean; children: ReactNode }>
         undo,
         validate: () => revisionAction('validate'),
         publish: () => revisionAction('publish'),
-        discard: () => revisionAction('discard'),
-        restore,
-        requestPreview,
         exportDocument,
         dryRunDocument,
         applyDocument,
         applyMutation
-    }), [session, history, historyTotalCount, validation, preview, documentResult, locks, loading, lastError, refresh, acquireLock, releaseLock, loadHistory, undo, revisionAction, restore, requestPreview, exportDocument, dryRunDocument, applyDocument, applyMutation]);
+    }), [session, history, historyTotalCount, validation, documentResult, locks, loading, lastError, refresh, acquireLock, releaseLock, loadHistory, undo, revisionAction, exportDocument, dryRunDocument, applyDocument, applyMutation]);
 
     return <CatalogStudioContext value={value}>{children}</CatalogStudioContext>;
 };

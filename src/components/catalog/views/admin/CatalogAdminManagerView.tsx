@@ -6,29 +6,25 @@ import {
     FaChevronDown,
     FaChevronRight,
     FaCheckCircle,
-    FaClock,
     FaCloudUploadAlt,
     FaEdit,
     FaExclamationTriangle,
     FaEye,
     FaEyeSlash,
     FaHistory,
-    FaLock,
     FaPlus,
     FaSearch,
     FaSitemap,
     FaTrash,
-    FaUsers
 } from 'react-icons/fa';
 import { GetConfigurationValue, ICatalogNode, IPurchasableOffer, LocalizeText, ProductTypeEnum } from '../../../../api';
 import { NitroCardContentView, NitroCardHeaderView, NitroCardView } from '../../../../common';
 import { useCatalogActions, useCatalogData, useCatalogUiState } from '../../../../hooks';
 import { replaceCatalogPageOffers } from '../../../../hooks/catalog/useCatalog.helpers';
 import { CATALOG_ROOT_LOCK_ID, useCatalogAdmin } from '../../CatalogAdminContext';
-import { getCatalogStudioCommandState, getCatalogStudioPageLockKey } from '../../admin/studio/CatalogStudioCommandCenter';
-import { CatalogStudioBulkPanel } from '../../admin/studio/CatalogStudioBulkPanel';
-import { CatalogStudioImportExportPanel } from '../../admin/studio/CatalogStudioImportExportPanel';
-import { CatalogStudioPreview } from '../../admin/studio/CatalogStudioPreview';
+import { getCatalogStudioCommandState, getCatalogStudioWorkspaceTabs } from '../../admin/studio/CatalogStudioCommandCenter';
+import { CatalogStudioPublishReview } from '../../admin/studio/CatalogStudioPublishReview';
+import { CatalogStudioTransferPanel } from '../../admin/studio/CatalogStudioTransferPanel';
 import { useCatalogStudio } from '../../admin/studio/useCatalogStudio';
 import { parseCatalogTabLabel } from '../../useCatalogWindowWidth';
 import { CatalogIconView } from '../catalog-icon/CatalogIconView';
@@ -41,7 +37,7 @@ import {
 import { CatalogAdminOfferPriceView } from './CatalogAdminOfferPriceView';
 
 type CatalogAdminOffer = Parameters<NonNullable<ReturnType<typeof useCatalogAdmin>>['setEditingOffer']>[0];
-type ManagerTab = 'pages' | 'preview' | 'bulk' | 'transfer' | 'activity' | 'publish';
+type ManagerTab = 'catalog' | 'transfer' | 'publish';
 
 const stripSwfSuffix = (label: string) => (label || '').replace(/\s*\(\D[^)]*\)\s*$/g, '').trim();
 const nodeName = (node: ICatalogNode) => stripSwfSuffix(parseCatalogTabLabel(node.localization).name) || node.pageName;
@@ -95,7 +91,7 @@ export const CatalogAdminManagerView: FC<{}> = () => {
     const { activateNode = null } = useCatalogActions();
     const catalogAdmin = useCatalogAdmin();
     const studio = useCatalogStudio();
-    const [activeTab, setActiveTab] = useState<ManagerTab>('pages');
+    const [activeTab, setActiveTab] = useState<ManagerTab>('catalog');
     const [expanded, setExpanded] = useState<Set<number>>(new Set());
     const [search, setSearch] = useState('');
     const [pageDropTarget, setPageDropTarget] = useState<{ pageId: number; position: CatalogAdminPageDropPosition } | null>(null);
@@ -126,14 +122,14 @@ export const CatalogAdminManagerView: FC<{}> = () => {
     });
 
     useEffect(() => {
-        if (activeTab !== 'activity' || !catalogAdmin?.adminMode || !studio.session) return;
-        studio.loadHistory();
-    }, [activeTab, catalogAdmin?.adminMode, studio.session?.draftVersionId, studio.loadHistory]);
-
-    useEffect(() => {
         if (!catalogAdmin?.adminMode || !studio.session) return;
         studio.loadHistory();
     }, [catalogAdmin?.adminMode, studio.session?.draftVersionId, studio.loadHistory]);
+
+    useEffect(() => {
+        if (activeTab !== 'publish' || !commandState.canValidate) return;
+        studio.validate();
+    }, [activeTab, commandState.canValidate, studio.validate]);
 
     useEffect(() => {
         if (selectedPageId < 0 && currentPage?.pageId != null) setSelectedPageId(currentPage.pageId);
@@ -544,8 +540,6 @@ export const CatalogAdminManagerView: FC<{}> = () => {
             return <aside className="nitro-catalog-admin-inspector"><div className="nitro-catalog-admin-placeholder is-small">No page selected</div></aside>;
         }
 
-        const lock = studio.locks[getCatalogStudioPageLockKey(selectedNode.pageId, currentType)];
-
         return (
             <aside className="nitro-catalog-admin-inspector">
                 <div className="nitro-catalog-admin-inspector-head">
@@ -559,13 +553,6 @@ export const CatalogAdminManagerView: FC<{}> = () => {
                     <div><dt>Visibility</dt><dd className={selectedNode.isVisible ? 'is-positive' : 'is-muted'}>{selectedNode.isVisible ? 'Visible' : 'Hidden'}</dd></div>
                     <div><dt>Revision</dt><dd>{studio.revision}</dd></div>
                 </dl>
-                <div className={`nitro-catalog-admin-lock-state ${lock ? 'is-owned' : ''}`}>
-                    <FaLock />
-                    <div>
-                        <strong>{lock ? `Locked by ${lock.ownerName}` : 'Read-only until locked'}</strong>
-                        <span>{lock ? `Lease expires ${formatChangeTime(lock.expiresAt)}` : 'Select or edit the page to acquire its lease.'}</span>
-                    </div>
-                </div>
                 <div className="nitro-catalog-admin-inspector-actions">
                     <button className="nitro-catalog-admin-btn is-primary" onClick={() => editPage(selectedNode, false)}>
                         <FaEdit /> Edit
@@ -580,25 +567,6 @@ export const CatalogAdminManagerView: FC<{}> = () => {
             </aside>
         );
     };
-
-    const renderChangesDrawer = () => (
-        <div className="nitro-catalog-admin-changes-drawer">
-            <div className="nitro-catalog-admin-changes-title">
-                <FaHistory />
-                <div><strong>Draft changes</strong><span>{commandState.pendingLabel}</span></div>
-            </div>
-            <div className="nitro-catalog-admin-changes-feed">
-                {studio.history.length === 0 && <span>No changes recorded.</span>}
-                {studio.history.slice(0, 3).map((group) => (
-                    <button key={group.id} title="Open activity" onClick={() => setActiveTab('activity')}>
-                        <strong>{group.summary}</strong>
-                        <span>r{group.revision} · {group.actorName || `#${group.actorId}`}</span>
-                    </button>
-                ))}
-            </div>
-            <button className="nitro-catalog-admin-btn is-small" onClick={() => setActiveTab('activity')}>Open history</button>
-        </div>
-    );
 
     const renderPagesTab = () => (
         <div className="nitro-catalog-admin-pages">
@@ -636,134 +604,30 @@ export const CatalogAdminManagerView: FC<{}> = () => {
             </div>
             <div className="nitro-catalog-admin-detail">{renderDetail()}</div>
             {renderInspector()}
-            {renderChangesDrawer()}
-        </div>
-    );
-
-    const formatChangeTime = (at: number | string) => new Date(at).toLocaleString([], {
-        day: '2-digit',
-        month: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit'
-    });
-
-    const renderActivityTab = () => (
-        <div className="nitro-catalog-admin-activity">
-            <div className="nitro-catalog-admin-section-head">
-                <div>
-                    <strong>Shared draft activity</strong>
-                    <span>{studio.historyTotalCount} recorded change group(s)</span>
-                </div>
-                <button className="nitro-catalog-admin-btn" disabled={studio.loading} onClick={() => studio.loadHistory()}>
-                    <FaHistory /> <span>Refresh</span>
-                </button>
-            </div>
-            <div className="nitro-catalog-admin-history-list">
-                {studio.history.length === 0 && (
-                    <div className="nitro-catalog-admin-placeholder is-small">No draft activity has been recorded yet.</div>
-                )}
-                {studio.history.map((group) => (
-                    <div key={group.id} className="nitro-catalog-admin-history-row">
-                        <div className="nitro-catalog-admin-history-main">
-                            <span className="nitro-catalog-admin-history-summary">{group.summary}</span>
-                            <span className="nitro-catalog-admin-history-meta">
-                                Revision {group.revision} · {group.actorName || `User #${group.actorId}`} · {group.source}
-                            </span>
-                        </div>
-                        <div className="nitro-catalog-admin-history-side">
-                            <span>{formatChangeTime(group.createdAt)}</span>
-                            <button
-                                className="nitro-catalog-admin-btn is-small"
-                                disabled={studio.loading}
-                                title="Undo this change group in the shared draft"
-                                onClick={() => confirm(`Undo "${group.summary}"?`) && studio.undo(group.id)}
-                            >
-                                Undo
-                            </button>
-                        </div>
-                    </div>
-                ))}
-            </div>
         </div>
     );
 
     const renderPublishTab = () => (
-        <div className="nitro-catalog-admin-publish">
-            <div className={`nitro-catalog-admin-publish-status is-${commandState.phase}`}>
-                {commandState.phase === 'clean' && 'The published catalog and shared draft are aligned.'}
-                {commandState.phase === 'draft' && 'The draft has unpublished changes and must be validated.'}
-                {commandState.phase === 'blocked' && `${commandState.validationLabel} must be resolved before publication.`}
-                {commandState.phase === 'ready' && 'The draft is validated and ready to publish.'}
-                {commandState.phase === 'loading' && 'Opening the shared Catalog Studio session...'}
-                {commandState.phase === 'offline' && 'Catalog Studio session is not ready.'}
-            </div>
-            <p className="nitro-catalog-admin-publish-text">
-                Publication validates the current revision, replaces the live catalog atomically and creates the next shared draft.
-            </p>
-
-            {studio.validation?.issues.length > 0 && (
-                <div className="nitro-catalog-admin-validation-list">
-                    <div className="nitro-catalog-admin-publish-changes-head">Validation issues</div>
-                    {studio.validation.issues.map((issue, index) => (
-                        <div key={`${issue.code}-${issue.entityType}-${issue.entityId}-${index}`} className="nitro-catalog-admin-validation-row">
-                            <FaExclamationTriangle />
-                            <div>
-                                <strong>{issue.message}</strong>
-                                <span>{issue.entityType} #{issue.entityId} · {issue.field} · {issue.code}</span>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            )}
-
-            <div className="nitro-catalog-admin-publish-actions">
-                <button
-                    className="nitro-catalog-admin-btn"
-                    disabled={!commandState.canValidate}
-                    onClick={() => studio.validate()}
-                >
-                    <FaCheckCircle /> <span>{studio.loading ? 'Working…' : 'Validate draft'}</span>
-                </button>
-                <button
-                    className={`nitro-catalog-admin-btn is-publish ${commandState.canPublish ? 'has-pending' : ''}`}
-                    disabled={!commandState.canPublish}
-                    onClick={() => catalogAdmin.publishCatalog()}
-                >
-                    <FaCloudUploadAlt /> <span>{studio.loading ? 'Publishing…' : 'Publish catalog'}</span>
-                </button>
-            </div>
-
-            {studio.session?.publishedVersions.length > 0 && (
-                <div className="nitro-catalog-admin-versions">
-                    <div className="nitro-catalog-admin-publish-changes-head">Published versions</div>
-                    {studio.session.publishedVersions.map((version) => (
-                        <div key={version.id} className="nitro-catalog-admin-version-row">
-                            <div>
-                                <strong>{version.label || `Version #${version.id}`}</strong>
-                                <span>{formatChangeTime(version.publishedAt)}</span>
-                            </div>
-                            <button
-                                className="nitro-catalog-admin-btn is-small"
-                                disabled={studio.loading || version.id === studio.session?.activeVersionId}
-                                onClick={() => confirm(`Restore version #${version.id} into the shared draft?`) && studio.restore(version.id)}
-                            >
-                                Restore to draft
-                            </button>
-                        </div>
-                    ))}
-                </div>
-            )}
+        <div>
+            <CatalogStudioPublishReview
+                phase={commandState.phase}
+                pendingCount={studio.pendingCount}
+                validationCurrent={validationCurrent}
+                issues={studio.validation?.issues ?? []}
+                history={studio.history}
+                loading={studio.loading}
+                publish={() => catalogAdmin.publishCatalog()}
+                undo={studio.undo}
+            />
         </div>
     );
 
-    const tabs = [
-        { id: 'pages' as ManagerTab, label: 'Pages', icon: <FaSitemap />, count: categoryCount },
-        { id: 'preview' as ManagerTab, label: 'Preview', icon: <FaEye />, count: studio.preview?.pages.length ?? 0 },
-        { id: 'bulk' as ManagerTab, label: 'Bulk', icon: <FaArrowsAlt />, count: 0 },
-        { id: 'transfer' as ManagerTab, label: 'JSONC / SQL', icon: <FaEdit />, count: 0 },
-        { id: 'activity' as ManagerTab, label: 'Activity', icon: <FaHistory />, count: studio.historyTotalCount },
-        { id: 'publish' as ManagerTab, label: 'Publish', icon: <FaCloudUploadAlt />, count: studio.pendingCount }
-    ];
+    const tabPresentation = {
+        catalog: { label: 'Catalog', icon: <FaSitemap />, count: categoryCount },
+        transfer: { label: 'Import / Export', icon: <FaEdit />, count: 0 },
+        publish: { label: 'Changes', icon: <FaHistory />, count: studio.pendingCount }
+    };
+    const tabs = getCatalogStudioWorkspaceTabs().map(id => ({ id, ...tabPresentation[id] }));
 
     return (
         <NitroCardView classNames={['nitro-catalog-admin-manager']} uniqueKey="catalog-admin-manager">
@@ -775,12 +639,9 @@ export const CatalogAdminManagerView: FC<{}> = () => {
                         <span>Shared draft command center</span>
                     </div>
                     <div className="nitro-catalog-admin-command-stats">
-                        <span className="is-revision"><FaClock /> Revision {studio.revision}</span>
                         <span className={hasPendingChanges ? 'has-pending' : ''}>
                             <FaCloudUploadAlt /> {commandState.pendingLabel}
                         </span>
-                        <span className="is-actors"><FaUsers /> {commandState.actorLabel}</span>
-                        <span className="is-locks"><FaLock /> {commandState.lockLabel}</span>
                         <span className={validationIssueCount > 0 ? 'has-error' : validationCurrent ? 'is-valid' : 'has-warning'}>
                             {validationCurrent && validationIssueCount === 0 ? <FaCheckCircle /> : <FaExclamationTriangle />}
                             {commandState.validationLabel}
@@ -814,11 +675,8 @@ export const CatalogAdminManagerView: FC<{}> = () => {
                 </div>
 
                 <div id="catalog-studio-active-panel" className="nitro-catalog-admin-panel" role="tabpanel" aria-labelledby={`catalog-studio-tab-${activeTab}`}>
-                    {activeTab === 'pages' && renderPagesTab()}
-                    {activeTab === 'preview' && <CatalogStudioPreview />}
-                    {activeTab === 'bulk' && <CatalogStudioBulkPanel />}
-                    {activeTab === 'transfer' && <CatalogStudioImportExportPanel />}
-                    {activeTab === 'activity' && renderActivityTab()}
+                    {activeTab === 'catalog' && renderPagesTab()}
+                    {activeTab === 'transfer' && <CatalogStudioTransferPanel />}
                     {activeTab === 'publish' && renderPublishTab()}
                 </div>
             </NitroCardContentView>
