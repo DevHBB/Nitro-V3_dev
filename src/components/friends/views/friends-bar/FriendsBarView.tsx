@@ -8,8 +8,8 @@ import { FriendBarItemView } from './FriendBarItemView';
 // AIR uses 127px friend tabs and derives the visible count from the actual
 // width left after the toolbar controls.
 const AIR_TAB_WIDTH = 127;
-const AIR_TAB_SPACING = 6;
-const ARROWS_WIDTH = 52; // two w-[20px] arrows, each + 6px gap
+const AIR_TAB_SPACING = 3;
+const AIR_MIN_VISIBLE_SLOTS = 3;
 const BASE_PAD = 8; // container px-[2px] + a little slack
 const RIGHT_SAFE = 24; // right inset (right-0/right-3) + pr-3 safety margin
 
@@ -29,7 +29,7 @@ const itemVariants: Variants = {
 export const FriendBarView: FC<{ onlineFriends: MessengerFriend[]; requestsCount?: number }> = (props) => {
     const { onlineFriends = [], requestsCount = 0 } = props;
     const [indexOffset, setIndexOffset] = useState(0);
-    const [maxVisible, setMaxVisible] = useState(1);
+    const [maxVisible, setMaxVisible] = useState(AIR_MIN_VISIBLE_SLOTS);
     const elementRef = useRef<HTMLDivElement>(null);
 
     // Auto-fit the visible friend count to the room actually available between
@@ -46,15 +46,8 @@ export const FriendBarView: FC<{ onlineFriends: MessengerFriend[]; requestsCount
         const measure = () => {
             const left = element.getBoundingClientRect().left;
             const available = window.innerWidth - left - RIGHT_SAFE;
-            const searchAndRequestWidth = AIR_TAB_WIDTH + BASE_PAD + (requestsCount > 0 ? (AIR_TAB_WIDTH + AIR_TAB_SPACING) : 0);
-            const capacityWithoutArrows = resolveAirFriendTabCapacity(available, searchAndRequestWidth, AIR_TAB_SPACING);
-            const friendCount = onlineFriends.filter(Boolean).length;
-            const needsArrows = friendCount > capacityWithoutArrows;
-            const next = resolveAirFriendTabCapacity(
-                available,
-                searchAndRequestWidth + (needsArrows ? ARROWS_WIDTH : 0),
-                AIR_TAB_SPACING
-            );
+            const requestWidth = BASE_PAD + (requestsCount > 0 ? AIR_TAB_WIDTH + AIR_TAB_SPACING : 0);
+            const next = Math.max(AIR_MIN_VISIBLE_SLOTS, resolveAirFriendTabCapacity(available, requestWidth, AIR_TAB_SPACING));
 
             setMaxVisible((prev) => (prev === next ? prev : next));
         };
@@ -88,11 +81,12 @@ export const FriendBarView: FC<{ onlineFriends: MessengerFriend[]; requestsCount
     const canScrollRight = safeOffset < maxOffset;
     const showArrows = maxOffset > 0;
     const visibleFriends = validFriends.slice(safeOffset, safeOffset + maxVisible);
+    const findFriendsSlotCount = Math.max(0, Math.min(AIR_MIN_VISIBLE_SLOTS, maxVisible) - visibleFriends.length);
 
     return (
         <motion.div
             ref={elementRef}
-            className="friend-bar flex h-[40px] items-center gap-[6px] px-[2px] py-[3px]"
+            className="friend-bar flex h-[40px] items-center gap-[3px] px-[2px] py-[3px]"
             variants={containerVariants}
             initial="hidden"
             animate="visible"
@@ -125,9 +119,11 @@ export const FriendBarView: FC<{ onlineFriends: MessengerFriend[]; requestsCount
                         <FriendBarItemView friend={friend} />
                     </motion.div>
                 ))}
-                <motion.div key="friend-search" variants={itemVariants} layout initial="hidden" animate="visible" exit="exit">
-                    <FriendBarItemView friend={null} />
-                </motion.div>
+                {Array.from({ length: findFriendsSlotCount }, (_, index) => (
+                    <motion.div key={`friend-search-${index}`} variants={itemVariants} layout initial="hidden" animate="visible" exit="exit">
+                        <FriendBarItemView friend={null} />
+                    </motion.div>
+                ))}
             </AnimatePresence>
 
             {showArrows && (
