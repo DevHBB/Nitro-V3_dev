@@ -5,10 +5,13 @@
     z-index: 5;
     width: 280px;
     max-height: 72px;
+    padding: 1px 12px 5px 0;
     overflow: hidden;
     color: #fff;
     pointer-events: none;
-    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.85);
+    background: linear-gradient(90deg, rgba(0, 0, 0, 0.34) 0%, rgba(0, 0, 0, 0.12) 68%, transparent 100%);
+    border-radius: 2px;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.95);
 }
 
 .nitro-catalog-product-details {
@@ -32,7 +35,7 @@
     font-style: italic;
     line-height: 15px;
     -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
+    -webkit-line-clamp: 3;
 }
 
 /* standard switches both fields to solid white whenever the 3D room canvas is
@@ -42,7 +45,10 @@
 .nitro-catalog-offer-preview:not(.is-badge) .nitro-catalog-product-details-description {
     color: #fff !important;
     opacity: 1 !important;
-    text-shadow: 0 1px 1px #000;
+    text-shadow:
+        0 1px 1px #000,
+        1px 0 1px rgba(0, 0, 0, 0.8),
+        -1px 0 1px rgba(0, 0, 0, 0.8);
 }
 
 .nitro-catalog-product-details-badges {
@@ -66,6 +72,7 @@
 
 .nitro-catalog-offer-preview.is-badge .nitro-catalog-preview-details {
     color: var(--catalog-standard-text, #222);
+    background: none;
     text-shadow: 0 1px 0 rgba(255, 255, 255, 0.7);
 }
 

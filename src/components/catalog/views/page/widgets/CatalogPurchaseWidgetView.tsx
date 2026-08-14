@@ -31,6 +31,7 @@ import {
     useUiEvent
 } from '../../../../../hooks';
 import { CatalogPurchaseConfirmView } from '../../CatalogPurchaseConfirmView';
+import { CatalogClubUpgradeButton } from './CatalogClubUpgradeButton';
 import { canPurchaseCatalogOffer } from './catalogPurchase.helpers';
 
 interface CatalogPurchaseWidgetViewProps {
@@ -257,12 +258,7 @@ export const CatalogPurchaseWidgetView: FC<CatalogPurchaseWidgetViewProps> = (pr
                 </Button>
             );
 
-        if (GetClubMemberLevel() < currentOffer.clubLevel)
-            return (
-                <Button classNames={standardButtonClassNames} disabled variant="danger">
-                    {LocalizeText('catalog.alert.hc.required')}
-                </Button>
-            );
+        if (GetClubMemberLevel() < currentOffer.clubLevel) return <CatalogClubUpgradeButton />;
 
         if (isLimitedSoldOut)
             return (

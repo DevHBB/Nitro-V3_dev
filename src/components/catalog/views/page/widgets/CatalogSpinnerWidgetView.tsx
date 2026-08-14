@@ -4,7 +4,13 @@ import { LocalizeText } from '../../../../../api';
 import { useCatalogData, useCatalogUiState } from '../../../../../hooks';
 
 const MIN_VALUE: number = 1;
-const MAX_VALUE: number = 99;
+const MAX_VALUE: number = 100;
+
+export const clampCatalogPurchaseQuantity = (value: number): number => {
+    if (isNaN(value)) return MIN_VALUE;
+
+    return Math.min(Math.max(Math.trunc(value), MIN_VALUE), MAX_VALUE);
+};
 
 export const CatalogSpinnerWidgetView: FC<{}> = (props) => {
     const { currentOffer = null } = useCatalogData();
@@ -12,10 +18,7 @@ export const CatalogSpinnerWidgetView: FC<{}> = (props) => {
     const { quantity = 1 } = purchaseOptions;
 
     const updateQuantity = (value: number) => {
-        if (isNaN(value)) value = 1;
-
-        value = Math.max(value, MIN_VALUE);
-        value = Math.min(value, MAX_VALUE);
+        value = clampCatalogPurchaseQuantity(value);
 
         if (value === quantity) return;
 
@@ -34,7 +37,10 @@ export const CatalogSpinnerWidgetView: FC<{}> = (props) => {
         <div className="nitro-catalog-standard-spinner">
             <span className="nitro-catalog-standard-spinner-label">{LocalizeText('catalog.bundlewidget.quantity')}</span>
             <div className="nitro-catalog-standard-spinner-control">
-                <button className="nitro-catalog-standard-spinner-button nitro-catalog-standard-spinner-button-less" onClick={(event) => updateQuantity(quantity - 1)}>
+                <button
+                    className="nitro-catalog-standard-spinner-button nitro-catalog-standard-spinner-button-less"
+                    onClick={(event) => updateQuantity(quantity - 1)}
+                >
                     <FaMinus />
                 </button>
                 <input
@@ -43,7 +49,10 @@ export const CatalogSpinnerWidgetView: FC<{}> = (props) => {
                     value={quantity}
                     onChange={(event) => updateQuantity(event.target.valueAsNumber)}
                 />
-                <button className="nitro-catalog-standard-spinner-button nitro-catalog-standard-spinner-button-more" onClick={(event) => updateQuantity(quantity + 1)}>
+                <button
+                    className="nitro-catalog-standard-spinner-button nitro-catalog-standard-spinner-button-more"
+                    onClick={(event) => updateQuantity(quantity + 1)}
+                >
                     <FaPlus />
                 </button>
             </div>
