@@ -6,32 +6,27 @@ import { CatalogPreviewControls } from './CatalogPreviewControls';
 afterEach(cleanup);
 
 describe('standard catalog product preview controls', () => {
-    it('provides independent left/right rotation and one contextual zoom control', () => {
+    it('keeps furniture controls limited to independent left/right rotation', () => {
         const rotations: boolean[] = [];
-        let zoomIns = 0;
-        let zoomOuts = 0;
         const roomPreviewer = {
             changeRoomObjectDirection: (clockwise: boolean) => rotations.push(clockwise),
-            zoomIn: () => zoomIns++,
-            zoomOut: () => zoomOuts++
+            zoomIn: vi.fn(),
+            zoomOut: vi.fn()
         } as any;
 
         render(<CatalogPreviewControls productType={ProductTypeEnum.FLOOR} roomPreviewer={roomPreviewer} />);
 
         fireEvent.click(screen.getByRole('button', { name: 'Rotate left' }));
         fireEvent.click(screen.getByRole('button', { name: 'Rotate right' }));
-        fireEvent.click(screen.getByRole('button', { name: 'Toggle zoom' }));
-        fireEvent.click(screen.getByRole('button', { name: 'Toggle zoom' }));
 
         expect(rotations).toEqual([false, true]);
         expect(screen.queryByRole('button', { name: 'Change state' })).not.toBeInTheDocument();
-        expect(screen.queryByRole('button', { name: 'Zoom in' })).not.toBeInTheDocument();
-        expect(screen.queryByRole('button', { name: 'Zoom out' })).not.toBeInTheDocument();
-        expect(zoomIns).toBe(1);
-        expect(zoomOuts).toBe(1);
+        expect(screen.queryByRole('button', { name: 'Toggle zoom' })).not.toBeInTheDocument();
+        expect(roomPreviewer.zoomIn).not.toHaveBeenCalled();
+        expect(roomPreviewer.zoomOut).not.toHaveBeenCalled();
     });
 
-    it('renders only actions supported by the loaded preview object', () => {
+    it('does not expose zoom for loaded furniture even when the renderer can zoom the canvas', () => {
         const capabilities = {
             mode: 'wall',
             canRotate: true,
@@ -53,14 +48,34 @@ describe('standard catalog product preview controls', () => {
 
         expect(screen.getByRole('button', { name: 'Rotate left' })).toBeEnabled();
         expect(screen.getByRole('button', { name: 'Rotate right' })).toBeEnabled();
-        expect(screen.getByRole('button', { name: 'Toggle zoom' })).toBeEnabled();
-
-        fireEvent.click(screen.getByRole('button', { name: 'Toggle zoom' }));
-
-        expect(roomPreviewer.zoomOut).toHaveBeenCalledOnce();
+        expect(screen.queryByRole('button', { name: 'Toggle zoom' })).not.toBeInTheDocument();
     });
 
-    it('keeps avatar actions out of the toolbar', () => {
+    it('keeps rotation controls visible but disabled for furniture that cannot rotate', () => {
+        const capabilities = {
+            mode: 'floor',
+            canRotate: false,
+            canChangeState: true,
+            canUseAvatarActions: false,
+            canZoomIn: false,
+            canZoomOut: true
+        };
+        const roomPreviewer = {
+            changeRoomObjectDirection: vi.fn(),
+            getPreviewCapabilities: () => capabilities,
+            subscribePreviewCapabilities: () => () => undefined,
+            zoomIn: vi.fn(),
+            zoomOut: vi.fn()
+        } as any;
+
+        render(<CatalogPreviewControls productType={ProductTypeEnum.FLOOR} roomPreviewer={roomPreviewer} />);
+
+        expect(screen.getByRole('button', { name: 'Rotate left' })).toBeDisabled();
+        expect(screen.getByRole('button', { name: 'Rotate right' })).toBeDisabled();
+        expect(screen.queryByRole('button', { name: 'Toggle zoom' })).not.toBeInTheDocument();
+    });
+
+    it('uses the avatar control layout for purchasable clothing and keeps actions on the preview click', () => {
         const capabilities = {
             mode: 'avatar',
             canRotate: true,
@@ -77,8 +92,9 @@ describe('standard catalog product preview controls', () => {
             zoomOut: vi.fn()
         } as any;
 
-        render(<CatalogPreviewControls productType={ProductTypeEnum.EFFECT} roomPreviewer={roomPreviewer} />);
+        render(<CatalogPreviewControls productType={ProductTypeEnum.FLOOR} roomPreviewer={roomPreviewer} />);
 
+        expect(screen.getByRole('toolbar', { name: 'Product preview' })).toHaveClass('is-avatar');
         expect(screen.queryByRole('button', { name: 'Change state' })).not.toBeInTheDocument();
         fireEvent.click(screen.getByRole('button', { name: 'Rotate left' }));
 

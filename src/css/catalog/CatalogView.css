@@ -2181,12 +2181,43 @@
     top: 8px;
     right: 6px;
     z-index: 10;
-    display: flex;
-    gap: 3px;
+    display: grid;
+    grid-template-columns: 25px 25px;
+    gap: 5px 4px;
 }
 
-.nitro-catalog-preview-controls .nitro-catalog-preview-btn {
+.nitro-catalog-window .nitro-catalog-preview-controls button.nitro-catalog-preview-btn {
     position: static;
+    width: 25px !important;
+    min-width: 25px !important;
+    height: 24px !important;
+    min-height: 24px !important;
+}
+
+.nitro-catalog-window .nitro-catalog-preview-controls button.nitro-catalog-preview-zoom-btn {
+    grid-column: 2;
+    width: 20px !important;
+    min-width: 20px !important;
+    height: 22px !important;
+    min-height: 22px !important;
+    margin-top: 0;
+    justify-self: center;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+.nitro-catalog-window .nitro-catalog-preview-controls button.nitro-catalog-preview-zoom-btn:hover,
+.nitro-catalog-window .nitro-catalog-preview-controls button.nitro-catalog-preview-zoom-btn:active {
+    background: rgba(255, 255, 255, 0.28) !important;
+    box-shadow: none !important;
+}
+
+.nitro-catalog-window .nitro-catalog-preview-controls button.nitro-catalog-preview-zoom-btn svg {
+    width: 13px !important;
+    height: 13px !important;
+    color: #007ca8 !important;
+    fill: #007ca8 !important;
 }
 
 .nitro-catalog-grid-club-level {

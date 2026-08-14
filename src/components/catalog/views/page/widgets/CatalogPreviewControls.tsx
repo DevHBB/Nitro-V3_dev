@@ -1,6 +1,6 @@
 import { RoomPreviewer } from '@nitrots/nitro-renderer';
 import { FC, MouseEvent, useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
-import { FaRedo, FaSearchMinus, FaSearchPlus, FaUndo } from 'react-icons/fa';
+import { FaRedo, FaSearchPlus, FaUndo } from 'react-icons/fa';
 import { ProductTypeEnum } from '../../../../../api';
 
 interface CatalogPreviewControlsProps {
@@ -30,8 +30,8 @@ const getFallbackCapabilities = (productType: string): PreviewCapabilities => {
             canRotate: true,
             canChangeState: true,
             canUseAvatarActions: false,
-            canZoomIn: true,
-            canZoomOut: true
+            canZoomIn: false,
+            canZoomOut: false
         };
     }
 
@@ -81,12 +81,13 @@ const CatalogPreviewControlsContent: FC<Required<CatalogPreviewControlsProps>> =
         [directionalPreviewer, fallbackCapabilities]
     );
     const capabilities = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
-    const canToggleZoom = capabilities.canZoomIn || capabilities.canZoomOut;
+    const showRotationControls = capabilities.mode === 'floor' || capabilities.mode === 'wall' || capabilities.mode === 'avatar';
+    const canToggleZoom = capabilities.mode === 'avatar' && (capabilities.canZoomIn || capabilities.canZoomOut);
     const shouldZoomOut = hasCapabilityContract ? capabilities.canZoomOut : !fallbackZoomedOut;
 
     useEffect(() => setFallbackZoomedOut(false), [directionalPreviewer, productType]);
 
-    if (!capabilities.canRotate && !canToggleZoom) return null;
+    if (!showRotationControls && !canToggleZoom) return null;
 
     const runPreviewAction = (event: MouseEvent<HTMLButtonElement>, action: () => void) => {
         event.preventDefault();
@@ -95,12 +96,13 @@ const CatalogPreviewControlsContent: FC<Required<CatalogPreviewControlsProps>> =
     };
 
     return (
-        <div className="nitro-catalog-preview-controls" role="toolbar" aria-label="Product preview">
-            {capabilities.canRotate && (
+        <div className={`nitro-catalog-preview-controls is-${capabilities.mode}`} role="toolbar" aria-label="Product preview">
+            {showRotationControls && (
                 <>
                     <button
                         aria-label="Rotate left"
                         className="nitro-catalog-preview-btn"
+                        disabled={!capabilities.canRotate}
                         type="button"
                         onClick={(event) => runPreviewAction(event, () => directionalPreviewer.changeRoomObjectDirection(false))}
                     >
@@ -109,6 +111,7 @@ const CatalogPreviewControlsContent: FC<Required<CatalogPreviewControlsProps>> =
                     <button
                         aria-label="Rotate right"
                         className="nitro-catalog-preview-btn"
+                        disabled={!capabilities.canRotate}
                         type="button"
                         onClick={(event) => runPreviewAction(event, () => directionalPreviewer.changeRoomObjectDirection(true))}
                     >
@@ -119,7 +122,7 @@ const CatalogPreviewControlsContent: FC<Required<CatalogPreviewControlsProps>> =
             {canToggleZoom && (
                 <button
                     aria-label="Toggle zoom"
-                    className="nitro-catalog-preview-btn"
+                    className="nitro-catalog-preview-btn nitro-catalog-preview-zoom-btn"
                     type="button"
                     onClick={(event) =>
                         runPreviewAction(event, () => {
@@ -130,7 +133,7 @@ const CatalogPreviewControlsContent: FC<Required<CatalogPreviewControlsProps>> =
                         })
                     }
                 >
-                    {shouldZoomOut ? <FaSearchMinus aria-hidden="true" /> : <FaSearchPlus aria-hidden="true" />}
+                    <FaSearchPlus aria-hidden="true" />
                 </button>
             )}
         </div>
