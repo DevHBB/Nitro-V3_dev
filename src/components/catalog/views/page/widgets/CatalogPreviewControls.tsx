@@ -1,6 +1,6 @@
 import { RoomPreviewer } from '@nitrots/nitro-renderer';
-import { FC, MouseEvent, useCallback, useMemo, useSyncExternalStore } from 'react';
-import { FaExchangeAlt, FaRedo, FaSearchMinus, FaSearchPlus, FaUndo } from 'react-icons/fa';
+import { FC, MouseEvent, useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import { FaRedo, FaSearchMinus, FaSearchPlus, FaUndo } from 'react-icons/fa';
 import { ProductTypeEnum } from '../../../../../api';
 
 interface CatalogPreviewControlsProps {
@@ -38,7 +38,7 @@ const getFallbackCapabilities = (productType: string): PreviewCapabilities => {
     if (productType === ProductTypeEnum.EFFECT || productType === ProductTypeEnum.ROBOT) {
         return {
             mode: 'avatar',
-            canRotate: false,
+            canRotate: true,
             canChangeState: false,
             canUseAvatarActions: true,
             canZoomIn: true,
@@ -69,6 +69,8 @@ const getFallbackCapabilities = (productType: string): PreviewCapabilities => {
 
 const CatalogPreviewControlsContent: FC<Required<CatalogPreviewControlsProps>> = ({ productType, roomPreviewer }) => {
     const directionalPreviewer = roomPreviewer as DirectionalRoomPreviewer;
+    const hasCapabilityContract = !!directionalPreviewer.getPreviewCapabilities;
+    const [fallbackZoomedOut, setFallbackZoomedOut] = useState(false);
     const fallbackCapabilities = useMemo(() => getFallbackCapabilities(productType), [productType]);
     const subscribe = useCallback(
         (listener: () => void) => directionalPreviewer.subscribePreviewCapabilities?.(listener) ?? (() => undefined),
@@ -79,8 +81,12 @@ const CatalogPreviewControlsContent: FC<Required<CatalogPreviewControlsProps>> =
         [directionalPreviewer, fallbackCapabilities]
     );
     const capabilities = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+    const canToggleZoom = capabilities.canZoomIn || capabilities.canZoomOut;
+    const shouldZoomOut = hasCapabilityContract ? capabilities.canZoomOut : !fallbackZoomedOut;
 
-    if (!capabilities.canRotate && !capabilities.canChangeState && !capabilities.canZoomIn && !capabilities.canZoomOut) return null;
+    useEffect(() => setFallbackZoomedOut(false), [directionalPreviewer, productType]);
+
+    if (!capabilities.canRotate && !canToggleZoom) return null;
 
     const runPreviewAction = (event: MouseEvent<HTMLButtonElement>, action: () => void) => {
         event.preventDefault();
@@ -110,34 +116,23 @@ const CatalogPreviewControlsContent: FC<Required<CatalogPreviewControlsProps>> =
                     </button>
                 </>
             )}
-            {capabilities.canChangeState && (
+            {canToggleZoom && (
                 <button
-                    aria-label="Change state"
+                    aria-label="Toggle zoom"
                     className="nitro-catalog-preview-btn"
                     type="button"
-                    onClick={(event) => runPreviewAction(event, () => roomPreviewer.changeRoomObjectState())}
+                    onClick={(event) =>
+                        runPreviewAction(event, () => {
+                            if (shouldZoomOut) roomPreviewer.zoomOut();
+                            else roomPreviewer.zoomIn();
+
+                            if (!hasCapabilityContract) setFallbackZoomedOut(shouldZoomOut);
+                        })
+                    }
                 >
-                    <FaExchangeAlt aria-hidden="true" />
+                    {shouldZoomOut ? <FaSearchMinus aria-hidden="true" /> : <FaSearchPlus aria-hidden="true" />}
                 </button>
             )}
-            <button
-                aria-label="Zoom in"
-                className="nitro-catalog-preview-btn"
-                disabled={!capabilities.canZoomIn}
-                type="button"
-                onClick={(event) => runPreviewAction(event, () => roomPreviewer.zoomIn())}
-            >
-                <FaSearchPlus aria-hidden="true" />
-            </button>
-            <button
-                aria-label="Zoom out"
-                className="nitro-catalog-preview-btn"
-                disabled={!capabilities.canZoomOut}
-                type="button"
-                onClick={(event) => runPreviewAction(event, () => roomPreviewer.zoomOut())}
-            >
-                <FaSearchMinus aria-hidden="true" />
-            </button>
         </div>
     );
 };

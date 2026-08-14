@@ -6,14 +6,12 @@ import { CatalogPreviewControls } from './CatalogPreviewControls';
 afterEach(cleanup);
 
 describe('standard catalog product preview controls', () => {
-    it('provides independent left/right rotation, interaction and zoom controls', () => {
+    it('provides independent left/right rotation and one contextual zoom control', () => {
         const rotations: boolean[] = [];
-        let interactions = 0;
         let zoomIns = 0;
         let zoomOuts = 0;
         const roomPreviewer = {
             changeRoomObjectDirection: (clockwise: boolean) => rotations.push(clockwise),
-            changeRoomObjectState: () => interactions++,
             zoomIn: () => zoomIns++,
             zoomOut: () => zoomOuts++
         } as any;
@@ -22,12 +20,13 @@ describe('standard catalog product preview controls', () => {
 
         fireEvent.click(screen.getByRole('button', { name: 'Rotate left' }));
         fireEvent.click(screen.getByRole('button', { name: 'Rotate right' }));
-        fireEvent.click(screen.getByRole('button', { name: 'Change state' }));
-        fireEvent.click(screen.getByRole('button', { name: 'Zoom in' }));
-        fireEvent.click(screen.getByRole('button', { name: 'Zoom out' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Toggle zoom' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Toggle zoom' }));
 
         expect(rotations).toEqual([false, true]);
-        expect(interactions).toBe(1);
+        expect(screen.queryByRole('button', { name: 'Change state' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Zoom in' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Zoom out' })).not.toBeInTheDocument();
         expect(zoomIns).toBe(1);
         expect(zoomOuts).toBe(1);
     });
@@ -54,21 +53,24 @@ describe('standard catalog product preview controls', () => {
 
         expect(screen.getByRole('button', { name: 'Rotate left' })).toBeEnabled();
         expect(screen.getByRole('button', { name: 'Rotate right' })).toBeEnabled();
-        expect(screen.queryByRole('button', { name: 'Change state' })).not.toBeInTheDocument();
-        expect(screen.getByRole('button', { name: 'Zoom in' })).toBeDisabled();
-        expect(screen.getByRole('button', { name: 'Zoom out' })).toBeEnabled();
+        expect(screen.getByRole('button', { name: 'Toggle zoom' })).toBeEnabled();
+
+        fireEvent.click(screen.getByRole('button', { name: 'Toggle zoom' }));
+
+        expect(roomPreviewer.zoomOut).toHaveBeenCalledOnce();
     });
 
-    it('does not expose furniture actions for an avatar preview', () => {
+    it('keeps avatar actions out of the toolbar', () => {
         const capabilities = {
             mode: 'avatar',
-            canRotate: false,
+            canRotate: true,
             canChangeState: false,
             canUseAvatarActions: true,
             canZoomIn: true,
             canZoomOut: false
         };
         const roomPreviewer = {
+            changeRoomObjectDirection: vi.fn(),
             getPreviewCapabilities: () => capabilities,
             subscribePreviewCapabilities: () => () => undefined,
             zoomIn: vi.fn(),
@@ -77,10 +79,14 @@ describe('standard catalog product preview controls', () => {
 
         render(<CatalogPreviewControls productType={ProductTypeEnum.EFFECT} roomPreviewer={roomPreviewer} />);
 
-        expect(screen.queryByRole('button', { name: 'Rotate left' })).not.toBeInTheDocument();
         expect(screen.queryByRole('button', { name: 'Change state' })).not.toBeInTheDocument();
-        expect(screen.getByRole('button', { name: 'Zoom in' })).toBeEnabled();
-        expect(screen.getByRole('button', { name: 'Zoom out' })).toBeDisabled();
+        fireEvent.click(screen.getByRole('button', { name: 'Rotate left' }));
+
+        expect(roomPreviewer.changeRoomObjectDirection).toHaveBeenCalledWith(false);
+        expect(screen.queryByRole('button', { name: 'Change avatar action' })).not.toBeInTheDocument();
+        fireEvent.click(screen.getByRole('button', { name: 'Toggle zoom' }));
+
+        expect(roomPreviewer.zoomIn).toHaveBeenCalledOnce();
     });
 
     it('keeps standard preview actions from leaking into the room-canvas click handler', () => {
@@ -98,9 +104,9 @@ describe('standard catalog product preview controls', () => {
             </div>
         );
 
-        fireEvent.click(within(view.container).getByRole('button', { name: 'Change state' }));
+        fireEvent.click(within(view.container).getByRole('button', { name: 'Rotate left' }));
 
-        expect(roomPreviewer.changeRoomObjectState).toHaveBeenCalledOnce();
+        expect(roomPreviewer.changeRoomObjectDirection).toHaveBeenCalledWith(false);
         expect(canvasClick).not.toHaveBeenCalled();
     });
 });
