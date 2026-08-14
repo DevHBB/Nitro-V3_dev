@@ -51,7 +51,7 @@ const CatalogViewInner: FC<{}> = () => {
     const displayedCurrencies = GetConfigurationValue<number[]>('system.currency.types', []);
     const activeCatalogNode = activeNodes?.[activeNodes.length - 1] ?? null;
     const buildersClubEnabled = GetConfigurationValue<boolean>('buildersclub.enabled', GetConfigurationValue<boolean>('toolbar.buildersclub.enabled', true));
-    // Strip SWF-style suffixes like "(BC)" or "(Hot)" but keep the
+    // Strip technical suffixes like "(BC)" or "(Hot)" but keep the
     // pageId hint the gameserver appends when the viewer has
     // ACC_CATALOG_IDS - that's a pure-numeric "(6)" trailer.
     const stripSwfTabSuffix = (label: string) => (label || '').replace(/\s*\(\D[^)]*\)\s*$/g, '').trim();
@@ -226,16 +226,16 @@ const CatalogViewInner: FC<{}> = () => {
                             </NitroCardTabsItemView>
                         )}
                     </NitroCardTabsView>
-                    <div className="nitro-catalog-swf-header">
+                    <div className="nitro-catalog-standard-header">
                         <div
-                            className="nitro-catalog-swf-header-bg"
+                            className="nitro-catalog-standard-header-bg"
                             style={currentPage?.localization?.getImage(0) ? { backgroundImage: `url(${currentPage.localization.getImage(0)})` } : undefined}
                         />
-                        <div className="nitro-catalog-swf-header-icon">
+                        <div className="nitro-catalog-standard-header-icon">
                             <CatalogIconView icon={activeCatalogNode?.iconId ?? rootNode?.iconId ?? 1} />
                         </div>
-                        <div className="nitro-catalog-swf-header-copy">
-                            <div className="nitro-catalog-swf-header-title">
+                        <div className="nitro-catalog-standard-header-copy">
+                            <div className="nitro-catalog-standard-header-title">
                                 {currentType === CatalogType.BUILDER
                                     ? LocalizeText('builder.header.title')
                                     : searchResult
@@ -243,10 +243,10 @@ const CatalogViewInner: FC<{}> = () => {
                                       : getSwfTabLabel(activeCatalogNode?.localization ?? LocalizeText('catalog.title'))}
                             </div>
                             {currentType === CatalogType.BUILDER ? (
-                                <div className="nitro-catalog-swf-header-description">{LocalizeText('builder.header.status.membership')}</div>
+                                <div className="nitro-catalog-standard-header-description">{LocalizeText('builder.header.status.membership')}</div>
                             ) : (
                                 <div
-                                    className="nitro-catalog-swf-header-description"
+                                    className="nitro-catalog-standard-header-description"
                                     dangerouslySetInnerHTML={{
                                         __html: SanitizeHtml(
                                             searchResult

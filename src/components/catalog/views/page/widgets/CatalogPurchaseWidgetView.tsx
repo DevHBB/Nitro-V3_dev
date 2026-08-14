@@ -194,7 +194,7 @@ export const CatalogPurchaseWidgetView: FC<CatalogPurchaseWidgetViewProps> = (pr
     const isOfferUnavailable = !canPurchaseCatalogOffer(currentOffer);
 
     const PurchaseButton = () => {
-        const swfButtonClassNames = ['nitro-catalog-swf-button'];
+        const standardButtonClassNames = ['nitro-catalog-standard-button'];
 
         if (isBuildersClubPlaceable) {
             const hasMissingExtraParam = purchaseOptions.extraParamRequired && (!purchaseOptions.extraData || !purchaseOptions.extraData.length);
@@ -221,11 +221,11 @@ export const CatalogPurchaseWidgetView: FC<CatalogPurchaseWidgetViewProps> = (pr
             return (
                 <div className="flex flex-col gap-1.5 items-start">
                     <div className="flex gap-1.5 flex-wrap">
-                        <Button classNames={swfButtonClassNames} disabled={isDisabled} onClick={() => startBuilderPlacement(true)}>
+                        <Button classNames={standardButtonClassNames} disabled={isDisabled} onClick={() => startBuilderPlacement(true)}>
                             {LocalizeText('builder.placement_widget.place_many')}
                         </Button>
                         <Button
-                            classNames={swfButtonClassNames}
+                            classNames={standardButtonClassNames}
                             disabled={isDisabled}
                             onClick={() => startBuilderPlacement(false)}
                             style={buildersClubPlaceOneButtonStyle}
@@ -252,35 +252,35 @@ export const CatalogPurchaseWidgetView: FC<CatalogPurchaseWidgetViewProps> = (pr
 
         if (isOfferUnavailable)
             return (
-                <Button classNames={swfButtonClassNames} disabled>
+                <Button classNames={standardButtonClassNames} disabled>
                     {currentOffer.isLazy ? LocalizeText('generic.loading') : LocalizeText('catalog.alert.not_available')}
                 </Button>
             );
 
         if (GetClubMemberLevel() < currentOffer.clubLevel)
             return (
-                <Button classNames={swfButtonClassNames} disabled variant="danger">
+                <Button classNames={standardButtonClassNames} disabled variant="danger">
                     {LocalizeText('catalog.alert.hc.required')}
                 </Button>
             );
 
         if (isLimitedSoldOut)
             return (
-                <Button classNames={swfButtonClassNames} disabled variant="danger">
+                <Button classNames={standardButtonClassNames} disabled variant="danger">
                     {LocalizeText('catalog.alert.limited_edition_sold_out.title')}
                 </Button>
             );
 
         if (priceCredits > getCurrencyAmount(-1))
             return (
-                <Button classNames={swfButtonClassNames} disabled variant="danger">
+                <Button classNames={standardButtonClassNames} disabled variant="danger">
                     {LocalizeText('catalog.alert.notenough.title')}
                 </Button>
             );
 
         if (pricePoints > getCurrencyAmount(currentOffer.activityPointType))
             return (
-                <Button classNames={swfButtonClassNames} disabled variant="danger">
+                <Button classNames={standardButtonClassNames} disabled variant="danger">
                     {LocalizeText('catalog.alert.notenough.activitypoints.title.' + currentOffer.activityPointType)}
                 </Button>
             );
@@ -288,25 +288,25 @@ export const CatalogPurchaseWidgetView: FC<CatalogPurchaseWidgetViewProps> = (pr
         switch (purchaseState) {
             case CatalogPurchaseState.CONFIRM:
                 return (
-                    <Button classNames={[...swfButtonClassNames, 'pointer-events-none']} variant="success">
+                    <Button classNames={[...standardButtonClassNames, 'pointer-events-none']} variant="success">
                         {LocalizeText('catalog.purchase_confirmation.' + (currentOffer.isRentOffer ? 'rent' : 'buy'))}
                     </Button>
                 );
             case CatalogPurchaseState.PURCHASE:
                 return (
-                    <Button classNames={swfButtonClassNames} disabled>
+                    <Button classNames={standardButtonClassNames} disabled>
                         <LayoutLoadingSpinnerView />
                     </Button>
                 );
             case CatalogPurchaseState.FAILED:
                 return (
-                    <Button classNames={swfButtonClassNames} variant="danger">
+                    <Button classNames={standardButtonClassNames} variant="danger">
                         {LocalizeText('generic.failed')}
                     </Button>
                 );
             case CatalogPurchaseState.SOLD_OUT:
                 return (
-                    <Button classNames={swfButtonClassNames} variant="danger">
+                    <Button classNames={standardButtonClassNames} variant="danger">
                         {LocalizeText('generic.failed') + ' - ' + LocalizeText('catalog.alert.limited_edition_sold_out.title')}
                     </Button>
                 );
@@ -314,7 +314,7 @@ export const CatalogPurchaseWidgetView: FC<CatalogPurchaseWidgetViewProps> = (pr
             default:
                 return (
                     <Button
-                        classNames={[...swfButtonClassNames, 'nitro-catalog-swf-buy-button']}
+                        classNames={[...standardButtonClassNames, 'nitro-catalog-standard-buy-button']}
                         variant="success"
                         disabled={purchaseOptions.extraParamRequired && (!purchaseOptions.extraData || !purchaseOptions.extraData.length)}
                         onClick={(event) =>
@@ -331,7 +331,7 @@ export const CatalogPurchaseWidgetView: FC<CatalogPurchaseWidgetViewProps> = (pr
         <>
             {!isBuildersClubOffer && !noGiftOption && !currentOffer.isRentOffer && (
                 <Button
-                    classNames={['nitro-catalog-swf-button', 'nitro-catalog-swf-gift-button']}
+                    classNames={['nitro-catalog-standard-button', 'nitro-catalog-standard-gift-button']}
                     disabled={
                         purchaseOptions.quantity > 1 ||
                         isOfferUnavailable ||

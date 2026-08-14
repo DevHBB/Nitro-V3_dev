@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { ProductTypeEnum } from '../../../../../api';
 import { CatalogPreviewControls } from './CatalogPreviewControls';
 
-describe('AIR catalog product preview controls', () => {
+describe('standard catalog product preview controls', () => {
     it('provides independent left/right rotation, interaction and zoom controls', () => {
         const rotations: boolean[] = [];
         let interactions = 0;
@@ -30,7 +30,7 @@ describe('AIR catalog product preview controls', () => {
         expect(zoomOuts).toBe(1);
     });
 
-    it('keeps AIR preview actions from leaking into the room-canvas click handler', () => {
+    it('keeps standard preview actions from leaking into the room-canvas click handler', () => {
         const canvasClick = vi.fn();
         const roomPreviewer = {
             changeRoomObjectDirection: vi.fn(),

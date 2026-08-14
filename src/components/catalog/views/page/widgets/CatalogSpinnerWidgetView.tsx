@@ -31,19 +31,19 @@ export const CatalogSpinnerWidgetView: FC<{}> = (props) => {
     if (!currentOffer || !currentOffer.bundlePurchaseAllowed) return null;
 
     return (
-        <div className="nitro-catalog-swf-spinner">
-            <span className="nitro-catalog-swf-spinner-label">{LocalizeText('catalog.bundlewidget.quantity')}</span>
-            <div className="nitro-catalog-swf-spinner-control">
-                <button className="nitro-catalog-swf-spinner-button nitro-catalog-swf-spinner-button-less" onClick={(event) => updateQuantity(quantity - 1)}>
+        <div className="nitro-catalog-standard-spinner">
+            <span className="nitro-catalog-standard-spinner-label">{LocalizeText('catalog.bundlewidget.quantity')}</span>
+            <div className="nitro-catalog-standard-spinner-control">
+                <button className="nitro-catalog-standard-spinner-button nitro-catalog-standard-spinner-button-less" onClick={(event) => updateQuantity(quantity - 1)}>
                     <FaMinus />
                 </button>
                 <input
-                    className="nitro-catalog-swf-spinner-input"
+                    className="nitro-catalog-standard-spinner-input"
                     type="number"
                     value={quantity}
                     onChange={(event) => updateQuantity(event.target.valueAsNumber)}
                 />
-                <button className="nitro-catalog-swf-spinner-button nitro-catalog-swf-spinner-button-more" onClick={(event) => updateQuantity(quantity + 1)}>
+                <button className="nitro-catalog-standard-spinner-button nitro-catalog-standard-spinner-button-more" onClick={(event) => updateQuantity(quantity + 1)}>
                     <FaPlus />
                 </button>
             </div>

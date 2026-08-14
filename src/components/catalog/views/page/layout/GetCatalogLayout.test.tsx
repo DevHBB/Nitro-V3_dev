@@ -19,7 +19,7 @@ describe('catalog layout resolution', () => {
         expect(GetCatalogLayout(page('future_layout'), () => undefined)).not.toBeNull();
     });
 
-    it('uses the AIR pet customization renderer instead of the generic furniture layout', () => {
+    it('uses the standard pet customization renderer instead of the generic furniture layout', () => {
         expect(GetCatalogLayout(page('petcustomization'), () => undefined)?.type).toBe(CatalogLayoutPetCustomizationView);
     });
 });

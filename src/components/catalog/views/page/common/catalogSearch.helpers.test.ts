@@ -25,7 +25,7 @@ const furniture = (overrides: Record<string, unknown> = {}) =>
     }) as any;
 
 describe('catalog search behavior', () => {
-    it('uses the official AIR threshold, timer and result limit', () => {
+    it('uses the expected threshold, timer and result limit', () => {
         expect(CATALOG_SEARCH_MIN_LENGTH).toBe(3);
         expect(CATALOG_SEARCH_DEBOUNCE_MS).toBe(50);
         expect(CATALOG_SEARCH_RESULT_LIMIT).toBe(400);

@@ -220,10 +220,10 @@ export const UserSettingsView: FC<{}> = props =>
                             <select
                                 aria-label={ localizeWithFallback('memenu.settings.other.catalog.grid.density', 'Catalog item size') }
                                 value={ catalogGridDensity }
-                                onChange={ event => setCatalogGridDensity(event.target.value as 'compact' | 'air' | 'large') }
+                                onChange={ event => setCatalogGridDensity(event.target.value as 'compact' | 'standard' | 'large') }
                             >
                                 <option value="compact">{ localizeWithFallback('generic.compact', 'Compact') }</option>
-                                <option value="air">AIR</option>
+                                <option value="standard">standard</option>
                                 <option value="large">{ localizeWithFallback('generic.large', 'Large') }</option>
                             </select>
                         </label>

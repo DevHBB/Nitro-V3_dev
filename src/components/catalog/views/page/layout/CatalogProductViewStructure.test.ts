@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 const readSource = (relativePath: string) => readFileSync(resolve(process.cwd(), relativePath), 'utf8');
 
-describe('AIR catalog product view structure', () => {
+describe('standard catalog product view structure', () => {
     it('keeps the 360px product canvas intact and overlays product copy on it', () => {
         const layoutSource = readSource('src/components/catalog/views/page/layout/CatalogLayoutDefaultView.tsx');
         const experienceCss = readSource('src/css/catalog/CatalogExperience.css');

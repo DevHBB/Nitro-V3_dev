@@ -18,7 +18,7 @@ import { CatalogLayoutProps } from './CatalogLayout.types';
 export const CatalogLayoutDefaultView: FC<CatalogLayoutProps> = (props) => {
     const { page = null } = props;
     const { currentOffer = null, currentPage = null, roomPreviewer = null } = useCatalogData();
-    const { density = 'air', showTilePrices = true } = useCatalogDisplayPreferences();
+    const { density = 'standard', showTilePrices = true } = useCatalogDisplayPreferences();
     const gridMetrics = getCatalogGridMetrics(density);
 
     return (

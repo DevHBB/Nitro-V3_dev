@@ -19,7 +19,7 @@ export const CatalogLoadingStateView: FC<CatalogLoadingStateViewProps> = ({ erro
             <div aria-live="assertive" className="nitro-catalog-loading-state is-error" role="alert">
                 <span>{localizedOrFallback('catalog.loading.timeout', 'The catalog page took too long to load.')}</span>
                 {!!onRetry && (
-                    <button className="nitro-catalog-swf-button" type="button" onClick={onRetry}>
+                    <button className="nitro-catalog-standard-button" type="button" onClick={onRetry}>
                         {localizedOrFallback('generic.retry', 'Retry')}
                     </button>
                 )}

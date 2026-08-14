@@ -37,11 +37,22 @@ describe('catalog offer tile', () => {
         expect(() => render(<CatalogOfferTileView offer={offer()} selectOffer={() => undefined} />)).not.toThrow();
     });
 
-    it('shows the AIR club-level marker on restricted grid offers', () => {
-        const clubOffer = { ...offer(), clubLevel: 1 };
+    it('shows the compact club-level marker and both configured prices on restricted offers', () => {
+        const clubOffer = {
+            ...offer(),
+            clubLevel: 1,
+            priceInCredits: 5,
+            priceInActivityPoints: 200,
+            activityPointType: 5
+        };
 
-        render(<CatalogOfferTileView offer={clubOffer} selectOffer={() => undefined} />);
+        const { container } = render(<CatalogOfferTileView offer={clubOffer} selectOffer={() => undefined} />);
 
         expect(screen.getByLabelText('Habbo Club')).toBeInTheDocument();
+        expect(container.querySelector('.nitro-catalog-grid-price')).toHaveClass('is-multi-price');
+        expect(container.querySelectorAll('.nitro-catalog-grid-price-entry')).toHaveLength(2);
+        expect(screen.getByText('5')).toBeInTheDocument();
+        expect(screen.getByText('200')).toBeInTheDocument();
+        expect(screen.getByText('+')).toBeInTheDocument();
     });
 });

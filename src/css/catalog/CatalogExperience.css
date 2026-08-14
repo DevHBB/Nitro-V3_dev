@@ -35,7 +35,7 @@
     -webkit-line-clamp: 2;
 }
 
-/* AIR switches both fields to solid white whenever the 3D room canvas is
+/* standard switches both fields to solid white whenever the 3D room canvas is
    visible. Keep explicit specificity here so generic muted-text utilities
    cannot make the description disappear over the black preview stage. */
 .nitro-catalog-offer-preview:not(.is-badge) .nitro-catalog-product-details-name,
@@ -65,11 +65,11 @@
 }
 
 .nitro-catalog-offer-preview.is-badge .nitro-catalog-preview-details {
-    color: var(--catalog-swf-text, #222);
+    color: var(--catalog-standard-text, #222);
     text-shadow: 0 1px 0 rgba(255, 255, 255, 0.7);
 }
 
-.nitro-catalog-grid.nitro-catalog-grid-density-air {
+.nitro-catalog-grid.nitro-catalog-grid-density-standard {
     grid-template-columns: repeat(6, 53px) !important;
 }
 
@@ -101,7 +101,7 @@
     align-items: center;
     justify-content: center;
     gap: 8px;
-    color: var(--catalog-swf-text);
+    color: var(--catalog-standard-text);
     font-size: 11px;
     font-weight: 700;
     background: rgba(236, 236, 228, 0.78);
@@ -188,8 +188,8 @@
     border: 2px solid #262626;
     border-radius: 6px;
     outline: none;
-    color: var(--catalog-swf-text, #222);
-    background: var(--catalog-swf-panel, #f7f7f2);
+    color: var(--catalog-standard-text, #222);
+    background: var(--catalog-standard-panel, #f7f7f2);
     box-shadow: inset 0 0 0 1px #fff, 0 5px 18px rgba(0, 0, 0, 0.45);
 }
 
@@ -198,7 +198,7 @@
     padding: 7px 9px;
     border-radius: 4px 4px 0 0;
     color: #fff;
-    background: var(--catalog-swf-blue, #418db0);
+    background: var(--catalog-standard-blue, #418db0);
     font-size: 12px;
     font-weight: 700;
 }
@@ -244,7 +244,7 @@
 }
 
 .nitro-catalog-purchase-confirm-product span {
-    color: var(--catalog-swf-muted, #666);
+    color: var(--catalog-standard-muted, #666);
     font-size: 10px;
 }
 
@@ -266,7 +266,7 @@
 
 .nitro-catalog-purchase-confirm-limited {
     margin-top: 6px;
-    color: var(--catalog-swf-muted, #666);
+    color: var(--catalog-standard-muted, #666);
     font-size: 10px;
 }
 
@@ -291,7 +291,7 @@
 
 .nitro-catalog-window [role='option']:focus-visible,
 .nitro-catalog-window [role='treeitem']:focus-visible {
-    outline: 2px solid var(--catalog-swf-select);
+    outline: 2px solid var(--catalog-standard-select);
     outline-offset: -2px;
 }
 

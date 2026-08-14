@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { FurniCategory } from '../../../../../api';
 import { buildPetCustomizationPreviewFigure } from './petCustomization.helpers';
 
-describe('AIR pet customization catalog preview', () => {
+describe('standard pet customization catalog preview', () => {
     it('builds a complete default-pet figure for saddle custom parts', () => {
         const furniture = {
             specialType: FurniCategory.PET_SADDLE,

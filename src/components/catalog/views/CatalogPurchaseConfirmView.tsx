@@ -114,10 +114,10 @@ export const CatalogPurchaseConfirmView: FC<CatalogPurchaseConfirmViewProps> = (
                     </div>
                 </div>
                 <div className="nitro-catalog-purchase-confirm-actions">
-                    <button className="nitro-catalog-swf-button" type="button" onClick={onCancel}>
+                    <button className="nitro-catalog-standard-button" type="button" onClick={onCancel}>
                         {LocalizeText('generic.cancel')}
                     </button>
-                    <button className="nitro-catalog-swf-button nitro-catalog-swf-buy-button" type="button" onClick={onConfirm}>
+                    <button className="nitro-catalog-standard-button nitro-catalog-standard-buy-button" type="button" onClick={onConfirm}>
                         {LocalizeText(`catalog.purchase_confirmation.${offer.isRentOffer ? 'rent' : 'buy'}`)}
                     </button>
                 </div>

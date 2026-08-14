@@ -16,7 +16,7 @@ export const CatalogNavigationItemView: FC<CatalogNavigationItemViewProps> = (pr
     const { activateNode, adminMode, createSubpage, deletePage, reorderPage } = runtime;
     const [isDragOver, setIsDragOver] = useState(false);
     const dragRef = useRef<HTMLDivElement>(null);
-    // Strip only technical SWF-style suffixes; labels such as
+    // Strip only technical technical suffixes; labels such as
     // "Flags (Wall)" or "Forest (Blue)" are meaningful catalog names.
     const swfLabel = (node?.localization || '').replace(/\s*\((?:BC|Hot)\)\s*$/i, '').trim();
 

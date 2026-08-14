@@ -220,7 +220,7 @@ export const CatalogLayoutPetView: FC<CatalogLayoutProps> = (props) => {
                     <div className="flex items-center justify-between mt-2">
                         <CatalogTotalPriceWidget />
                         <button
-                            className="nitro-catalog-swf-button nitro-catalog-swf-buy-button"
+                            className="nitro-catalog-standard-button nitro-catalog-standard-buy-button"
                             disabled={!petName.length || approvalResult > 0}
                             onClick={purchasePet}
                         >
