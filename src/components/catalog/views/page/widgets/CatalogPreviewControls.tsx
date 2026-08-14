@@ -1,4 +1,4 @@
-import { IRoomPreviewCapabilities, RoomPreviewer } from '@nitrots/nitro-renderer';
+import { RoomPreviewer } from '@nitrots/nitro-renderer';
 import { FC, MouseEvent, useCallback, useMemo, useSyncExternalStore } from 'react';
 import { FaExchangeAlt, FaRedo, FaSearchMinus, FaSearchPlus, FaUndo } from 'react-icons/fa';
 import { ProductTypeEnum } from '../../../../../api';
@@ -10,11 +10,20 @@ interface CatalogPreviewControlsProps {
 
 type DirectionalRoomPreviewer = RoomPreviewer & {
     changeRoomObjectDirection(clockwise?: boolean): void;
-    getPreviewCapabilities?(): IRoomPreviewCapabilities;
+    getPreviewCapabilities?(): PreviewCapabilities;
     subscribePreviewCapabilities?(listener: () => void): () => void;
 };
 
-const getFallbackCapabilities = (productType: string): IRoomPreviewCapabilities => {
+interface PreviewCapabilities {
+    mode: 'none' | 'floor' | 'wall' | 'avatar' | 'pet';
+    canRotate: boolean;
+    canChangeState: boolean;
+    canUseAvatarActions: boolean;
+    canZoomIn: boolean;
+    canZoomOut: boolean;
+}
+
+const getFallbackCapabilities = (productType: string): PreviewCapabilities => {
     if (productType === ProductTypeEnum.FLOOR || productType === ProductTypeEnum.WALL) {
         return {
             mode: productType === ProductTypeEnum.FLOOR ? 'floor' : 'wall',
