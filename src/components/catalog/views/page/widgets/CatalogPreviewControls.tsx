@@ -8,8 +8,14 @@ interface CatalogPreviewControlsProps {
     roomPreviewer: RoomPreviewer | null;
 }
 
+type DirectionalRoomPreviewer = RoomPreviewer & {
+    changeRoomObjectDirection(clockwise?: boolean): void;
+};
+
 export const CatalogPreviewControls: FC<CatalogPreviewControlsProps> = ({ productType, roomPreviewer }) => {
     if (!roomPreviewer || productType === ProductTypeEnum.BADGE) return null;
+
+    const directionalPreviewer = roomPreviewer as DirectionalRoomPreviewer;
 
     const runPreviewAction = (event: MouseEvent<HTMLButtonElement>, action: () => void) => {
         event.preventDefault();
@@ -23,7 +29,7 @@ export const CatalogPreviewControls: FC<CatalogPreviewControlsProps> = ({ produc
                 aria-label="Rotate left"
                 className="nitro-catalog-preview-btn"
                 type="button"
-                onClick={(event) => runPreviewAction(event, () => roomPreviewer.changeRoomObjectDirection(false))}
+                onClick={(event) => runPreviewAction(event, () => directionalPreviewer.changeRoomObjectDirection(false))}
             >
                 <FaUndo aria-hidden="true" />
             </button>
@@ -31,7 +37,7 @@ export const CatalogPreviewControls: FC<CatalogPreviewControlsProps> = ({ produc
                 aria-label="Rotate right"
                 className="nitro-catalog-preview-btn"
                 type="button"
-                onClick={(event) => runPreviewAction(event, () => roomPreviewer.changeRoomObjectDirection(true))}
+                onClick={(event) => runPreviewAction(event, () => directionalPreviewer.changeRoomObjectDirection(true))}
             >
                 <FaRedo aria-hidden="true" />
             </button>
