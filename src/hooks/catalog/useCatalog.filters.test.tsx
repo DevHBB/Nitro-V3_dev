@@ -82,6 +82,7 @@ describe('useCatalog filter contract', () => {
         const { result } = renderHook(() => useCatalogData());
 
         expect(Object.keys(result.current).sort()).toEqual([
+            'catalogLoadError',
             'catalogLocalizationVersion',
             'currentOffer',
             'currentPage',
@@ -144,6 +145,7 @@ describe('useCatalog filter contract', () => {
             'openPageByName',
             'openPageByOfferId',
             'requestOfferToMover',
+            'retryCurrentPage',
             'selectCatalogOffer',
             'toggleCatalogByType'
         ]);

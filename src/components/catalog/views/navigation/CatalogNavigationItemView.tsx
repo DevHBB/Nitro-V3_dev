@@ -1,21 +1,19 @@
-import { FC, useCallback, useRef, useState } from 'react';
+import { FC, KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { FaArrowsAlt, FaCaretDown, FaCaretUp, FaPlus, FaTrash } from 'react-icons/fa';
 import { ICatalogNode, LocalizeText } from '../../../../api';
-import { useCatalogActions } from '../../../../hooks';
-import { useCatalogAdmin } from '../../CatalogAdminContext';
 import { CatalogIconView } from '../catalog-icon/CatalogIconView';
+import { CatalogNavigationRuntime } from './CatalogNavigationRuntime';
 import { CatalogNavigationSetView } from './CatalogNavigationSetView';
 
 export interface CatalogNavigationItemViewProps {
     node: ICatalogNode;
+    runtime: CatalogNavigationRuntime;
     child?: boolean;
 }
 
 export const CatalogNavigationItemView: FC<CatalogNavigationItemViewProps> = (props) => {
-    const { node = null, child = false } = props;
-    const { activateNode = null } = useCatalogActions();
-    const catalogAdmin = useCatalogAdmin();
-    const adminMode = catalogAdmin?.adminMode ?? false;
+    const { node = null, runtime, child = false } = props;
+    const { activateNode, adminMode, createSubpage, deletePage, reorderPage } = runtime;
     const [isDragOver, setIsDragOver] = useState(false);
     const dragRef = useRef<HTMLDivElement>(null);
     // Strip only technical SWF-style suffixes; labels such as
@@ -63,13 +61,29 @@ export const CatalogNavigationItemView: FC<CatalogNavigationItemViewProps> = (pr
                     const targetParentId = node.isBranch ? node.pageId : (node.parent?.pageId ?? -1);
                     const targetIndex = node.isBranch ? 0 : (node.parent?.children?.indexOf(node) ?? 0);
 
-                    catalogAdmin?.reorderPage(data.pageId, targetParentId, targetIndex);
+                    reorderPage(data.pageId, targetParentId, targetIndex);
                 }
             } catch (err) {
                 // Invalid drag data
             }
         },
-        [adminMode, node, catalogAdmin]
+        [adminMode, node, reorderPage]
+    );
+
+    useEffect(() => {
+        if (!node?.isActive || !dragRef.current?.scrollIntoView) return;
+
+        dragRef.current.scrollIntoView({ block: 'nearest' });
+    }, [node?.isActive]);
+
+    const handleKeyDown = useCallback(
+        (event: KeyboardEvent<HTMLDivElement>) => {
+            if (event.key !== 'Enter' && event.key !== ' ') return;
+
+            event.preventDefault();
+            activateNode(node);
+        },
+        [activateNode, node]
     );
 
     return (
@@ -78,7 +92,13 @@ export const CatalogNavigationItemView: FC<CatalogNavigationItemViewProps> = (pr
                 ref={dragRef}
                 className={`nitro-catalog-navigation-item group/nav ${node.isActive ? 'is-active' : ''} ${node.isBranch ? 'is-branch' : 'is-leaf'} ${node.isOpen ? 'is-open' : ''} ${isDragOver ? 'is-drag-over' : ''}`}
                 draggable={adminMode}
+                role="treeitem"
+                tabIndex={0}
+                aria-expanded={node.isBranch ? node.isOpen : undefined}
+                aria-level={(node.depth ?? 0) + 1}
+                aria-selected={node.isActive}
                 onClick={() => activateNode(node)}
+                onKeyDown={handleKeyDown}
                 onDragLeave={adminMode ? handleDragLeave : undefined}
                 onDragOver={adminMode ? handleDragOver : undefined}
                 onDragStart={adminMode ? handleDragStart : undefined}
@@ -100,10 +120,7 @@ export const CatalogNavigationItemView: FC<CatalogNavigationItemViewProps> = (pr
                             title={LocalizeText('catalog.admin.create.subpage')}
                             onClick={(e) => {
                                 e.stopPropagation();
-                                catalogAdmin.setCreatingPage(true);
-                                catalogAdmin.setEditingRootPage(false);
-                                catalogAdmin.setEditingPageNode(node);
-                                catalogAdmin.setEditingPageData(true);
+                                createSubpage(node);
                             }}
                         />
                         <FaTrash
@@ -111,9 +128,7 @@ export const CatalogNavigationItemView: FC<CatalogNavigationItemViewProps> = (pr
                             title={LocalizeText('catalog.admin.delete.page')}
                             onClick={(e) => {
                                 e.stopPropagation();
-                                if (confirm(LocalizeText('catalog.admin.delete.page.confirm', ['name'], [node.localization]))) {
-                                    catalogAdmin.deletePage(node.pageId);
-                                }
+                                deletePage(node);
                             }}
                         />
                     </div>
@@ -122,7 +137,7 @@ export const CatalogNavigationItemView: FC<CatalogNavigationItemViewProps> = (pr
                     <span className="nitro-catalog-navigation-caret text-[9px] text-muted shrink-0">{node.isOpen ? <FaCaretUp /> : <FaCaretDown />}</span>
                 )}
             </div>
-            {node.isOpen && node.isBranch && <CatalogNavigationSetView child={true} node={node} />}
+            {node.isOpen && node.isBranch && <CatalogNavigationSetView child={true} node={node} runtime={runtime} />}
         </div>
     );
 };

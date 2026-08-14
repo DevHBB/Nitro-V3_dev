@@ -1073,10 +1073,13 @@
     background: linear-gradient(180deg, var(--catalog-swf-select-outer) 0 2px, var(--catalog-swf-select) 2px calc(100% - 2px), var(--catalog-swf-select-outer) calc(100% - 2px));
 }
 
-.nitro-catalog-window .builders-club-card-header ~ .nitro-catalog-tabs-shell,
-.nitro-catalog-window:has(.builders-club-card-header) .nitro-catalog-navigation-item::before {
+.nitro-catalog-navigation-list.is-builders-club .nitro-catalog-navigation-item::before {
     --catalog-swf-select: var(--catalog-swf-bc);
     --catalog-swf-select-outer: var(--catalog-swf-bc-outer);
+}
+
+.nitro-catalog-navigation-list.is-builders-club .nitro-catalog-navigation-node.is-child .nitro-catalog-navigation-item {
+    color: #b77734;
 }
 
 .nitro-catalog-navigation-item:hover::before,
@@ -2171,6 +2174,35 @@
 
 .nitro-catalog-breadcrumb {
     display: none;
+}
+
+.nitro-catalog-preview-controls {
+    position: absolute;
+    top: 8px;
+    right: 6px;
+    z-index: 10;
+    display: flex;
+    gap: 3px;
+}
+
+.nitro-catalog-preview-controls .nitro-catalog-preview-btn {
+    position: static;
+}
+
+.nitro-catalog-grid-club-level {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    z-index: 5;
+    display: inline-flex;
+    pointer-events: none;
+}
+
+.nitro-catalog-purchase-selection-prompt {
+    align-self: center;
+    color: var(--bs-secondary-color);
+    font-size: 11px;
+    font-style: italic;
 }
 
 @media (max-width: 640px), (orientation: landscape) and (max-height: 520px) {

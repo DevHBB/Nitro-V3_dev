@@ -23,6 +23,52 @@ export const normalizeCatalogType = (type?: string): string => {
     return CatalogType.NORMAL;
 };
 
+export const isCurrentCatalogPageResponse = (requestedPageId: number, responsePageId: number): boolean => requestedPageId === responsePageId;
+
+export interface CatalogPageRequestCorrelation {
+    request: (pageId: number, onTimeout?: (pageId: number) => void, timeoutMs?: number) => void;
+    reset: () => void;
+    matches: (responsePageId: number) => boolean;
+    complete: (responsePageId: number) => boolean;
+}
+
+export const createCatalogPageRequestCorrelation = (): CatalogPageRequestCorrelation => {
+    let requestedPageId = -1;
+    let timeout: ReturnType<typeof setTimeout> | null = null;
+
+    const clearRequest = () => {
+        if (timeout) clearTimeout(timeout);
+
+        timeout = null;
+        requestedPageId = -1;
+    };
+
+    return {
+        request: (pageId, onTimeout, timeoutMs = 10000) => {
+            clearRequest();
+            requestedPageId = pageId;
+
+            if (onTimeout) {
+                timeout = setTimeout(() => {
+                    const expiredPageId = requestedPageId;
+
+                    clearRequest();
+                    onTimeout(expiredPageId);
+                }, timeoutMs);
+            }
+        },
+        reset: clearRequest,
+        matches: (responsePageId) => isCurrentCatalogPageResponse(requestedPageId, responsePageId),
+        complete: (responsePageId) => {
+            if (!isCurrentCatalogPageResponse(requestedPageId, responsePageId)) return false;
+
+            clearRequest();
+
+            return true;
+        }
+    };
+};
+
 /**
  * Build the canonical product-key list for a purchasable offer. Used
  * by the resolved-offer cache so the same offer can be looked up by

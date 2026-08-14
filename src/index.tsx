@@ -21,6 +21,7 @@ import './css/index.css';
 import './css/backgrounds/BackgroundsView.css';
 import './css/badges/BadgeLeaderboardView.css';
 import './css/catalog/CatalogView.css';
+import './css/catalog/CatalogExperience.css';
 import './css/emustats/EmuStatsView.css';
 
 import './css/chat/Chats.css';

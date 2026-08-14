@@ -8,6 +8,8 @@ interface CatalogGridOfferViewProps extends LayoutGridItemProps {
     offer: IPurchasableOffer;
     selectOffer: (offer: IPurchasableOffer) => void;
     tintColor?: string;
+    showTechnicalDetails?: boolean;
+    showPrices?: boolean;
 }
 
 export const CatalogGridOfferView: FC<CatalogGridOfferViewProps> = (props) => {

@@ -1,4 +1,5 @@
 export * from './useCatalog';
+export * from './useCatalogDisplayPreferences';
 export * from './useCatalogPlaceMultipleItems';
 export * from './useCatalogSkipPurchaseConfirmation';
 export * from './useClubGifts';

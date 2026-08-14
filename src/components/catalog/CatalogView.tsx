@@ -4,12 +4,14 @@ import { FaBars, FaCog } from 'react-icons/fa';
 import { CatalogType, GetConfigurationValue, LocalizeShortNumber, LocalizeText, SanitizeHtml } from '../../api';
 import { LayoutCurrencyIcon, NitroCardContentView, NitroCardHeaderView, NitroCardTabsItemView, NitroCardTabsView, NitroCardView } from '../../common';
 import { useCatalogActions, useCatalogData, useCatalogUiState, useHasPermission, usePurse } from '../../hooks';
-import { CatalogAdminProvider, useCatalogAdmin } from './CatalogAdminContext';
 import { CatalogStudioProvider } from './admin/studio/CatalogStudioProvider';
+import { getCatalogHeaderDescription } from './catalogLocalization.helpers';
+import { CatalogAdminProvider, useCatalogAdmin } from './CatalogAdminContext';
 import { parseCatalogTabLabel, useCatalogWindowWidth } from './useCatalogWindowWidth';
 import { CatalogAdminManagerView } from './views/admin/CatalogAdminManagerView';
 import { CatalogAdminOfferEditView } from './views/admin/CatalogAdminOfferEditView';
 import { CatalogAdminPageEditView } from './views/admin/CatalogAdminPageEditView';
+import { CatalogLoadingStateView } from './views/CatalogLoadingStateView';
 import { CatalogBuildersClubStatusView } from './views/catalog-header/CatalogBuildersClubStatusView';
 import { CatalogIconView } from './views/catalog-icon/CatalogIconView';
 import { CatalogGiftView } from './views/gift/CatalogGiftView';
@@ -20,7 +22,7 @@ import { GetCatalogLayout } from './views/page/layout/GetCatalogLayout';
 import { MarketplacePostOfferView } from './views/page/layout/marketplace/MarketplacePostOfferView';
 
 const CatalogViewInner: FC<{}> = () => {
-    const { rootNode = null, currentPage = null, searchResult = null } = useCatalogData();
+    const { rootNode = null, currentPage = null, searchResult = null, isBusy = false, catalogLoadError = null } = useCatalogData();
     const {
         isVisible = false,
         setIsVisible = null,
@@ -30,7 +32,15 @@ const CatalogViewInner: FC<{}> = () => {
         setSearchResult = null,
         currentType = CatalogType.NORMAL
     } = useCatalogUiState();
-    const { openPageById = null, openPageByName = null, openPageByOfferId = null, activateNode = null, openCatalogByType = null, toggleCatalogByType = null } = useCatalogActions();
+    const {
+        openPageById = null,
+        openPageByName = null,
+        openPageByOfferId = null,
+        activateNode = null,
+        openCatalogByType = null,
+        toggleCatalogByType = null,
+        retryCurrentPage = null
+    } = useCatalogActions();
     const catalogAdmin = useCatalogAdmin();
     const adminMode = catalogAdmin?.adminMode ?? false;
     const setAdminMode = catalogAdmin?.setAdminMode ?? (() => {});
@@ -51,9 +61,8 @@ const CatalogViewInner: FC<{}> = () => {
     const visibleRootTabCount = useMemo(() => {
         if (!rootNode?.children?.length) return 0;
 
-        return rootNode.children.filter((child, index) => {
+        return rootNode.children.filter((child) => {
             if (!child.isVisible) return false;
-            if (index === 0 && getSwfTabLabel(child.localization).toLowerCase().includes('rari')) return false;
 
             return true;
         }).length;
@@ -152,7 +161,7 @@ const CatalogViewInner: FC<{}> = () => {
                 >
                     <NitroCardHeaderView
                         className={currentType === CatalogType.BUILDER ? 'builders-club-card-header' : ''}
-                        headerText={LocalizeText('catalog.title')}
+                        headerText={isBusy ? LocalizeText('generic.loading') || 'Loading...' : LocalizeText('catalog.title')}
                         onCloseClick={() => setIsVisible(false)}
                     />
                     <div className="nitro-catalog-mobile-header">
@@ -193,8 +202,6 @@ const CatalogViewInner: FC<{}> = () => {
                             rootNode.children.length > 0 &&
                             rootNode.children.map((child, index) => {
                                 if (!child.isVisible) return null;
-                                if (index === 0 && getSwfTabLabel(child.localization).toLowerCase().includes('rari')) return null;
-
                                 return (
                                     <NitroCardTabsItemView
                                         key={`${child.pageId}-${child.pageName}-${index}`}
@@ -231,14 +238,26 @@ const CatalogViewInner: FC<{}> = () => {
                             <div className="nitro-catalog-swf-header-title">
                                 {currentType === CatalogType.BUILDER
                                     ? LocalizeText('builder.header.title')
-                                    : getSwfTabLabel(activeCatalogNode?.localization ?? LocalizeText('catalog.title'))}
+                                    : searchResult
+                                      ? LocalizeText('catalog.search.header')
+                                      : getSwfTabLabel(activeCatalogNode?.localization ?? LocalizeText('catalog.title'))}
                             </div>
                             {currentType === CatalogType.BUILDER ? (
                                 <div className="nitro-catalog-swf-header-description">{LocalizeText('builder.header.status.membership')}</div>
                             ) : (
                                 <div
                                     className="nitro-catalog-swf-header-description"
-                                    dangerouslySetInnerHTML={{ __html: SanitizeHtml(currentPage?.localization?.getText(0) || '') }}
+                                    dangerouslySetInnerHTML={{
+                                        __html: SanitizeHtml(
+                                            searchResult
+                                                ? LocalizeText(
+                                                      'catalog.search.results',
+                                                      ['count', 'needle'],
+                                                      [String(searchResult.offers.length), searchResult.searchValue]
+                                                  )
+                                                : getCatalogHeaderDescription(currentPage?.layoutCode, currentPage?.localization)
+                                        )
+                                    }}
                                 />
                             )}
                         </div>
@@ -252,11 +271,11 @@ const CatalogViewInner: FC<{}> = () => {
                                         <CatalogSearchView />
                                     </div>
                                     <div className="nitro-catalog-navigation-shell">
-                                        {activeNodes && activeNodes.length > 0 && <CatalogNavigationView node={activeNodes[0]} />}
+                                        {activeNodes && activeNodes.length > 0 && <CatalogNavigationView node={activeNodes[0]} catalogType={currentType} />}
                                     </div>
                                 </div>
                             )}
-                            <div className="nitro-catalog-layout-shell">
+                            <div aria-busy={isBusy} className="nitro-catalog-layout-shell">
                                 <div className="nitro-catalog-layout-header-shell">
                                     <CatalogBreadcrumbView />
                                     <div className="nitro-catalog-layout-hero">
@@ -267,6 +286,7 @@ const CatalogViewInner: FC<{}> = () => {
                             </div>
                         </div>
                     </NitroCardContentView>
+                    {(isBusy || catalogLoadError) && <CatalogLoadingStateView error={catalogLoadError} onRetry={retryCurrentPage} />}
                 </NitroCardView>
             )}
             <CatalogAdminManagerView />
@@ -284,7 +304,7 @@ export const CatalogView: FC<{}> = () => {
     const isCatalogAdmin = useHasPermission('acc_catalogfurni');
 
     return (
-        <CatalogStudioProvider active={ isCatalogAdmin }>
+        <CatalogStudioProvider active={isCatalogAdmin}>
             <CatalogAdminProvider>
                 <div className="hidden" data-catalog-localization-version={catalogLocalizationVersion} />
                 <CatalogViewInner />

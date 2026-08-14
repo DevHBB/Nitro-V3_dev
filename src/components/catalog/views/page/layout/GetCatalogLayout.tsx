@@ -10,6 +10,7 @@ import { CatalogLayouGuildFrontpageView } from './CatalogLayoutGuildFrontpageVie
 import { CatalogLayoutInfoLoyaltyView } from './CatalogLayoutInfoLoyaltyView';
 import { CatalogLayoutPets2View } from './CatalogLayoutPets2View';
 import { CatalogLayoutPets3View } from './CatalogLayoutPets3View';
+import { CatalogLayoutPetCustomizationView } from './CatalogLayoutPetCustomizationView';
 import { CatalogLayoutRoomAdsView } from './CatalogLayoutRoomAdsView';
 import { CatalogLayoutRoomBundleView } from './CatalogLayoutRoomBundleView';
 import { CatalogLayoutSingleBundleView } from './CatalogLayoutSingleBundleView';
@@ -30,7 +31,7 @@ export const GetCatalogLayout = (page: ICatalogPage, hideNavigation: () => void)
 
     switch (page.layoutCode) {
         case 'frontpage_featured':
-            return null;
+            return <CatalogLayoutFrontpage4View {...layoutProps} />;
         case 'frontpage4':
             return <CatalogLayoutFrontpage4View {...layoutProps} />;
         case 'pets':
@@ -39,6 +40,8 @@ export const GetCatalogLayout = (page: ICatalogPage, hideNavigation: () => void)
             return <CatalogLayoutPets2View {...layoutProps} />;
         case 'pets3':
             return <CatalogLayoutPets3View {...layoutProps} />;
+        case 'petcustomization':
+            return <CatalogLayoutPetCustomizationView {...layoutProps} />;
         case 'vip_buy':
             return <CatalogLayoutVipBuyView {...layoutProps} />;
         case 'builders_club_frontpage':
