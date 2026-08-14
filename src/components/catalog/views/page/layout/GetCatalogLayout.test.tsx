@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { GetCatalogLayout } from './GetCatalogLayout';
 import { CatalogLayoutPetCustomizationView } from './CatalogLayoutPetCustomizationView';
+import { CatalogLayoutUnavailableView } from './CatalogLayoutUnavailableView';
+import { CatalogLayoutVipBuyView } from './CatalogLayoutVipBuyView';
 
 const page = (layoutCode: string) =>
     ({
@@ -15,11 +17,19 @@ describe('catalog layout resolution', () => {
         expect(GetCatalogLayout(page('frontpage_featured'), () => undefined)).not.toBeNull();
     });
 
-    it('keeps an unknown server layout usable through the default layout', () => {
-        expect(GetCatalogLayout(page('future_layout'), () => undefined)).not.toBeNull();
+    it('shows an explicit unavailable state for an unknown server layout', () => {
+        expect(GetCatalogLayout(page('future_layout'), () => undefined)?.type).toBe(CatalogLayoutUnavailableView);
     });
 
     it('uses the standard pet customization renderer instead of the generic furniture layout', () => {
         expect(GetCatalogLayout(page('petcustomization'), () => undefined)?.type).toBe(CatalogLayoutPetCustomizationView);
+    });
+
+    it('routes membership pages through the dedicated purchase renderer', () => {
+        expect(GetCatalogLayout(page('club_buy'), () => undefined)?.type).toBe(CatalogLayoutVipBuyView);
+    });
+
+    it('routes known but unfinished pages to an explicit unavailable state', () => {
+        expect(GetCatalogLayout(page('recycler'), () => undefined)?.type).toBe(CatalogLayoutUnavailableView);
     });
 });
