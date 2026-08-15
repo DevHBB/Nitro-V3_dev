@@ -73,6 +73,7 @@ import { useMessageEvent, useNitroEvent, useUiEvent } from '../events';
 import { useNotification } from '../notification';
 import {
     buildCatalogNodeTree,
+    createCatalogPageRequestCorrelation,
     findNodeById,
     findNodeByName,
     getNodesByOfferIdFromMap,
@@ -83,14 +84,9 @@ import {
     RoomObjectType,
     resolveBuilderFurniPlaceableStatus
 } from './useCatalog.helpers';
+import { catalogIndexRootFromSnapshot, clearCatalogIndexCache, readCatalogIndexCache, writeCatalogIndexCache } from './useCatalogIndexCache';
 import { useCatalogPlaceMultipleItems } from './useCatalogPlaceMultipleItems';
 import { useCatalogSkipPurchaseConfirmation } from './useCatalogSkipPurchaseConfirmation';
-import {
-    catalogIndexRootFromSnapshot,
-    clearCatalogIndexCache,
-    readCatalogIndexCache,
-    writeCatalogIndexCache
-} from './useCatalogIndexCache';
 
 const DUMMY_PAGE_ID_FOR_OFFER_SEARCH = -12345678;
 const DRAG_AND_DROP_ENABLED = true;
@@ -106,6 +102,7 @@ const DRAG_AND_DROP_ENABLED = true;
 const useCatalogStore = () => {
     const [isVisible, setIsVisible] = useState(false);
     const [isBusy, setIsBusy] = useState(false);
+    const [catalogLoadError, setCatalogLoadError] = useState<'timeout' | null>(null);
     const [pageId, setPageId] = useState(-1);
     const [previousPageId, setPreviousPageId] = useState(-1);
     const [currentType, setCurrentType] = useState(CatalogType.NORMAL);
@@ -140,10 +137,14 @@ const useCatalogStore = () => {
     const [builderPlacementAllowedInCurrentRoom, setBuilderPlacementAllowedInCurrentRoom] = useState(false);
     const [builderTrialRoomHideConfirmed, setBuilderTrialRoomHideConfirmed] = useState(false);
     const resolvedOffersByProductKey = useRef<Map<string, IPurchasableOffer>>(new Map());
+    const pageRequestCorrelation = useRef(createCatalogPageRequestCorrelation());
     const { simpleAlert = null, showConfirm = null } = useNotification();
     const requestedPage = useRef(new RequestedPage());
 
     const resetState = useCallback(() => {
+        pageRequestCorrelation.current.reset();
+        setIsBusy(false);
+        setCatalogLoadError(null);
         setPageId(-1);
         setPreviousPageId(-1);
         setRootNode(null);
@@ -159,6 +160,9 @@ const useCatalogStore = () => {
 
     const resetVisibleCatalogState = useCallback((type?: string) => {
         requestedPage.current.resetRequest();
+        pageRequestCorrelation.current.reset();
+        setIsBusy(false);
+        setCatalogLoadError(null);
 
         setPageId(-1);
         setPreviousPageId(-1);
@@ -460,6 +464,11 @@ const useCatalogStore = () => {
         (pageId: number, offerId: number) => {
             if (pageId < 0) return;
 
+            pageRequestCorrelation.current.request(pageId, () => {
+                setIsBusy(false);
+                setCatalogLoadError('timeout');
+            });
+            setCatalogLoadError(null);
             setIsBusy(true);
             setPageId(pageId);
 
@@ -636,6 +645,7 @@ const useCatalogStore = () => {
         const parser = event.getParser();
 
         if (parser.catalogType !== currentType) return;
+        if (!pageRequestCorrelation.current.matches(parser.pageId)) return;
 
         const purchasableOffers: IPurchasableOffer[] = [];
 
@@ -697,9 +707,8 @@ const useCatalogStore = () => {
 
         if (parser.frontPageItems && parser.frontPageItems.length) setFrontPageItems(parser.frontPageItems);
 
-        setIsBusy(false);
-
-        if (pageId === parser.pageId) {
+        if (pageRequestCorrelation.current.complete(parser.pageId)) {
+            setIsBusy(false);
             showCatalogPage(
                 parsedCatalogPage.pageId,
                 parsedCatalogPage.layoutCode,
@@ -1091,6 +1100,14 @@ const useCatalogStore = () => {
     }, [searchResult, currentPage, previousPageId, openPageById]);
 
     useEffect(() => {
+        if (isVisible) return;
+
+        pageRequestCorrelation.current.reset();
+        setIsBusy(false);
+        setCatalogLoadError(null);
+    }, [isVisible]);
+
+    useEffect(() => {
         const refreshCatalogLocalization = () => {
             setCatalogLocalizationVersion((value) => value + 1);
             setCurrentOffer((prevValue) => (prevValue?.clone ? prevValue.clone() : prevValue));
@@ -1176,10 +1193,17 @@ const useCatalogStore = () => {
         };
     }, []);
 
+    const retryCurrentPage = useCallback(() => {
+        if (pageId < 0) return;
+
+        loadCatalogPage(pageId, currentOffer?.offerId ?? -1);
+    }, [currentOffer, loadCatalogPage, pageId]);
+
     return {
         isVisible,
         setIsVisible,
         isBusy,
+        catalogLoadError,
         pageId,
         previousPageId,
         currentType,
@@ -1218,7 +1242,8 @@ const useCatalogStore = () => {
         catalogPlaceMultipleObjects,
         setCatalogPlaceMultipleObjects,
         getBuilderFurniPlaceableStatus,
-        selectCatalogOffer
+        selectCatalogOffer,
+        retryCurrentPage
     };
 };
 
@@ -1233,6 +1258,7 @@ const useCatalogStore = () => {
 export const useCatalogData = () => {
     const {
         isBusy,
+        catalogLoadError,
         rootNode,
         offersToNodes,
         currentPage,
@@ -1251,6 +1277,7 @@ export const useCatalogData = () => {
 
     return {
         isBusy,
+        catalogLoadError,
         rootNode,
         offersToNodes,
         currentPage,
@@ -1334,7 +1361,8 @@ export const useCatalogActions = () => {
         getNodeById,
         getNodeByName,
         getNodesByOfferId,
-        getBuilderFurniPlaceableStatus
+        getBuilderFurniPlaceableStatus,
+        retryCurrentPage
     } = useSharedHook(useCatalogStore);
 
     return {
@@ -1349,7 +1377,8 @@ export const useCatalogActions = () => {
         getNodeById,
         getNodeByName,
         getNodesByOfferId,
-        getBuilderFurniPlaceableStatus
+        getBuilderFurniPlaceableStatus,
+        retryCurrentPage
     };
 };
 

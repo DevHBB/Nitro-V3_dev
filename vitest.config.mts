@@ -22,7 +22,8 @@ export default defineConfig({
     resolve: {
         alias: {
             '@nitrots/nitro-renderer': resolve(__dirname, 'src/nitro-renderer.mock.ts'),
-            '@': resolve(__dirname, 'src')
+            '@': resolve(__dirname, 'src'),
+            '@layout': resolve(__dirname, 'src/layout')
         }
     }
 });

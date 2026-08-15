@@ -1,13 +1,14 @@
 import { ColorConverter } from '@nitrots/nitro-renderer';
 import { FC, useMemo, useState } from 'react';
-import { FaExchangeAlt, FaFillDrip, FaSyncAlt } from 'react-icons/fa';
-import { IPurchasableOffer, ProductTypeEnum, SanitizeHtml } from '../../../../../api';
+import { FaFillDrip } from 'react-icons/fa';
+import { IPurchasableOffer, SanitizeHtml } from '../../../../../api';
 import { AutoGrid, Button, Column, LayoutGridItem, Text } from '../../../../../common';
 import { useCatalogData, useCatalogUiState } from '../../../../../hooks';
 import { CatalogGridOfferView } from '../common/CatalogGridOfferView';
 import { CatalogAddOnBadgeWidgetView } from '../widgets/CatalogAddOnBadgeWidgetView';
 import { CatalogLimitedItemWidgetView } from '../widgets/CatalogLimitedItemWidgetView';
 import { CatalogPurchaseWidgetView } from '../widgets/CatalogPurchaseWidgetView';
+import { CatalogPreviewControls } from '../widgets/CatalogPreviewControls';
 import { CatalogSpinnerWidgetView } from '../widgets/CatalogSpinnerWidgetView';
 import { CatalogTotalPriceWidget } from '../widgets/CatalogTotalPriceWidget';
 import { CatalogViewProductWidgetView } from '../widgets/CatalogViewProductWidgetView';
@@ -158,22 +159,7 @@ export const CatalogLayoutColorGroupingView: FC<CatalogLayoutColorGroupViewProps
             {currentOffer && (
                 <div className="nitro-catalog-offer-panel flex flex-col items-center grow overflow-hidden gap-2">
                     <div className="nitro-catalog-offer-preview relative flex items-center justify-center overflow-hidden">
-                        {currentOffer.product.productType !== ProductTypeEnum.BADGE && (
-                            <>
-                                <button
-                                    className="nitro-catalog-preview-btn nitro-catalog-preview-rotate"
-                                    onClick={() => roomPreviewer?.changeRoomObjectDirection()}
-                                >
-                                    <FaSyncAlt />
-                                </button>
-                                <button
-                                    className="nitro-catalog-preview-btn nitro-catalog-preview-state"
-                                    onClick={() => roomPreviewer?.changeRoomObjectState()}
-                                >
-                                    <FaExchangeAlt />
-                                </button>
-                            </>
-                        )}
+                        <CatalogPreviewControls productType={currentOffer.product.productType} roomPreviewer={roomPreviewer} />
                         <CatalogViewProductWidgetView />
                         <CatalogAddOnBadgeWidgetView className="bg-muted rounded bottom-1 inset-e-1" position="absolute" />
                         {currentOffer.product.furnitureData.hasIndexedColor && (

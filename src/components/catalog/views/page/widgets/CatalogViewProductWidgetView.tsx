@@ -1,6 +1,6 @@
 import { GetAvatarRenderManager, GetSessionDataManager, Vector3d } from '@nitrots/nitro-renderer';
 import { FC, useEffect } from 'react';
-import { BuildPurchasableClothingFigure, FurniCategory, Offer, ProductTypeEnum } from '../../../../../api';
+import { FurniCategory, Offer, ProductTypeEnum } from '../../../../../api';
 import { AutoGrid, Column, LayoutGridItem, LayoutRoomPreviewerView } from '../../../../../common';
 import { useCatalogData, useCatalogUiState } from '../../../../../hooks';
 
@@ -18,8 +18,12 @@ export const CatalogViewProductWidgetView: FC<{ height?: number }> = (props) => 
         if (!product) return;
 
         roomPreviewer.reset(false);
+        roomPreviewer.centerWallItems = true;
+        roomPreviewer.setAutomaticStateChange(false);
         roomPreviewer.updateObjectRoom('111', '217', '1.1');
         roomPreviewer.updateRoomWallsAndFloorVisibility(true, true);
+
+        let animateFurnitureState = false;
 
         const populate = () => {
             switch (product.productType) {
@@ -28,35 +32,31 @@ export const CatalogViewProductWidgetView: FC<{ height?: number }> = (props) => 
 
                     const furniData = GetSessionDataManager().getFloorItemData(product.furnitureData.id);
                     const isPurchasableClothing = product.furnitureData.specialType === FurniCategory.FIGURE_PURCHASABLE_SET;
-                    const hasResolvableFigureSets = (() => {
-                        if (!furniData || !furniData.customParams || !furniData.customParams.length) return false;
 
-                        const parts = furniData.customParams.split(',').map((value) => parseInt(value));
-
-                        for (const part of parts) {
-                            if (isNaN(part)) continue;
-
-                            if (GetAvatarRenderManager().structureData?.getFigurePartSet(part)) return true;
-                        }
-
-                        return false;
-                    })();
-
-                    if (isPurchasableClothing || hasResolvableFigureSets) {
-                        const customParts = furniData.customParams.split(',').map((value) => parseInt(value));
+                    if (isPurchasableClothing) {
+                        const sessionDataManager = GetSessionDataManager();
+                        const avatarRenderManager = GetAvatarRenderManager();
+                        const customParams = furniData?.customParams ?? product.furnitureData.customParams ?? '';
+                        const customParts = customParams
+                            .split(',')
+                            .map((value) => value.trim())
+                            .filter((value) => /^\d+$/.test(value))
+                            .map(Number);
                         const figureSets: number[] = [];
 
                         for (const part of customParts) {
-                            if (isNaN(part)) continue;
+                            if (!Number.isSafeInteger(part) || part <= 0) continue;
 
-                            if (GetAvatarRenderManager().isValidFigureSetForGender(part, GetSessionDataManager().gender)) figureSets.push(part);
+                            if (avatarRenderManager.isValidFigureSetForGender(part, sessionDataManager.gender)) figureSets.push(part);
                         }
 
-                        const figureString = BuildPurchasableClothingFigure(GetSessionDataManager().figure, figureSets);
+                        const figureString = avatarRenderManager.getFigureStringWithFigureIds(sessionDataManager.figure, sessionDataManager.gender, figureSets);
 
-                        roomPreviewer.addAvatarIntoRoom(figureString, product.productClassId);
+                        roomPreviewer.addAvatarIntoRoom(figureString || sessionDataManager.figure, 0);
+                        roomPreviewer.zoomIn();
                     } else {
                         roomPreviewer.addFurnitureIntoRoom(product.productClassId, new Vector3d(90), previewStuffData, product.extraParam);
+                        animateFurnitureState = true;
                     }
                     return;
                 }
@@ -83,20 +83,23 @@ export const CatalogViewProductWidgetView: FC<{ height?: number }> = (props) => 
                         default:
                             roomPreviewer.updateObjectRoom('101', '101', '1.1');
                             roomPreviewer.addWallItemIntoRoom(product.productClassId, new Vector3d(90), product.extraParam);
+                            animateFurnitureState = true;
                             return;
                     }
                 }
                 case ProductTypeEnum.ROBOT:
                     roomPreviewer.addAvatarIntoRoom(product.extraParam, 0);
+                    roomPreviewer.zoomIn();
                     return;
                 case ProductTypeEnum.EFFECT:
                     roomPreviewer.addAvatarIntoRoom(GetSessionDataManager().figure, product.productClassId);
+                    roomPreviewer.zoomIn();
                     return;
             }
         };
 
         populate();
-        roomPreviewer.setAutomaticStateChange(false);
+        roomPreviewer.setAutomaticStateChange(animateFurnitureState);
     }, [currentOffer, previewStuffData, roomPreviewer]);
 
     if (!currentOffer) return null;

@@ -324,7 +324,7 @@ export const RoomEnterEffect = {
 };
 
 export class RoomEngineObjectEvent extends StubClass {}
-export class CreateLinkEvent extends StubClass {}
+export const CreateLinkEvent = vi.fn();
 export class EventDispatcher extends StubClass {}
 export class AdvancedMap extends StubClass {}
 export class AvatarFigureContainer extends StubClass {}
