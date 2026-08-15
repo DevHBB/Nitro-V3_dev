@@ -1,4 +1,4 @@
-import { useBetween } from 'use-between';
+import { registerSharedHook, useSharedHook } from '@/state/useSharedHook';
 import { LocalStorageKeys } from '../../api';
 import { useLocalStorage } from '../useLocalStorage';
 
@@ -29,4 +29,6 @@ const useCatalogDisplayPreferencesState = () => {
     return { density, setDensity, showTilePrices, setShowTilePrices };
 };
 
-export const useCatalogDisplayPreferences = () => useBetween(useCatalogDisplayPreferencesState);
+export const useCatalogDisplayPreferences = () => useSharedHook(useCatalogDisplayPreferencesState);
+
+registerSharedHook(useCatalogDisplayPreferencesState);
