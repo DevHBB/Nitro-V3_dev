@@ -168,10 +168,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: yarn
-          cache-dependency-path: |
-            Nitro-V3/yarn.lock
-            Nitro_Render_V3/yarn.lock
+
+      - name: Enable Corepack
+        run: corepack enable
 
       - name: Install renderer SDK deps
         env:
