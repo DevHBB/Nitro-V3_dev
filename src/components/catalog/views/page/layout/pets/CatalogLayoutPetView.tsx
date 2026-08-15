@@ -2,277 +2,314 @@ import {
     ApproveNameMessageComposer,
     ApproveNameMessageEvent,
     ColorConverter,
+    GetRoomEngine,
     PurchaseFromCatalogComposer,
     SellablePetPaletteData
 } from '@nitrots/nitro-renderer';
-import { FC, useCallback, useEffect, useMemo, useState } from 'react';
-import { FaCheck, FaFillDrip, FaPaw, FaTimes } from 'react-icons/fa';
-import { DispatchUiEvent, GetPetAvailableColors, GetPetIndexFromLocalization, LocalizeText, SanitizeHtml, SendMessageComposer } from '../../../../../../api';
-import { LayoutGridItem, LayoutPetImageView } from '../../../../../../common';
-import { CatalogPurchaseFailureEvent } from '../../../../../../events';
-import { useCatalogData, useCatalogUiState, useMessageEvent, useSellablePetPalette } from '../../../../../../hooks';
+import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { FaCheck, FaTimes } from 'react-icons/fa';
+import { DispatchUiEvent, GetPetAvailableColors, GetPetIndexFromLocalization, LocalizeText, SendMessageComposer } from '../../../../../../api';
+import { LayoutPetImageView } from '../../../../../../common';
+import { CatalogPurchasedEvent, CatalogPurchaseFailureEvent } from '../../../../../../events';
+import { useCatalogData, useCatalogUiState, useMessageEvent, useSellablePetPalette, useUiEvent } from '../../../../../../hooks';
 import { CatalogAddOnBadgeWidgetView } from '../../widgets/CatalogAddOnBadgeWidgetView';
 import { CatalogTotalPriceWidget } from '../../widgets/CatalogTotalPriceWidget';
-import { CatalogViewProductWidgetView } from '../../widgets/CatalogViewProductWidgetView';
+import { CatalogScrollAreaView } from '../../common/CatalogScrollAreaView';
 import { CatalogLayoutProps } from '../CatalogLayout.types';
+import {
+    buildNewPetPaletteChoices,
+    buildPetPurchaseExtraData,
+    filterPetPalettes,
+    getPetNameMaxLength,
+    isLegacyPetType,
+} from './petCatalog.helpers';
 
-export const CatalogLayoutPetView: FC<CatalogLayoutProps> = (props) => {
-    const { page = null } = props;
+interface PendingPetPurchase {
+    extraData: string;
+    offerId: number;
+    pageId: number;
+}
+
+export const CatalogLayoutPetView: FC<CatalogLayoutProps> = ({ page = null }) => {
     const [petIndex, setPetIndex] = useState(-1);
-    const [sellablePalettes, setSellablePalettes] = useState<SellablePetPaletteData[]>([]);
     const [selectedPaletteIndex, setSelectedPaletteIndex] = useState(-1);
-    const [sellableColors, setSellableColors] = useState<number[][]>([]);
     const [selectedColorIndex, setSelectedColorIndex] = useState(-1);
-    const [colorsShowing, setColorsShowing] = useState(false);
     const [petName, setPetName] = useState('');
-    const [approvalPending, setApprovalPending] = useState(true);
+    const [approvalPending, setApprovalPending] = useState(false);
+    const [purchasePending, setPurchasePending] = useState(false);
     const [approvalResult, setApprovalResult] = useState(-1);
-    const { currentOffer = null, roomPreviewer = null } = useCatalogData();
-    const { setCurrentOffer = null, setPurchaseOptions = null } = useCatalogUiState();
-    const breed: string = (currentOffer?.product?.productData?.type as unknown as string) ?? '';
+    const pendingPurchaseRef = useRef<PendingPetPurchase | null>(null);
+    const purchasePendingRef = useRef(false);
+    const activePageIdRef = useRef(page?.pageId ?? -1);
+    activePageIdRef.current = page?.pageId ?? -1;
+    const { currentOffer = null } = useCatalogData();
+    const { setCurrentOffer = null } = useCatalogUiState();
+    const breed = (currentOffer?.product?.productData?.type as unknown as string) ?? '';
     const { data: petPalette = null } = useSellablePetPalette(breed);
+    const legacyPet = isLegacyPetType(petIndex);
 
-    const getColor = useMemo(() => {
-        if (!sellableColors.length || selectedColorIndex === -1) return 0xffffff;
+    const sellablePalettes = useMemo(
+        () => filterPetPalettes(petIndex, petPalette?.palettes ?? []),
+        [petIndex, petPalette]
+    );
 
-        return sellableColors[selectedColorIndex][0];
-    }, [sellableColors, selectedColorIndex]);
+    const newPetChoices = useMemo(
+        () =>
+            legacyPet
+                ? []
+                : buildNewPetPaletteChoices(petIndex, sellablePalettes, (type, paletteId) =>
+                      GetRoomEngine().getPetColorResult(type, paletteId)
+                  ),
+        [legacyPet, petIndex, sellablePalettes]
+    );
 
-    const petBreedName = useMemo(() => {
-        if (petIndex === -1 || !sellablePalettes.length || selectedPaletteIndex === -1) return '';
+    const selectablePalettes = useMemo(
+        () => (legacyPet ? sellablePalettes : newPetChoices.map((choice) => choice.palette)),
+        [legacyPet, newPetChoices, sellablePalettes]
+    );
 
-        return LocalizeText(`pet.breed.${petIndex}.${sellablePalettes[selectedPaletteIndex].breedId}`);
-    }, [petIndex, sellablePalettes, selectedPaletteIndex]);
+    const legacyColors = useMemo(
+        () => (legacyPet ? GetPetAvailableColors(petIndex, sellablePalettes as SellablePetPaletteData[]) : []),
+        [legacyPet, petIndex, sellablePalettes]
+    );
 
-    const petPurchaseString = useMemo(() => {
-        if (!sellablePalettes.length || selectedPaletteIndex === -1) return '';
+    const selectedPalette = selectedPaletteIndex >= 0 ? selectablePalettes[selectedPaletteIndex] : null;
+    const selectedColor = legacyPet
+        ? (legacyColors[selectedColorIndex]?.[0] ?? 0xffffff)
+        : (newPetChoices[selectedPaletteIndex]?.colors[0] ?? 0xffffff);
 
-        const paletteId = sellablePalettes[selectedPaletteIndex].paletteId;
+    const purchaseExtraData = useMemo(() => {
+        if (!petName || !selectedPalette) return '';
+        if (legacyPet && selectedColorIndex < 0) return '';
 
-        let color = 0xffffff;
-
-        if (petIndex <= 7) {
-            if (selectedColorIndex === -1) return '';
-
-            color = sellableColors[selectedColorIndex][0];
-        }
-
-        let colorString = color.toString(16).toUpperCase();
-
-        while (colorString.length < 6) colorString = '0' + colorString;
-
-        return `${paletteId}\n${colorString}`;
-    }, [sellablePalettes, selectedPaletteIndex, petIndex, sellableColors, selectedColorIndex]);
+        return buildPetPurchaseExtraData(petName, petIndex, selectedPalette, selectedColor);
+    }, [legacyPet, petIndex, petName, selectedColor, selectedColorIndex, selectedPalette]);
 
     const validationErrorMessage = useMemo(() => {
-        let key: string = '';
+        const errorKeys: Record<number, string> = {
+            1: 'catalog.alert.petname.long',
+            2: 'catalog.alert.petname.short',
+            3: 'catalog.alert.petname.chars',
+            4: 'catalog.alert.petname.bobba'
+        };
+        const key = errorKeys[approvalResult];
 
-        switch (approvalResult) {
-            case 1:
-                key = 'catalog.alert.petname.long';
-                break;
-            case 2:
-                key = 'catalog.alert.petname.short';
-                break;
-            case 3:
-                key = 'catalog.alert.petname.chars';
-                break;
-            case 4:
-                key = 'catalog.alert.petname.bobba';
-                break;
-        }
-
-        if (!key || !key.length) return '';
-
-        return LocalizeText(key);
+        return key ? LocalizeText(key) : '';
     }, [approvalResult]);
 
-    const purchasePet = useCallback(() => {
-        if (approvalResult === -1) {
-            SendMessageComposer(new ApproveNameMessageComposer(petName, 1));
+    const requestPurchase = useCallback(() => {
+        if (approvalPending || purchasePendingRef.current || !page || !currentOffer || !purchaseExtraData) return;
 
-            return;
-        }
-
-        if (approvalResult === 0) {
-            SendMessageComposer(new PurchaseFromCatalogComposer(page.pageId, currentOffer.offerId, `${petName}\n${petPurchaseString}`, 1));
-
-            return;
-        }
-    }, [page, currentOffer, petName, petPurchaseString, approvalResult]);
+        pendingPurchaseRef.current = {
+            extraData: purchaseExtraData,
+            offerId: currentOffer.offerId,
+            pageId: page.pageId
+        };
+        setApprovalPending(true);
+        setApprovalResult(-1);
+        SendMessageComposer(new ApproveNameMessageComposer(petName, 1));
+    }, [approvalPending, currentOffer, page, petName, purchaseExtraData]);
 
     useMessageEvent<ApproveNameMessageEvent>(ApproveNameMessageEvent, (event) => {
+        const pendingPurchase = pendingPurchaseRef.current;
+
+        if (!pendingPurchase) return;
+
+        if (pendingPurchase.pageId !== activePageIdRef.current) {
+            pendingPurchaseRef.current = null;
+            setApprovalPending(false);
+            return;
+        }
+
         const parser = event.getParser();
 
+        pendingPurchaseRef.current = null;
+        setApprovalPending(false);
         setApprovalResult(parser.result);
 
-        if (parser.result === 0) purchasePet();
-        else DispatchUiEvent(new CatalogPurchaseFailureEvent(-1));
+        if (parser.result === 0) {
+            purchasePendingRef.current = true;
+            setPurchasePending(true);
+            SendMessageComposer(
+                new PurchaseFromCatalogComposer(pendingPurchase.pageId, pendingPurchase.offerId, pendingPurchase.extraData, 1)
+            );
+        } else {
+            DispatchUiEvent(new CatalogPurchaseFailureEvent(-1));
+        }
     });
 
+    const finishPurchase = useCallback(() => {
+        if (!purchasePendingRef.current) return;
+
+        purchasePendingRef.current = false;
+        setPurchasePending(false);
+    }, []);
+
+    useUiEvent(CatalogPurchasedEvent.PURCHASE_SUCCESS, finishPurchase);
+    useUiEvent(CatalogPurchaseFailureEvent.PURCHASE_FAILED, finishPurchase);
+
     useEffect(() => {
-        if (!page || !page.offers.length) return;
+        if (!page?.offers.length) return;
 
         const offer = page.offers[0];
 
         setCurrentOffer(offer);
         setPetIndex(GetPetIndexFromLocalization(offer.localizationId));
-        setColorsShowing(false);
     }, [page, setCurrentOffer]);
 
     useEffect(() => {
-        if (!currentOffer || !petPalette) {
-            setSelectedPaletteIndex(-1);
-            setSellablePalettes([]);
-            return;
-        }
-
-        const palettes: SellablePetPaletteData[] = [];
-
-        for (const palette of petPalette.palettes) {
-            if (!palette.sellable) continue;
-
-            palettes.push(palette);
-        }
-
-        setSelectedPaletteIndex(palettes.length ? 0 : -1);
-        setSellablePalettes(palettes);
-    }, [currentOffer, petPalette]);
-
-    useEffect(() => {
-        if (petIndex === -1) return;
-
-        const colors = GetPetAvailableColors(petIndex, sellablePalettes);
-
-        setSelectedColorIndex(colors.length ? 0 : -1);
-        setSellableColors(colors);
-    }, [petIndex, sellablePalettes]);
-
-    useEffect(() => {
-        if (!roomPreviewer) return;
-
-        roomPreviewer.reset(false);
-
-        if (petIndex === -1 || !sellablePalettes.length || selectedPaletteIndex === -1) return;
-
-        let petFigureString = `${petIndex} ${sellablePalettes[selectedPaletteIndex].paletteId}`;
-
-        if (petIndex <= 7) petFigureString += ` ${getColor.toString(16)}`;
-
-        roomPreviewer.addPetIntoRoom(petFigureString);
-    }, [roomPreviewer, petIndex, sellablePalettes, selectedPaletteIndex, getColor]);
-
-    useEffect(() => {
+        pendingPurchaseRef.current = null;
+        purchasePendingRef.current = false;
+        setApprovalPending(false);
+        setPurchasePending(false);
         setApprovalResult(-1);
-    }, [petName]);
+        setPetName('');
+    }, [page?.pageId]);
+
+    useEffect(() => {
+        setSelectedPaletteIndex(selectablePalettes.length ? 0 : -1);
+    }, [selectablePalettes]);
+
+    useEffect(() => {
+        setSelectedColorIndex(legacyColors.length ? 0 : -1);
+    }, [legacyColors]);
+
+    useEffect(() => {
+        if (approvalPending) return;
+
+        setApprovalResult(-1);
+    }, [approvalPending, petName]);
 
     if (!currentOffer) return null;
 
+    const controlsDisabled = approvalPending || purchasePending;
+    const colorLabel = LocalizeText('catalog.pets.choose.color');
+
     return (
-        <div className="flex flex-col h-full gap-2">
-            {/* Top card: preview + name + purchase */}
-            <div className="nitro-catalog-pet-card flex gap-3 p-2.5 bg-white rounded border-2 border-card-grid-item-border">
-                {/* Pet preview */}
-                <div className="w-[160px] min-w-[160px] h-[140px] rounded overflow-hidden bg-card-grid-item relative flex items-center justify-center border border-card-grid-item-border">
-                    <CatalogViewProductWidgetView />
-                    <CatalogAddOnBadgeWidgetView className="bg-muted rounded absolute bottom-1 right-1" />
-                    {petIndex > -1 && petIndex <= 7 && (
-                        <button
-                            className={`absolute bottom-1 left-1 w-[28px] h-[28px] rounded flex items-center justify-center cursor-pointer transition-all border ${colorsShowing ? 'bg-primary text-white border-primary' : 'bg-white text-dark border-card-grid-item-border hover:bg-card-grid-item-active'}`}
-                            title={LocalizeText('catalog.pets.show.colors')}
-                            onClick={() => setColorsShowing(!colorsShowing)}
-                        >
-                            <FaFillDrip className="text-[10px]" />
-                        </button>
-                    )}
-                </div>
-
-                {/* Pet info */}
-                <div className="flex flex-col flex-1 justify-between min-w-0">
-                    <div>
-                        <div className="flex items-center gap-1.5">
-                            <FaPaw className="text-primary text-xs" />
-                            <span className="text-sm font-bold">{petBreedName || LocalizeText('catalog.pet.breed')}</span>
-                        </div>
-                        {!!page.localization.getText(0) && (
-                            <p className="text-[10px] text-dark mt-0.5" dangerouslySetInnerHTML={{ __html: SanitizeHtml(page.localization.getText(0)) }} />
-                        )}
+        <div
+            className={`nitro-catalog-pet-layout ${legacyPet ? 'nitro-catalog-pet-layout--legacy' : 'nitro-catalog-pet-layout--new'}`}
+        >
+            <div className="nitro-catalog-pet-preview relative h-[240px] min-h-[240px] overflow-hidden">
+                {selectedPalette && (
+                    <div className="nitro-catalog-pet-preview-image">
+                        <LayoutPetImageView
+                            direction={legacyPet || petIndex === 15 ? 2 : 3}
+                            paletteId={selectedPalette.paletteId}
+                            petColor={legacyPet ? selectedColor : 0xffffff}
+                            scale={petIndex === 15 ? 1 : 2}
+                            typeId={petIndex}
+                        />
                     </div>
+                )}
+                <CatalogAddOnBadgeWidgetView className="nitro-catalog-pet-preview-badge" />
+                <div className="nitro-catalog-pet-preview-price">
+                    <CatalogTotalPriceWidget />
+                </div>
+            </div>
 
-                    {/* Name input */}
-                    <div className="flex flex-col gap-1 mt-2">
-                        <label className="text-[9px] text-dark uppercase font-bold">{LocalizeText('widgets.petpackage.name.title')}</label>
-                        <div className="relative">
+            <div className="nitro-catalog-pet-editor">
+                {legacyPet ? (
+                    <>
+                        <div className="nitro-catalog-pet-field">
+                            <span>{colorLabel}</span>
+                            <CatalogScrollAreaView
+                                className="nitro-catalog-pet-color-grid"
+                                contentClassName="nitro-catalog-pet-color-grid-content"
+                                aria-label={colorLabel}
+                                role="group"
+                            >
+                                {legacyColors.map((colors, index) => (
+                                    <button
+                                        key={`${colors[0]}-${index}`}
+                                        aria-label={`${colorLabel} ${index + 1}`}
+                                        aria-pressed={selectedColorIndex === index}
+                                        className="nitro-catalog-pet-color-swatch"
+                                        disabled={controlsDisabled}
+                                        style={{ backgroundColor: ColorConverter.int2rgb(colors[0]) }}
+                                        type="button"
+                                        onClick={() => setSelectedColorIndex(index)}
+                                    />
+                                ))}
+                            </CatalogScrollAreaView>
+                        </div>
+                        {sellablePalettes.length > 1 && (
+                            <label className="nitro-catalog-pet-breed-selector">
+                                <span>{LocalizeText('catalog.pets.choose.breed')}</span>
+                                <select
+                                    value={selectedPaletteIndex}
+                                    disabled={controlsDisabled}
+                                    onChange={(event) => setSelectedPaletteIndex(Number(event.target.value))}
+                                >
+                                    {sellablePalettes.map((palette, index) => (
+                                        <option key={palette.paletteId} value={index}>
+                                            {LocalizeText(`pet.breed.${petIndex}.${palette.breedId}`)}
+                                        </option>
+                                    ))}
+                                </select>
+                            </label>
+                        )}
+                    </>
+                ) : (
+                    <div className="nitro-catalog-pet-field">
+                        <span>{colorLabel}</span>
+                        <CatalogScrollAreaView
+                            className="nitro-catalog-pet-color-grid"
+                            contentClassName="nitro-catalog-pet-color-grid-content"
+                            aria-label={colorLabel}
+                            role="group"
+                        >
+                            {newPetChoices.map((choice, index) => {
+                                const colors = choice.colors.map((color) => ColorConverter.int2rgb(color));
+                                const style = {
+                                    background:
+                                        colors.length > 1
+                                            ? `linear-gradient(135deg, ${colors[0]} 0 50%, ${colors[1]} 50% 100%)`
+                                            : colors[0]
+                                };
+
+                                return (
+                                    <button
+                                        key={choice.palette.paletteId}
+                                        aria-label={`${colorLabel} ${index + 1}`}
+                                        aria-pressed={selectedPaletteIndex === index}
+                                        className="nitro-catalog-pet-color-swatch"
+                                        disabled={controlsDisabled}
+                                        style={style}
+                                        type="button"
+                                        onClick={() => setSelectedPaletteIndex(index)}
+                                    />
+                                );
+                            })}
+                        </CatalogScrollAreaView>
+                    </div>
+                )}
+
+                <div className="nitro-catalog-pet-purchase mt-auto">
+                    <label className="nitro-catalog-pet-name-field">
+                        <span>{LocalizeText('widgets.petpackage.name.title')}</span>
+                        <span className="relative flex-1">
                             <input
-                                className={`w-full text-[11px] text-black placeholder:text-black placeholder:italic border-2 rounded px-2 py-1.5 focus:outline-none transition-colors ${approvalResult > 0 ? 'border-danger bg-danger/5' : approvalResult === 0 ? 'border-success bg-success/5' : 'border-card-grid-item-border focus:border-primary bg-white'}`}
+                                disabled={controlsDisabled}
+                                maxLength={getPetNameMaxLength(petIndex)}
                                 placeholder={LocalizeText('widgets.petpackage.name.title')}
                                 type="text"
                                 value={petName}
                                 onChange={(event) => setPetName(event.target.value)}
                             />
-                            {approvalResult === 0 && <FaCheck className="absolute right-2 top-1/2 -translate-y-1/2 text-success text-[10px]" />}
-                            {approvalResult > 0 && <FaTimes className="absolute right-2 top-1/2 -translate-y-1/2 text-danger text-[10px]" />}
-                        </div>
-                        {approvalResult > 0 && <span className="text-[10px] text-danger font-medium">{validationErrorMessage}</span>}
-                    </div>
-
-                    {/* Price + buy */}
-                    <div className="flex items-center justify-between mt-2">
-                        <CatalogTotalPriceWidget />
+                            {approvalResult === 0 && <FaCheck className="nitro-catalog-pet-name-status text-success" />}
+                            {approvalResult > 0 && <FaTimes className="nitro-catalog-pet-name-status text-danger" />}
+                        </span>
+                    </label>
+                    {approvalResult > 0 && <span className="nitro-catalog-pet-name-error">{validationErrorMessage}</span>}
+                    <div className="nitro-catalog-pet-purchase-row">
                         <button
                             className="nitro-catalog-standard-button nitro-catalog-standard-buy-button"
-                            disabled={!petName.length || approvalResult > 0}
-                            onClick={purchasePet}
+                            disabled={controlsDisabled || !purchaseExtraData}
+                            onClick={requestPurchase}
                         >
-                            {approvalResult === -1 ? LocalizeText('catalog.purchase_confirmation.buy') : LocalizeText('catalog.marketplace.confirm_title')}
+                            {LocalizeText('catalog.purchase_confirmation.buy')}
                         </button>
                     </div>
-                </div>
-            </div>
-
-            {/* Breed/Color grid */}
-            <div className="flex-1 overflow-auto min-h-0">
-                <div className="flex items-center gap-1.5 mb-1.5">
-                    <span className="text-[10px] font-bold text-dark uppercase tracking-wide">
-                        {colorsShowing ? LocalizeText('catalog.pets.choose.color') : LocalizeText('catalog.pets.choose.breed')}
-                    </span>
-                    {colorsShowing && (
-                        <button className="text-[9px] text-primary hover:text-dark cursor-pointer transition-colors" onClick={() => setColorsShowing(false)}>
-                            {LocalizeText('catalog.pets.back.breeds')}
-                        </button>
-                    )}
-                </div>
-                <div
-                    className={
-                        colorsShowing
-                            ? 'nitro-catalog-color-swatches flex flex-wrap gap-1 p-2 overflow-auto'
-                            : 'nitro-catalog-pet-breeds flex flex-wrap gap-1 p-1 overflow-auto'
-                    }
-                >
-                    {!colorsShowing &&
-                        sellablePalettes.length > 0 &&
-                        sellablePalettes.map((palette, index) => (
-                            <LayoutGridItem
-                                key={index}
-                                className="group/pet"
-                                itemActive={selectedPaletteIndex === index}
-                                onClick={() => setSelectedPaletteIndex(index)}
-                            >
-                                <LayoutPetImageView direction={2} headOnly={true} paletteId={palette.paletteId} typeId={petIndex} />
-                            </LayoutGridItem>
-                        ))}
-                    {colorsShowing &&
-                        sellableColors.length > 0 &&
-                        sellableColors.map((colorSet, index) => (
-                            <LayoutGridItem
-                                key={index}
-                                itemHighlight
-                                className="clear-bg"
-                                itemActive={selectedColorIndex === index}
-                                itemColor={ColorConverter.int2rgb(colorSet[0])}
-                                onClick={() => setSelectedColorIndex(index)}
-                            />
-                        ))}
                 </div>
             </div>
         </div>

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { GetCatalogLayout } from './GetCatalogLayout';
 import { CatalogLayoutPetCustomizationView } from './CatalogLayoutPetCustomizationView';
 import { CatalogLayoutUnavailableView } from './CatalogLayoutUnavailableView';
+import { CatalogLayoutRecyclerView } from './recycler/CatalogLayoutRecyclerView';
 import { CatalogLayoutVipBuyView } from './CatalogLayoutVipBuyView';
 
 const page = (layoutCode: string) =>
@@ -29,7 +30,7 @@ describe('catalog layout resolution', () => {
         expect(GetCatalogLayout(page('club_buy'), () => undefined)?.type).toBe(CatalogLayoutVipBuyView);
     });
 
-    it('routes known but unfinished pages to an explicit unavailable state', () => {
-        expect(GetCatalogLayout(page('recycler'), () => undefined)?.type).toBe(CatalogLayoutUnavailableView);
+    it('routes the recycler through its dedicated functional layout', () => {
+        expect(GetCatalogLayout(page('recycler'), () => undefined)?.type).toBe(CatalogLayoutRecyclerView);
     });
 });

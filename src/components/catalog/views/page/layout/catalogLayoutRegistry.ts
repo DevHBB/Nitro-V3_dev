@@ -18,9 +18,12 @@ export type CatalogLayoutRenderer =
     | 'pets3'
     | 'roomAds'
     | 'roomBundle'
+    | 'recycler'
+    | 'recyclerPrizes'
     | 'singleBundle'
     | 'soundMachine'
     | 'spaces'
+    | 'soldLimited'
     | 'trophies'
     | 'unavailable'
     | 'vipBuy';
@@ -56,9 +59,9 @@ export const CATALOG_LAYOUT_REGISTRY = [
     { studioCode: 'builders_club_loyalty', runtimeCodes: ['builders_club_loyalty'], renderer: 'buildersClubBuy', availability: 'ready' },
     { studioCode: 'marketplace', runtimeCodes: ['marketplace'], renderer: 'marketplacePublicItems', availability: 'ready' },
     { studioCode: 'marketplace_own_items', runtimeCodes: ['marketplace_own_items'], renderer: 'marketplaceOwnItems', availability: 'ready' },
-    { studioCode: 'recycler', runtimeCodes: ['recycler'], renderer: 'unavailable', availability: 'planned' },
-    { studioCode: 'recycler_info', runtimeCodes: ['recycler_info', 'info_recycler'], renderer: 'unavailable', availability: 'planned' },
-    { studioCode: 'recycler_prizes', runtimeCodes: ['recycler_prizes'], renderer: 'unavailable', availability: 'planned' },
+    { studioCode: 'recycler', runtimeCodes: ['recycler'], renderer: 'recycler', availability: 'ready' },
+    { studioCode: 'recycler_info', runtimeCodes: ['recycler_info', 'info_recycler'], renderer: 'info', availability: 'ready' },
+    { studioCode: 'recycler_prizes', runtimeCodes: ['recycler_prizes'], renderer: 'recyclerPrizes', availability: 'ready' },
     { studioCode: 'info_loyalty', runtimeCodes: ['info_loyalty'], renderer: 'infoLoyalty', availability: 'ready' },
     { studioCode: 'info_duckets', runtimeCodes: ['info_duckets'], renderer: 'info', availability: 'ready' },
     { studioCode: 'info_rentables', runtimeCodes: ['info_rentables'], renderer: 'info', availability: 'ready' },
@@ -67,7 +70,7 @@ export const CATALOG_LAYOUT_REGISTRY = [
     { studioCode: 'badge_display', runtimeCodes: ['badge_display'], renderer: 'badgeDisplay', availability: 'ready' },
     { studioCode: 'bots', runtimeCodes: ['bots'], renderer: 'default', availability: 'ready' },
     { studioCode: 'single_bundle', runtimeCodes: ['single_bundle'], renderer: 'singleBundle', availability: 'ready' },
-    { studioCode: 'sold_ltd_items', runtimeCodes: ['sold_ltd_items'], renderer: 'unavailable', availability: 'planned' },
+    { studioCode: 'sold_ltd_items', runtimeCodes: ['sold_ltd_items'], renderer: 'soldLimited', availability: 'ready' },
     { studioCode: 'plasto', runtimeCodes: ['plasto'], renderer: 'default', availability: 'ready' },
     { studioCode: 'default_3x3_color_grouping', runtimeCodes: ['default_3x3_color_grouping'], renderer: 'colorGrouping', availability: 'ready' },
     { studioCode: 'recent_purchases', runtimeCodes: ['recent_purchases'], renderer: 'default', availability: 'ready' },
@@ -75,13 +78,13 @@ export const CATALOG_LAYOUT_REGISTRY = [
     { studioCode: 'petcustomization', runtimeCodes: ['petcustomization'], renderer: 'petCustomization', availability: 'ready' },
     { studioCode: 'frontpage_featured', runtimeCodes: ['frontpage_featured'], renderer: 'frontpage', availability: 'ready' },
     { studioCode: 'root', runtimeCodes: ['root'], renderer: 'default', availability: 'ready' },
-    { studioCode: 'monkey', runtimeCodes: ['monkey'], renderer: 'unavailable', availability: 'planned' },
-    { studioCode: 'niko', runtimeCodes: ['niko'], renderer: 'unavailable', availability: 'planned' },
-    { studioCode: 'mad_money', runtimeCodes: ['mad_money'], renderer: 'unavailable', availability: 'planned' },
+    { studioCode: 'monkey', runtimeCodes: ['monkey'], renderer: 'info', availability: 'ready' },
+    { studioCode: 'niko', runtimeCodes: ['niko'], renderer: 'info', availability: 'ready' },
+    { studioCode: 'mad_money', runtimeCodes: ['mad_money'], renderer: 'info', availability: 'ready' },
     { studioCode: 'productpage1', runtimeCodes: ['productpage1'], renderer: 'default', availability: 'ready' },
     { studioCode: 'collectibles', runtimeCodes: ['collectibles'], renderer: 'default', availability: 'ready' },
     { runtimeCodes: ['default_3x3_extrainfo'], renderer: 'default', availability: 'ready' },
-    { runtimeCodes: ['pixeleffects'], renderer: 'unavailable', availability: 'planned' }
+    { runtimeCodes: ['pixeleffects'], renderer: 'info', availability: 'ready' }
 ] as const satisfies readonly CatalogLayoutDefinition[];
 
 type CatalogLayoutRegistryEntry = (typeof CATALOG_LAYOUT_REGISTRY)[number];

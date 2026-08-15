@@ -1,85 +1,259 @@
-.nitro-catalog-layout-vip-buy-grid .nitro-vip-buy-offer {
-    position: relative;
+.nitro-club-purchase-layout {
     display: flex;
     flex-direction: column;
-    align-items: stretch;
-    gap: 6px;
+    width: 100%;
+    max-width: 360px;
+    height: 460px;
+    margin: 0 auto;
+    overflow: hidden;
+    border: 1px solid #a6a69e;
+    background: #e8e7df;
+    color: #262626;
+    font-size: 11px;
+}
+
+.nitro-club-membership-header {
+    display: flex;
+    flex: 0 0 auto;
+    flex-direction: column;
+    gap: 2px;
+    min-height: 50px;
     padding: 8px 10px;
-    border-radius: 6px;
-    border: 2px solid #b48a18;
-    background: #fffbe7;
-    color: #2c2a25;
+    border-bottom: 1px solid #aaa99f;
+    background: linear-gradient(#f7f6ef, #deddd4);
+}
+
+.nitro-club-membership-header strong {
+    font-size: 13px;
+}
+
+.nitro-club-membership-header span {
+    color: #555;
+}
+
+.nitro-club-purchase-content {
+    display: flex;
+    min-height: 0;
+    flex: 1 1 auto;
+    gap: 7px;
+    padding: 7px;
+}
+
+.nitro-club-teaser {
+    width: 152px;
+    height: 291px;
+    flex: 0 0 152px;
+    object-fit: contain;
+    object-position: center top;
+}
+
+.nitro-club-offers-column {
+    display: flex;
+    min-width: 0;
+    min-height: 0;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 7px;
+    overflow: auto;
+}
+
+.nitro-club-offer-group {
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.nitro-club-offer-group h3 {
+    margin: 0;
+    padding: 2px 5px;
+    border: 1px solid #9b9b93;
+    background: #cbc9bf;
+    color: #222;
+    font-size: 11px;
+    line-height: 16px;
+}
+
+.nitro-catalog-layout-vip-buy-grid {
+    display: flex;
+    min-height: 28px;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.nitro-catalog-layout-vip-buy-grid .nitro-vip-buy-offer {
+    display: grid;
+    grid-template-columns: 36px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 5px;
+    width: 100%;
+    min-height: 31px;
+    padding: 3px 5px;
+    border: 1px solid #7f7f79;
+    border-radius: 2px;
+    background: #f7f6ef;
+    color: #252525;
     cursor: pointer;
-    transition: background-color 100ms ease-out, border-color 100ms ease-out, box-shadow 100ms ease-out;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+    font: inherit;
+    text-align: left;
 }
 
 .nitro-catalog-layout-vip-buy-grid .nitro-vip-buy-offer:hover {
-    background: #fff5c4;
-    border-color: #9c7610;
+    background: #fff6c9;
 }
 
 .nitro-catalog-layout-vip-buy-grid .nitro-vip-buy-offer.active {
-    background: #ffe066;
-    border-color: #7a5500;
-    box-shadow: inset 0 0 0 1px #ffd92e, 0 2px 4px rgba(0, 0, 0, 0.12);
-}
-
-.nitro-vip-buy-offer .vip-offer-header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding-bottom: 6px;
-    border-bottom: 1px dashed #b48a18;
+    border-color: #3f6f89;
+    background: #d6ecf6;
+    box-shadow: inset 0 0 0 1px #fff;
 }
 
 .nitro-vip-buy-offer .vip-offer-banner {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    flex: 0 0 auto;
     width: 34px;
-    height: 20px;
+    height: 22px;
+    color: #7b4f00;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.nitro-vip-buy-offer .vip-offer-banner.is-vip {
+    border: 1px solid #826100;
+    border-radius: 3px;
+    background: linear-gradient(#fff4a8, #d7ae3e);
+    box-shadow: inset 0 0 0 1px #fff7c4;
 }
 
 .nitro-vip-buy-offer .vip-offer-banner .nitro-icon.icon-hc-banner,
 .nitro-vip-buy-offer .vip-offer-banner i.icon-hc-banner {
-    background-size: contain !important;
-    background-repeat: no-repeat !important;
-    background-position: center !important;
     width: 34px !important;
     height: 20px !important;
+    background-position: center !important;
+    background-repeat: no-repeat !important;
+    background-size: contain !important;
 }
 
 .nitro-vip-buy-offer .vip-offer-title {
-    font-weight: 700;
-    color: #2c2a25;
-    line-height: 1.1;
-    font-size: 1.05rem;
-    flex: 1 1 auto;
     min-width: 0;
     overflow: hidden;
+    font-weight: 700;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.nitro-vip-buy-offer .vip-offer-prices {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
+.nitro-vip-buy-offer .vip-offer-prices,
 .nitro-vip-buy-offer .vip-offer-price {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 6px;
-    color: #4a473e;
-    font-weight: 700;
-    font-size: 0.95rem;
-    line-height: 1.1;
+    gap: 3px;
     white-space: nowrap;
 }
 
-.nitro-vip-buy-offer .vip-offer-price .nitro-currency-icon {
+.nitro-vip-buy-offer .vip-offer-prices {
+    flex-direction: column;
+    align-items: flex-end;
+    font-weight: 700;
+}
+
+.nitro-club-empty-offers {
+    padding: 8px;
+    border: 1px dashed #a5a49c;
+    color: #666;
+    text-align: center;
+}
+
+.nitro-club-center-link {
+    align-self: center;
     flex: 0 0 auto;
+    padding: 2px 5px 5px;
+    border: 0;
+    background: transparent;
+    color: #075c86;
+    cursor: pointer;
+    font: inherit;
+    text-decoration: underline;
+}
+
+.nitro-club-center-link:hover {
+    color: #003d5a;
+}
+
+.nitro-club-purchase-panel {
+    display: flex;
+    flex: 0 0 auto;
+    flex-direction: column;
+    gap: 5px;
+    padding: 7px;
+    border-top: 1px solid #aaa99f;
+    background: #f5f4ed;
+}
+
+.nitro-club-purchase-summary {
+    display: flex;
+    min-width: 0;
+    flex: 1;
+    flex-direction: column;
+}
+
+.nitro-club-purchase-price {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    font-weight: 700;
+}
+
+.nitro-club-purchase-price > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.nitro-club-gift-options {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 4px 6px;
+}
+
+.nitro-club-gift-options label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.nitro-club-gift-options input[type='text'] {
+    min-width: 0;
+    height: 23px;
+    border: 1px solid #777;
+    background: #fff;
+    font-size: 11px;
+}
+
+.nitro-club-purchase-error,
+.nitro-club-purchase-success {
+    grid-column: 1 / -1;
+    font-size: 10px;
+}
+
+.nitro-club-purchase-error {
+    color: #a00000;
+}
+
+.nitro-club-purchase-success {
+    color: #1f711f;
+    font-weight: 700;
+}
+
+@media (max-width: 520px) {
+    .nitro-club-purchase-layout {
+        height: 100%;
+        min-height: 390px;
+    }
+
+    .nitro-club-teaser {
+        width: 112px;
+        flex-basis: 112px;
+    }
 }
