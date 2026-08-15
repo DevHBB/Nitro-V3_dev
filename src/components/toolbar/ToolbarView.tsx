@@ -49,9 +49,10 @@ export const ToolbarView: FC<{ isInRoom: boolean }> = props =>
     const { isInRoom } = props;
     const [ isMeExpanded, setMeExpanded ] = useState(false);
     const [ isTouchLayout, setIsTouchLayout ] = useState(false);
+    const [ isCompactDesktop, setIsCompactDesktop ] = useState(() => ((typeof window !== 'undefined') && window.matchMedia('(max-width: 759.98px)').matches));
     const [ leftCollapsed, setLeftCollapsed ] = useState(() => readCollapsedPreference(LEFT_COLLAPSED_STORAGE_KEY));
     const [ rightCollapsed, setRightCollapsed ] = useState(() => readCollapsedPreference(RIGHT_COLLAPSED_STORAGE_KEY));
-    const [ dockLayout, setDockLayout ] = useState<BottomDockLayout>({ chatRaised: false, chatBottom: 7 });
+    const [ dockLayout, setDockLayout ] = useState<BottomDockLayout>({ chatRaised: false, chatBottom: 7, chatLeft: null });
     const [ staffStackBottom, setStaffStackBottom ] = useState<number | null>(null);
     const [ useGuideTool, setUseGuideTool ] = useState(false);
     const [ youtubeEnabled, setYoutubeEnabled ] = useState(false);
@@ -84,9 +85,19 @@ export const ToolbarView: FC<{ isInRoom: boolean }> = props =>
     const mobileOnlyClasses = isTouchLayout ? '' : 'hidden';
     const desktopBlockClasses = isTouchLayout ? 'hidden' : 'block';
     const desktopFlexClasses = isTouchLayout ? 'hidden' : 'flex';
-    const chatFrameStyle = useMemo<CSSProperties | undefined>(() => isTouchLayout
-        ? undefined
-        : { bottom: `${ dockLayout.chatBottom }px` }, [ dockLayout.chatBottom, isTouchLayout ]);
+    // Below 760px desktop width the bottom rails cannot hold the full icon set
+    // next to the chat, so the tool cluster moves into the left side stack.
+    const compactDesktop = isCompactDesktop && !isTouchLayout;
+    const sideStackClasses = (isTouchLayout || compactDesktop) ? '' : 'hidden';
+    const chatFrameStyle = useMemo<CSSProperties | undefined>(() =>
+    {
+        if(isTouchLayout) return undefined;
+
+        if(dockLayout.chatLeft === null) return { bottom: `${ dockLayout.chatBottom }px` };
+
+        // Shifted dock: pin the frame's left edge and cancel the centering transform.
+        return { bottom: `${ dockLayout.chatBottom }px`, left: `${ dockLayout.chatLeft }px`, transform: 'none' };
+    }, [ dockLayout.chatBottom, dockLayout.chatLeft, isTouchLayout ]);
     const chatFramePositionClass = isTouchLayout ? 'bottom-[90px]' : '';
     const leftNavVariants = useMemo<Variants>(() => ({
         hidden: { opacity: 0, x: isInRoom ? -10 : 0, y: isInRoom ? 0 : 8, pointerEvents: 'none' },
@@ -147,6 +158,16 @@ export const ToolbarView: FC<{ isInRoom: boolean }> = props =>
 
     useEffect(() =>
     {
+        const query = window.matchMedia('(max-width: 759.98px)');
+        const updateCompactDesktop = () => setIsCompactDesktop(query.matches);
+
+        query.addEventListener('change', updateCompactDesktop);
+
+        return () => query.removeEventListener('change', updateCompactDesktop);
+    }, []);
+
+    useEffect(() =>
+    {
         try
         {
             window.localStorage.setItem(LEFT_COLLAPSED_STORAGE_KEY, leftCollapsed ? '1' : '0');
@@ -180,38 +201,47 @@ export const ToolbarView: FC<{ isInRoom: boolean }> = props =>
 
         let frame = 0;
 
+        const applyMeasurement = () =>
+        {
+            const leftRect = leftDock.getBoundingClientRect();
+            const rightRect = rightDock.getBoundingClientRect();
+            // The rails clamp at max-w-[calc(50vw-242px)] but keep overflow visible,
+            // so their icons paint past the clamped rect. Measure the painted content
+            // (scrollWidth) or the chat docks "legally" underneath overflowing icons.
+            const leftEdge = leftRect.left + Math.max(leftRect.width, leftDock.scrollWidth);
+            const rightEdge = rightRect.right - Math.max(rightRect.width, rightDock.scrollWidth);
+            const next = resolveBottomDockLayout({
+                viewportWidth: window.innerWidth,
+                leftEdge,
+                rightEdge
+            });
+
+            setDockLayout(previous => (
+                previous.chatRaised === next.chatRaised && previous.chatBottom === next.chatBottom && previous.chatLeft === next.chatLeft
+                    ? previous
+                    : next
+            ));
+        };
+
         const measure = () =>
         {
             window.cancelAnimationFrame(frame);
-            frame = window.requestAnimationFrame(() =>
-            {
-                const leftRect = leftDock.getBoundingClientRect();
-                const rightRect = rightDock.getBoundingClientRect();
-                const roomTools = document.querySelector('.nitro-room-tools-container') as HTMLElement | null;
-                const roomToolsBottom = roomTools
-                    ? Math.max(0, Math.round(window.innerHeight - roomTools.getBoundingClientRect().top))
-                    : 0;
-                const next = resolveBottomDockLayout({
-                    viewportWidth: window.innerWidth,
-                    leftEdge: leftRect.right,
-                    rightEdge: rightRect.left,
-                    roomToolsBottom
-                });
-
-                setDockLayout(previous => (
-                    previous.chatRaised === next.chatRaised && previous.chatBottom === next.chatBottom
-                        ? previous
-                        : next
-                ));
-            });
+            frame = window.requestAnimationFrame(applyMeasurement);
         };
 
-        measure();
+        // First pass runs synchronously: this layout effect fires before paint, so the
+        // chat frame mounts at its resolved offset. Deferring the initial measurement
+        // to a frame made the bar paint docked at the bottom and visibly jump up.
+        applyMeasurement();
 
         const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
 
         observer?.observe(leftDock);
         observer?.observe(rightDock);
+        // Also watch the document body: devtools docking/undocking and browser chrome
+        // changes resize the viewport without always reaching the window resize
+        // listener in time, which left a stale raised chat after the viewport grew back.
+        observer?.observe(document.body);
         window.addEventListener('resize', measure);
 
         return () =>
@@ -317,7 +347,7 @@ export const ToolbarView: FC<{ isInRoom: boolean }> = props =>
                 <div
                     data-chat-raised={ dockLayout.chatRaised ? 'true' : 'false' }
                     style={ chatFrameStyle }
-                    className={ `tb-frame fixed ${ chatFramePositionClass } left-1/2 -translate-x-1/2 z-[71] flex h-[38px] w-[466px] max-w-[95vw] items-center p-0 pointer-events-none` }>
+                    className={ `tb-frame absolute ${ chatFramePositionClass } left-1/2 -translate-x-1/2 z-[71] flex h-[38px] w-[466px] max-w-[95vw] items-center p-0 pointer-events-none` }>
                     <Flex
                         alignItems="center"
                         justifyContent="center"
@@ -338,7 +368,7 @@ export const ToolbarView: FC<{ isInRoom: boolean }> = props =>
                 animate={ visibilityVariant }
                 variants={ leftNavVariants }
                 transition={ NAV_TRANSITION }
-                className={ `tb-nav-clip fixed bottom-0 left-0 z-[71] h-[55px] max-w-[calc(50vw-242px)] items-center pl-3 ${ desktopFlexClasses }` }>
+                className={ `tb-nav-clip absolute bottom-0 left-0 z-[71] h-[55px] max-w-[calc(50vw-242px)] items-center pl-3 ${ desktopFlexClasses }` }>
                 <button
                     type="button"
                     onClick={ () => setLeftCollapsed(value => !value) }
@@ -406,36 +436,36 @@ export const ToolbarView: FC<{ isInRoom: boolean }> = props =>
                         <motion.div variants={ itemVariants }>
                             <ToolbarItemView icon="fortune-wheel" onClick={ () => CreateLinkEvent('fortune-wheel/toggle') } className="tb-icon" />
                         </motion.div> }
-                    { (isInRoom && showToolbarButton) &&
+                    { (!compactDesktop && isInRoom && showToolbarButton) &&
                         <motion.div variants={ itemVariants }>
                             <ToolbarItemView icon="wired-tools" onClick={ openMonitor } className="tb-icon" />
                         </motion.div> }
                     </>) }
-                    { isInRoom &&
+                    { (!compactDesktop && isInRoom) &&
                         <motion.div variants={ itemVariants }>
                             <ToolbarItemView icon="camera" onClick={ () => CreateLinkEvent('camera/toggle') } className="tb-icon" />
                         </motion.div> }
                     { !leftCollapsed && (<>
-                    { (isInRoom && youtubeEnabled) &&
+                    { (!compactDesktop && isInRoom && youtubeEnabled) &&
                         <motion.div variants={ itemVariants }>
                             <ToolbarItemView icon="youtube" onClick={ openYouTubePlayer } className="tb-icon" />
                         </motion.div> }
-                    { (isInRoom && soundboardEnabled) &&
+                    { (!compactDesktop && isInRoom && soundboardEnabled) &&
                         <motion.div variants={ itemVariants }>
                             <ToolbarItemView icon="soundboard" onClick={ () => CreateLinkEvent('soundboard/toggle') } className={ `tb-icon ${ soundboardPulse ? 'animate-pulse' : '' }` } />
                         </motion.div> }
-                    { (isInRoom && buildHeightAvailable) &&
+                    { (!compactDesktop && isInRoom && buildHeightAvailable) &&
                         <motion.div variants={ itemVariants }>
                             <ToolbarItemView icon="buildheight" onClick={ toggleBuildHeight } className="tb-icon" />
                         </motion.div> }
                     </>) }
-                    { isMod &&
+                    { (!compactDesktop && isMod) &&
                         <motion.div variants={ itemVariants } className="relative">
                             <ToolbarItemView icon="modtools" onClick={ () => CreateLinkEvent('mod-tools/toggle') } className="tb-icon" />
                             { (openTicketsCount > 0) &&
                                 <LayoutItemCountView count={ openTicketsCount } className="pointer-events-none absolute -right-1 -top-1 z-10" /> }
                         </motion.div> }
-                    { (isHk && hkEnabled) &&
+                    { (!compactDesktop && isHk && hkEnabled) &&
                         <motion.div variants={ itemVariants }>
                             <ToolbarItemView icon="housekeeping" onClick={ () => CreateLinkEvent('housekeeping/toggle') } className="tb-icon" />
                         </motion.div> }
@@ -447,7 +477,7 @@ export const ToolbarView: FC<{ isInRoom: boolean }> = props =>
                 animate={ visibilityVariant }
                 variants={ rightNavVariants }
                 transition={ NAV_TRANSITION }
-                className={ `tb-nav-clip fixed bottom-0 z-[71] h-[55px] max-w-[calc(50vw-242px)] items-center pr-3 ${ desktopFlexClasses } ${ isInRoom ? 'right-0' : 'right-3' }` }>
+                className={ `tb-nav-clip absolute bottom-0 z-[71] h-[55px] max-w-[calc(50vw-242px)] items-center pr-3 ${ desktopFlexClasses } ${ isInRoom ? 'right-0' : 'right-3' }` }>
                 <motion.div
                     variants={ containerVariants }
                     className="tb-open-shell flex h-[55px] max-w-full items-center gap-3 overflow-visible bg-transparent px-[8px] pt-[10px] pb-[2px]">
@@ -489,7 +519,7 @@ export const ToolbarView: FC<{ isInRoom: boolean }> = props =>
                 animate={ visibilityVariant }
                 variants={ mobileNavVariants }
                 transition={ NAV_TRANSITION }
-                className={ `fixed left-1/2 bottom-0 z-[71] flex w-[95vw] -translate-x-1/2 items-center overflow-visible ${ mobileOnlyClasses } ${ isInRoom ? 'nitro-toolbar-mobile-hobba px-[6px] py-[4px] mb-[3px]' : '' }` }>
+                className={ `absolute left-1/2 bottom-0 z-[71] flex w-[95vw] -translate-x-1/2 items-center overflow-visible ${ mobileOnlyClasses } ${ isInRoom ? 'nitro-toolbar-mobile-hobba px-[6px] py-[4px] mb-[3px]' : '' }` }>
                 <motion.div
                     variants={ containerVariants }
                     className="tb-bar-scroll flex h-full min-w-0 flex-1 items-center gap-2 overflow-x-auto overflow-y-visible px-1">
@@ -584,14 +614,30 @@ export const ToolbarView: FC<{ isInRoom: boolean }> = props =>
                 variants={ mobileNavVariants }
                 transition={ NAV_TRANSITION }
                 style={ staffStackBottom != null ? { top: 'auto', bottom: `${ staffStackBottom }px` } : undefined }
-                className={ `fixed left-1 z-[71] flex flex-col items-center gap-2 rounded-[12px] border border-[#3d3d3d]/80 bg-[rgba(85,85,85,0.92)] px-[4px] py-[6px] shadow-[0_6px_18px_rgba(0,0,0,0.18)] ${ staffStackBottom == null ? 'top-1/2 -translate-y-1/2' : '' } ${ mobileOnlyClasses }` }>
-                { buildersClubEnabled &&
+                className={ `absolute left-1 z-[71] flex flex-col items-center gap-2 rounded-[12px] border border-[#3d3d3d]/80 bg-[rgba(85,85,85,0.92)] px-[4px] py-[6px] shadow-[0_6px_18px_rgba(0,0,0,0.18)] ${ staffStackBottom == null ? 'top-1/2 -translate-y-1/2' : '' } ${ sideStackClasses }` }>
+                { isTouchLayout && buildersClubEnabled &&
                     <motion.div variants={ itemVariants }>
                         <ToolbarItemView icon="buildersclub" onClick={ () => CreateLinkEvent('catalog/toggle/builder') } className="tb-icon" />
+                    </motion.div> }
+                { (compactDesktop && isInRoom && showToolbarButton) &&
+                    <motion.div variants={ itemVariants }>
+                        <ToolbarItemView icon="wired-tools" onClick={ openMonitor } className="tb-icon" />
                     </motion.div> }
                 { isInRoom &&
                     <motion.div variants={ itemVariants }>
                         <ToolbarItemView icon="camera" onClick={ () => CreateLinkEvent('camera/toggle') } className="tb-icon" />
+                    </motion.div> }
+                { (compactDesktop && isInRoom && youtubeEnabled) &&
+                    <motion.div variants={ itemVariants }>
+                        <ToolbarItemView icon="youtube" onClick={ openYouTubePlayer } className="tb-icon" />
+                    </motion.div> }
+                { (compactDesktop && isInRoom && soundboardEnabled) &&
+                    <motion.div variants={ itemVariants }>
+                        <ToolbarItemView icon="soundboard" onClick={ () => CreateLinkEvent('soundboard/toggle') } className={ `tb-icon ${ soundboardPulse ? 'animate-pulse' : '' }` } />
+                    </motion.div> }
+                { (compactDesktop && isInRoom && buildHeightAvailable) &&
+                    <motion.div variants={ itemVariants }>
+                        <ToolbarItemView icon="buildheight" onClick={ toggleBuildHeight } className="tb-icon" />
                     </motion.div> }
                 { isMod &&
                     <motion.div variants={ itemVariants } className="relative">

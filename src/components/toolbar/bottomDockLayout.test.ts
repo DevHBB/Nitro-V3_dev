@@ -24,21 +24,50 @@ describe('AIR bottom dock layout', () => {
             })
         ).toEqual({
             chatRaised: false,
-            chatBottom: 7
+            chatBottom: 7,
+            chatLeft: null
         });
     });
 
-    it('raises the chat above crowded side areas and clears the room tools rail', () => {
+    it('centers against rails grown to their max-w-[calc(50vw-242px)] clamp', () => {
+        expect(
+            resolveBottomDockLayout({
+                viewportWidth: 1366,
+                leftEdge: 441,
+                rightEdge: 925
+            })
+        ).toEqual({
+            chatRaised: false,
+            chatBottom: 7,
+            chatLeft: null
+        });
+    });
+
+    it('keeps the chat docked but shifts it sideways when centering would hit a rail', () => {
+        expect(
+            resolveBottomDockLayout({
+                viewportWidth: 1366,
+                leftEdge: 470,
+                rightEdge: 1346
+            })
+        ).toEqual({
+            chatRaised: false,
+            chatBottom: 7,
+            chatLeft: 478
+        });
+    });
+
+    it('raises the chat just above the toolbar when the rails leave no bottom room', () => {
         expect(
             resolveBottomDockLayout({
                 viewportWidth: 1180,
                 leftEdge: 470,
-                rightEdge: 730,
-                roomToolsBottom: 148
+                rightEdge: 730
             })
         ).toEqual({
             chatRaised: true,
-            chatBottom: 160
+            chatBottom: 65,
+            chatLeft: null
         });
     });
 
