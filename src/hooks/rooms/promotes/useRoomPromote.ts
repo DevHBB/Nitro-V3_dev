@@ -1,6 +1,6 @@
 import { RoomEventEvent, RoomEventMessageParser } from '@nitrots/nitro-renderer';
 import { useState } from 'react';
-import { useBetween } from 'use-between';
+import { useSharedHook } from '@/state/useSharedHook';
 import { useMessageEvent } from '../../events';
 
 const useRoomPromoteState = () => {
@@ -18,4 +18,4 @@ const useRoomPromoteState = () => {
     return { promoteInformation, isExtended, setPromoteInformation, setIsExtended };
 };
 
-export const useRoomPromote = () => useBetween(useRoomPromoteState);
+export const useRoomPromote = () => useSharedHook(useRoomPromoteState);

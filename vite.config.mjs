@@ -211,7 +211,7 @@ export default defineConfig({
                         if(id.match(/\/react(-dom)?\/|\/scheduler\//) || id.includes('react-error-boundary')) return 'vendor-react';
                         if(id.includes('framer-motion')) return 'vendor-motion';
                         if(id.includes('@tanstack')) return 'vendor-query';
-                        if(id.includes('zustand') || id.includes('use-between')) return 'vendor-state';
+                        if(id.includes('zustand')) return 'vendor-state';
                         if(id.includes('react-icons')) return 'vendor-icons';
                         if(id.includes('strip-json-comments')) return 'vendor-jsonc';
                         return 'vendor';

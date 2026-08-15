@@ -1,6 +1,6 @@
 import { GetConfiguration, GetLocalizationManager, GetSessionDataManager, TranslationLanguagesEvent, TranslationLanguagesRequestComposer, TranslationResultEvent, TranslationTextRequestComposer } from '@nitrots/nitro-renderer';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useBetween } from 'use-between';
+import { useSharedHook } from '@/state/useSharedHook';
 import { LocalStorageKeys, SendMessageComposer } from '../../api';
 import { parseJsonDocument } from '../../json/JsonDocumentParser';
 import { useMessageEvent } from '../events';
@@ -648,7 +648,7 @@ export const useTranslationState = () =>
         lastOutgoingLanguage,
         lastError,
         getLanguageName
-    } = useBetween(useTranslationStore);
+    } = useSharedHook(useTranslationStore);
 
     return {
         settings,
@@ -675,7 +675,7 @@ export const useTranslationActions = () =>
         translateOutgoing,
         enqueueOutgoingTranslation,
         consumeOutgoingTranslation
-    } = useBetween(useTranslationStore);
+    } = useSharedHook(useTranslationStore);
 
     return {
         settings,
@@ -689,4 +689,4 @@ export const useTranslationActions = () =>
     };
 };
 
-export const useTranslation = () => useBetween(useTranslationStore);
+export const useTranslation = () => useSharedHook(useTranslationStore);

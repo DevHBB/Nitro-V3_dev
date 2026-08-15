@@ -1,6 +1,6 @@
 import { loadGamedata } from '@nitrots/nitro-renderer';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useBetween } from 'use-between';
+import { useSharedHook } from '@/state/useSharedHook';
 import { GetConfigurationValue } from '../../api';
 
 export type RadioStation = {
@@ -13,7 +13,7 @@ export type RadioStation = {
 
 // Hotel radio: a list of streaming URLs played client-side with HTML5 Audio.
 // The station list comes from a JSONC config file (loadGamedata accepts plain
-// JSON and JSONC). Shared via useBetween so playback is a single instance no
+// JSON and JSONC). Shared through Zustand so playback is a single instance no
 // matter how many components read it.
 const useRadioState = () => {
     const [stations, setStations] = useState<RadioStation[]>([]);
@@ -137,4 +137,4 @@ const useRadioState = () => {
     return { stations, currentId, isPlaying, volume, loadError, play, stop, toggle, setVolume };
 };
 
-export const useRadio = () => useBetween(useRadioState);
+export const useRadio = () => useSharedHook(useRadioState);

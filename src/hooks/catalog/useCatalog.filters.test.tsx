@@ -11,9 +11,9 @@ import { describe, expect, it, vi } from 'vitest';
 // We just want to lock down the *contract* of the three filters
 // (`useCatalogData` / `useCatalogUiState` / `useCatalogActions`) and
 // the shim: each one must read its specific subset of keys from the
-// same `useBetween` singleton.
+// same Zustand-backed singleton.
 //
-// Stub `use-between` so all four hooks share one deterministic store
+// Stub the shared-hook bridge so all four hooks share one deterministic store
 // object. `vi.hoisted` lets us reference the fake from the mock
 // factory (which is itself hoisted).
 
@@ -69,11 +69,11 @@ const { fakeStore } = vi.hoisted(() => {
     return { fakeStore };
 });
 
-vi.mock('use-between', () => ({
-    useBetween: () => fakeStore
+vi.mock('@/state/useSharedHook', () => ({
+    useSharedHook: () => fakeStore
 }));
 
-// Import AFTER the mock is set up. The hooks resolve `useBetween` at
+// Import AFTER the mock is set up. The hooks resolve `useSharedHook` at
 // import time via the module graph, so the order matters.
 import { useCatalogActions, useCatalogData, useCatalogUiState } from './useCatalog';
 
@@ -164,7 +164,7 @@ describe('useCatalog filter contract', () => {
             actions: useCatalogActions()
         }));
 
-        // Each slice reaches the same fakeStore via useBetween. Any
+        // Each slice reaches the same fakeStore via the shared bridge. Any
         // accidental copy would break these `===` checks.
         expect(result.current.actions.activateNode).toBe(fakeStore.activateNode);
         expect(result.current.actions.openCatalogByType).toBe(fakeStore.openCatalogByType);

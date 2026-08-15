@@ -1,4 +1,4 @@
-import { useBetween } from 'use-between';
+import { useSharedHook } from '@/state/useSharedHook';
 import { isSafeExternalUrl, LocalizeText } from '../api';
 import { useNotification } from './notification';
 
@@ -33,4 +33,4 @@ const useOnClickChatState = () => {
     return { onClickChat };
 };
 
-export const useOnClickChat = () => useBetween(useOnClickChatState);
+export const useOnClickChat = () => useSharedHook(useOnClickChatState);

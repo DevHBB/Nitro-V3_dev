@@ -174,12 +174,16 @@ jobs:
             Nitro_Render_V3/yarn.lock
 
       - name: Install renderer SDK deps
+        env:
+          COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'
         working-directory: Nitro_Render_V3
-        run: yarn install --frozen-lockfile
+        run: corepack yarn install --immutable
 
       - name: Install client deps
+        env:
+          COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'
         working-directory: Nitro-V3
-        run: yarn install --frozen-lockfile
+        run: corepack yarn install --immutable
 
       # The renderer SDK is consumed via a filesystem symlink in
       # node_modules/@nitrots/nitro-renderer; create it AFTER yarn

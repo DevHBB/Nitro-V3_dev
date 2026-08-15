@@ -21,7 +21,7 @@ import {
     Vector3d
 } from '@nitrots/nitro-renderer';
 import { useEffect, useState } from 'react';
-import { useBetween } from 'use-between';
+import { useSharedHook } from '@/state/useSharedHook';
 import {
     CanManipulateFurniture,
     DispatchUiEvent,
@@ -350,4 +350,4 @@ const useRoomState = () => {
     return { roomSession, isHandItemBlocked };
 };
 
-export const useRoom = () => useBetween(useRoomState);
+export const useRoom = () => useSharedHook(useRoomState);

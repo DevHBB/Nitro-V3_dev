@@ -1,6 +1,6 @@
 import { AchievementData, AchievementEvent, AchievementsEvent, AchievementsScoreEvent, RequestAchievementsMessageComposer } from '@nitrots/nitro-renderer';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useBetween } from 'use-between';
+import { useSharedHook } from '@/state/useSharedHook';
 import { AchievementCategory, AchievementUtilities, CloneObject, SendMessageComposer } from '../../api';
 import { useMessageEvent } from '../events';
 
@@ -170,4 +170,4 @@ const useAchievementsState = () => {
     };
 };
 
-export const useAchievements = () => useBetween(useAchievementsState);
+export const useAchievements = () => useSharedHook(useAchievementsState);

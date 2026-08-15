@@ -1,6 +1,6 @@
 import { PetAddedToInventoryEvent, PetData, PetInventoryEvent, PetRemovedFromInventory, RequestPetsComposer } from '@nitrots/nitro-renderer';
 import { useEffect, useState } from 'react';
-import { useBetween } from 'use-between';
+import { useSharedHook } from '@/state/useSharedHook';
 import { addSinglePetItem, IPetItem, mergePetFragments, processPetFragment, removePetItemById, SendMessageComposer, UnseenItemCategory } from '../../api';
 import { useMessageEvent } from '../events';
 import { useSharedVisibility } from '../useSharedVisibility';
@@ -92,4 +92,4 @@ const useInventoryPetsState = () => {
     return { petItems, selectedPet, setSelectedPet, activate, deactivate };
 };
 
-export const useInventoryPets = () => useBetween(useInventoryPetsState);
+export const useInventoryPets = () => useSharedHook(useInventoryPetsState);

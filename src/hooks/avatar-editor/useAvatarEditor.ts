@@ -14,7 +14,7 @@ import {
     UserWardrobePageEvent
 } from '@nitrots/nitro-renderer';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useBetween } from 'use-between';
+import { useSharedHook } from '@/state/useSharedHook';
 import {
     AvatarEditorColorSorter,
     AvatarEditorPartSorter,
@@ -461,4 +461,4 @@ const useAvatarEditorState = () => {
     };
 };
 
-export const useAvatarEditor = () => useBetween(useAvatarEditorState);
+export const useAvatarEditor = () => useSharedHook(useAvatarEditorState);

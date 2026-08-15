@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useBetween } from 'use-between';
+import { useSharedHook } from '@/state/useSharedHook';
 import {
     emptySample,
     GetConfigurationValue,
@@ -48,7 +48,7 @@ const useHousekeepingStoreInner = () => {
     const [roomSuggestions, setRoomSuggestions] = useState<IHousekeepingRoomSummary[]>([]);
     const [recentLookups, setRecentLookups] = useState<RecentLookupEntry[]>(() => loadRecentLookups());
     // Multi-select state for the Users tab. We use an array of ids
-    // rather than a Set because Zustand-style `useBetween` re-renders
+    // rather than a Set because the Zustand-backed snapshot re-renders
     // on referential equality — mutating a Set in place would miss
     // updates. Capped via the dedupe in toggleUserSelection.
     const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
@@ -483,8 +483,8 @@ const useHousekeepingStoreInner = () => {
 /**
  * Singleton store backing the housekeeping panel. State, lookups,
  * dashboard/audit fetches, autocomplete + recent-lookups
- * persistence all live in one `useBetween` closure so every tab
+ * persistence all live in one shared source so every tab
  * shares the same view of the world — and reopening the panel
  * doesn't re-fetch state that's already in memory.
  */
-export const useHousekeepingStore = () => useBetween(useHousekeepingStoreInner);
+export const useHousekeepingStore = () => useSharedHook(useHousekeepingStoreInner);

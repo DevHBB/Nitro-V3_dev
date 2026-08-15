@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { getRemainingCooldownSeconds, shouldStartOwnCooldown } from './soundboardUi.helpers';
 
 describe('soundboard UI helpers', () => {
-    it('does not read external snapshots inside the useBetween state scope', () => {
+    it('does not duplicate the external snapshot inside the singleton source', () => {
         const source = readFileSync(resolve(process.cwd(), 'src/hooks/soundboard/useSoundboard.ts'), 'utf8');
         const stateScope = source.slice(source.indexOf('const useSoundboardState'), source.indexOf('export const useSoundboard'));
 

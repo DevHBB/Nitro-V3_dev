@@ -1,9 +1,10 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { StrictMode, Suspense } from 'react';
+import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ErrorBoundary } from 'react-error-boundary';
 import { App } from './App';
 import { LoadingView } from './components/loading/LoadingView';
+import { SharedHookRegistry } from './state/useSharedHook';
 
 const queryClient = new QueryClient({
     defaultOptions: {
@@ -90,9 +91,9 @@ createRoot(document.getElementById('root')).render(
                     />
                 )}
             >
-                <Suspense fallback={<LoadingView message="Loading…" />}>
+                <SharedHookRegistry fallback={<LoadingView message="Loading…" />}>
                     <App />
-                </Suspense>
+                </SharedHookRegistry>
             </ErrorBoundary>
         </QueryClientProvider>
     </StrictMode>

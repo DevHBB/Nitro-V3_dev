@@ -122,9 +122,9 @@ const DEFAULT_ROOM_SETTINGS: IWiredRoomSettings = {
  * (imperative slice). useWiredTools is the legacy shim that composes
  * both into the original shape.
  *
- * Wrapped in useBetween at the public-hook layer so every consumer in
+ * Wrapped by the Zustand bridge at the public-hook layer so every consumer in
  * the tree sees the same instance (matches the previous
- * useBetween(useWiredToolsState) wiring).
+ * useSharedHook(useWiredToolsState) wiring).
  */
 export const useWiredToolsStore = () => {
     const { roomSession = null } = useRoom();

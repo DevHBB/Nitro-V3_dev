@@ -3,6 +3,7 @@
     "version": "3.5.0",
     "homepage": ".",
     "private": true,
+    "packageManager": "yarn@4.18.0",
     "scripts": {
         "configure": "node scripts/configure-json.mjs",
         "prestart": "node scripts/configure-json.mjs --if-missing",
@@ -43,8 +44,7 @@
         "react-icons": "^5.6.0",
         "react-player": "^3.4.0",
         "strip-json-comments": "^5.0.3",
-        "use-between": "^1.4.0",
-        "zustand": "^5.0.14"
+        "zustand": "^5.0.15"
     },
     "devDependencies": {
         "@biomejs/biome": "^2.5.0",

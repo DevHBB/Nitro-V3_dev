@@ -52,7 +52,7 @@ export const AvatarInfoWidgetAvatarView: FC<AvatarInfoWidgetAvatarViewProps> = (
     const { userRespectRemaining = 0, respectUser = null } = useSessionInfo();
     const { openInspectionForUser, showInspectButton } = useWiredTools();
     // Reactive: the menu auto-flips Ignore <-> Unignore if the state
-    // changes while the popup is open. Direct hook call (no useBetween
+    // changes while the popup is open. Direct snapshot hook call
     // scope here) so useSyncExternalStore installs against the real
     // React dispatcher.
     const isIgnored = useIsUserIgnored(avatarInfo.name);

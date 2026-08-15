@@ -12,7 +12,7 @@ import {
     ModeratorToolPreferencesEvent
 } from '@nitrots/nitro-renderer';
 import { useState } from 'react';
-import { useBetween } from 'use-between';
+import { useSharedHook } from '@/state/useSharedHook';
 import { NotificationAlertType, PlaySound, SoundNames } from '../../api';
 import { useMessageEvent } from '../events';
 import { useNotification } from '../notification';
@@ -208,4 +208,4 @@ const useModToolsState = () => {
     };
 };
 
-export const useModTools = () => useBetween(useModToolsState);
+export const useModTools = () => useSharedHook(useModToolsState);

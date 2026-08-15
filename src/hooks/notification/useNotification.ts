@@ -29,7 +29,7 @@ import {
     WiredRewardResultMessageEvent
 } from '@nitrots/nitro-renderer';
 import { useCallback, useState } from 'react';
-import { useBetween } from 'use-between';
+import { useSharedHook } from '@/state/useSharedHook';
 import {
     GetConfigurationValue,
     IMentionEntry,
@@ -635,14 +635,14 @@ const useNotificationStore = () => {
 };
 
 export const useNotificationState = () => {
-    const { alerts, bubbleAlerts, confirms } = useBetween(useNotificationStore);
+    const { alerts, bubbleAlerts, confirms } = useSharedHook(useNotificationStore);
 
     return { alerts, bubbleAlerts, confirms };
 };
 
 export const useNotificationActions = () => {
     const { simpleAlert, showNitroAlert, showTradeAlert, showConfirm, showSingleBubble, showMentionBubble, closeAlert, closeBubbleAlert, closeConfirm } =
-        useBetween(useNotificationStore);
+        useSharedHook(useNotificationStore);
 
     return {
         simpleAlert,
@@ -657,4 +657,4 @@ export const useNotificationActions = () => {
     };
 };
 
-export const useNotification = () => useBetween(useNotificationStore);
+export const useNotification = () => useSharedHook(useNotificationStore);

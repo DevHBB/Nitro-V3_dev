@@ -8,7 +8,7 @@ import {
     RoomDoorbellAcceptedEvent
 } from '@nitrots/nitro-renderer';
 import { useCallback, useState } from 'react';
-import { useBetween } from 'use-between';
+import { useSharedHook } from '@/state/useSharedHook';
 import { DoorStateType, GenericErrorCode } from '../../../api';
 import { useMessageEvent } from '../../events';
 
@@ -75,4 +75,4 @@ const useDoorStateStore = () => {
     return { snapshot, setSnapshot, reset };
 };
 
-export const useDoorState = () => useBetween(useDoorStateStore);
+export const useDoorState = () => useSharedHook(useDoorStateStore);

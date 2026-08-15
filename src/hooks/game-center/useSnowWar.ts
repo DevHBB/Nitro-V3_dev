@@ -43,7 +43,7 @@ import {
     WeeklyCompetitiveLeaderboardEvent,
 } from '@nitrots/nitro-renderer';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useBetween } from 'use-between';
+import { useSharedHook } from '@/state/useSharedHook';
 import { PlaySound, SendMessageComposer, SoundNames, TryVisitRoom } from '../../api';
 import {
     consumeSnowWarReturnRoom,
@@ -371,7 +371,7 @@ const useSnowWarState = () =>
 
     // All packet handlers are useCallback-stable and read the parser into a
     // local BEFORE any setState. Both rules are load-bearing: this hook lives
-    // inside a use-between scope whose useEffect implementation flushes
+    // inside a shared singleton whose effects react to state updates, so
     // synchronously on state updates, so an unstable handler identity makes
     // useMessageEvent unregister+dispose its event (nulling the parser)
     // mid-callback — and briefly leaves the header without a listener, which
@@ -796,4 +796,4 @@ const useSnowWarState = () =>
     };
 };
 
-export const useSnowWar = () => useBetween(useSnowWarState);
+export const useSnowWar = () => useSharedHook(useSnowWarState);

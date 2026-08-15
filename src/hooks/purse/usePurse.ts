@@ -8,7 +8,7 @@ import {
     UserSubscriptionParser
 } from '@nitrots/nitro-renderer';
 import { useEffect, useMemo, useState } from 'react';
-import { useBetween } from 'use-between';
+import { useSharedHook } from '@/state/useSharedHook';
 import { CloneObject, ClubStatus, GetConfigurationValue, IPurse, PlaySound, Purse, SendMessageComposer, SoundNames } from '../../api';
 import { useMessageEvent } from '../events';
 
@@ -117,4 +117,4 @@ const usePurseState = () => {
     return { purse, hcDisabled, clubStatus, getCurrencyAmount };
 };
 
-export const usePurse = () => useBetween(usePurseState);
+export const usePurse = () => useSharedHook(usePurseState);
