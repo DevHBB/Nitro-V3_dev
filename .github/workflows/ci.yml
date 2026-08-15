@@ -41,7 +41,7 @@ jobs:
       # Mirror that here by checking the client into <workspace>/Nitro-V3
       # and the renderer into <workspace>/Nitro_Render_V3.
       - name: Checkout Nitro-V3
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           path: Nitro-V3
 
@@ -158,14 +158,14 @@ jobs:
           echo "Resolved renderer pairing: $REPO @ $REF (client ctx: $CTX, event: ${GITHUB_EVENT_NAME})"
 
       - name: Checkout Nitro_Render_V3 (sibling)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: ${{ steps.renderer.outputs.repo }}
           ref: ${{ steps.renderer.outputs.ref }}
           path: Nitro_Render_V3
 
       - name: Setup Node 22
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '22'
 
