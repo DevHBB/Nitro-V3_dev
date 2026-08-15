@@ -49,6 +49,7 @@ export const CatalogViewProductWidgetView: FC<{ height?: number }> = (props) => 
                         const figureString = avatarRenderManager.getFigureStringWithFigureIds(sessionDataManager.figure, sessionDataManager.gender, figureSets);
 
                         roomPreviewer.addAvatarIntoRoom(figureString || sessionDataManager.figure, 0);
+                        roomPreviewer.zoomIn();
                     } else {
                         roomPreviewer.addFurnitureIntoRoom(product.productClassId, new Vector3d(90), previewStuffData, product.extraParam);
                     }
@@ -82,9 +83,11 @@ export const CatalogViewProductWidgetView: FC<{ height?: number }> = (props) => 
                 }
                 case ProductTypeEnum.ROBOT:
                     roomPreviewer.addAvatarIntoRoom(product.extraParam, 0);
+                    roomPreviewer.zoomIn();
                     return;
                 case ProductTypeEnum.EFFECT:
                     roomPreviewer.addAvatarIntoRoom(GetSessionDataManager().figure, product.productClassId);
+                    roomPreviewer.zoomIn();
                     return;
             }
         };

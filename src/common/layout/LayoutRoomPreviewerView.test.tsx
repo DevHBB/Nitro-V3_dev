@@ -44,7 +44,7 @@ describe('LayoutRoomPreviewerView interactions', () => {
         expect(roomPreviewer.changeRoomObjectState).toHaveBeenCalledOnce();
     });
 
-    it('keeps shift-click rotation available', () => {
+    it('keeps preview clicks dedicated to furniture state even with modifier keys', () => {
         const roomPreviewer = {
             changeRoomObjectDirection: vi.fn(),
             changeRoomObjectState: vi.fn(),
@@ -57,11 +57,11 @@ describe('LayoutRoomPreviewerView interactions', () => {
         const view = render(<LayoutRoomPreviewerView height={200} roomPreviewer={roomPreviewer} />);
         fireEvent.click(view.container.querySelector('.shadow-room-previewer')!, { shiftKey: true });
 
-        expect(roomPreviewer.changeRoomObjectDirection).toHaveBeenCalledOnce();
-        expect(roomPreviewer.changeRoomObjectState).not.toHaveBeenCalled();
+        expect(roomPreviewer.changeRoomObjectDirection).not.toHaveBeenCalled();
+        expect(roomPreviewer.changeRoomObjectState).toHaveBeenCalledOnce();
     });
 
-    it('cycles avatar actions on a single click', () => {
+    it('does not cycle avatar actions from the preview surface', () => {
         const roomPreviewer = {
             changeRoomObjectDirection: vi.fn(),
             changeRoomObjectState: vi.fn(),
@@ -76,7 +76,7 @@ describe('LayoutRoomPreviewerView interactions', () => {
         const view = render(<LayoutRoomPreviewerView height={200} roomPreviewer={roomPreviewer} />);
         fireEvent.click(view.container.querySelector('.shadow-room-previewer')!);
 
-        expect(roomPreviewer.cycleAvatarAction).toHaveBeenCalledOnce();
-        expect(roomPreviewer.changeRoomObjectState).not.toHaveBeenCalled();
+        expect(roomPreviewer.cycleAvatarAction).not.toHaveBeenCalled();
+        expect(roomPreviewer.changeRoomObjectState).toHaveBeenCalledOnce();
     });
 });

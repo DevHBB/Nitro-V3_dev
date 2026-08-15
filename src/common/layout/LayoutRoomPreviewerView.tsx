@@ -1,10 +1,5 @@
 import { GetRenderer, GetTicker, NitroLogger, NitroTicker, RoomPreviewer, TextureUtils } from '@nitrots/nitro-renderer';
-import { FC, MouseEvent, useEffect, useRef } from 'react';
-
-type InteractiveRoomPreviewer = RoomPreviewer & {
-    cycleAvatarAction?(): void;
-    getPreviewCapabilities?(): { mode?: string };
-};
+import { FC, useEffect, useRef } from 'react';
 
 export const LayoutRoomPreviewerView: FC<{
     roomPreviewer: RoomPreviewer;
@@ -23,20 +18,8 @@ export const LayoutRoomPreviewerView: FC<{
     const renderFailuresRef = useRef(0);
     const MAX_RENDER_FAILURES = 6;
 
-    const onClick = (event: MouseEvent<HTMLDivElement>) => {
+    const onClick = () => {
         if (!roomPreviewer) return;
-
-        if (event.shiftKey) {
-            roomPreviewer.changeRoomObjectDirection();
-            return;
-        }
-
-        const interactivePreviewer = roomPreviewer as InteractiveRoomPreviewer;
-
-        if (interactivePreviewer.getPreviewCapabilities?.().mode === 'avatar' && interactivePreviewer.cycleAvatarAction) {
-            interactivePreviewer.cycleAvatarAction();
-            return;
-        }
 
         roomPreviewer.changeRoomObjectState();
     };

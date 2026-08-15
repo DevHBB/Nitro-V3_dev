@@ -38,7 +38,8 @@ const createRoomPreviewer = () => ({
     reset: vi.fn(),
     setAutomaticStateChange: vi.fn(),
     updateObjectRoom: vi.fn(),
-    updateRoomWallsAndFloorVisibility: vi.fn()
+    updateRoomWallsAndFloorVisibility: vi.fn(),
+    zoomIn: vi.fn()
 });
 
 const createFloorOffer = (specialType: number) => ({
@@ -82,6 +83,7 @@ describe('catalog product preview', () => {
             expect(avatarRenderManager.isValidFigureSetForGender).toHaveBeenCalledWith(202, 'M');
             expect(avatarRenderManager.getFigureStringWithFigureIds).toHaveBeenCalledWith('base-figure', 'M', [101, 202]);
             expect(roomPreviewer.addAvatarIntoRoom).toHaveBeenCalledWith('composed-figure', 0);
+            expect(roomPreviewer.zoomIn).toHaveBeenCalledOnce();
         });
     });
 
@@ -107,6 +109,7 @@ describe('catalog product preview', () => {
             expect(roomPreviewer.reset).toHaveBeenCalledWith(false);
             expect(roomPreviewer.addFurnitureIntoRoom).toHaveBeenCalledWith(500, expect.anything(), null, '');
             expect(roomPreviewer.addAvatarIntoRoom).not.toHaveBeenCalled();
+            expect(roomPreviewer.zoomIn).not.toHaveBeenCalled();
         });
     });
 

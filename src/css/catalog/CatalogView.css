@@ -1284,6 +1284,18 @@
     background-size: contain !important;
 }
 
+.nitro-catalog-offer-preview .shadow-room-previewer {
+    background-size: 100% 100% !important;
+    transition:
+        background-position 180ms ease-out,
+        background-size 180ms ease-out;
+}
+
+.nitro-catalog-offer-preview:has(.nitro-catalog-preview-zoom-btn[aria-pressed="true"]) .shadow-room-previewer {
+    background-position: center calc(50% - 41px) !important;
+    background-size: 200% 200% !important;
+}
+
 /* Badge offers: the black 3D-preview stage is meant for furni room previews.
    Badges get a light panel, a dark title and a larger, centered badge. */
 .nitro-catalog-offer-preview.is-badge {
@@ -2181,43 +2193,99 @@
     top: 8px;
     right: 6px;
     z-index: 10;
-    display: grid;
-    grid-template-columns: 25px 25px;
-    gap: 5px 4px;
+    width: 54px;
+    height: 77px;
 }
 
 .nitro-catalog-window .nitro-catalog-preview-controls button.nitro-catalog-preview-btn {
-    position: static;
+    position: absolute;
+    top: 0;
     width: 25px !important;
     min-width: 25px !important;
     height: 24px !important;
     min-height: 24px !important;
 }
 
-.nitro-catalog-window .nitro-catalog-preview-controls button.nitro-catalog-preview-zoom-btn {
-    grid-column: 2;
-    width: 20px !important;
-    min-width: 20px !important;
-    height: 22px !important;
-    min-height: 22px !important;
-    margin-top: 0;
-    justify-self: center;
+.nitro-catalog-window .nitro-catalog-preview-controls button.nitro-catalog-preview-btn.is-left {
+    left: 0;
+}
+
+.nitro-catalog-window .nitro-catalog-preview-controls button.nitro-catalog-preview-btn.is-right {
+    left: 29px;
+}
+
+.nitro-catalog-window .nitro-catalog-preview-controls button.nitro-catalog-preview-btn:disabled {
+    border-image-source: var(--habbo-skin-button-disabled) !important;
+    opacity: 1 !important;
+}
+
+.nitro-catalog-window .nitro-catalog-preview-controls button.nitro-catalog-preview-region {
+    position: absolute;
+    left: 31px;
+    display: block;
+    padding: 0 !important;
+    overflow: hidden;
     border: 0 !important;
+    border-radius: 0 !important;
     background: transparent !important;
     box-shadow: none !important;
 }
 
-.nitro-catalog-window .nitro-catalog-preview-controls button.nitro-catalog-preview-zoom-btn:hover,
-.nitro-catalog-window .nitro-catalog-preview-controls button.nitro-catalog-preview-zoom-btn:active {
-    background: rgba(255, 255, 255, 0.28) !important;
-    box-shadow: none !important;
+.nitro-catalog-window .nitro-catalog-preview-controls button.nitro-catalog-preview-zoom-btn {
+    top: 29px;
+    width: 20px !important;
+    min-width: 20px !important;
+    height: 22px !important;
+    min-height: 22px !important;
 }
 
-.nitro-catalog-window .nitro-catalog-preview-controls button.nitro-catalog-preview-zoom-btn svg {
+.nitro-catalog-window .nitro-catalog-preview-controls button.nitro-catalog-preview-action-btn {
+    top: 55px;
+    width: 22px !important;
+    min-width: 22px !important;
+    height: 22px !important;
+    min-height: 22px !important;
+}
+
+.nitro-catalog-window .nitro-catalog-preview-controls button.nitro-catalog-preview-region:hover {
+    filter: brightness(1.12);
+}
+
+.nitro-catalog-window .nitro-catalog-preview-controls button.nitro-catalog-preview-region:active {
+    filter: brightness(0.9);
+}
+
+.nitro-catalog-window .nitro-catalog-preview-controls .nitro-catalog-preview-arrow {
+    display: block;
     width: 13px !important;
     height: 13px !important;
-    color: #007ca8 !important;
-    fill: #007ca8 !important;
+    fill: #000 !important;
+}
+
+.nitro-catalog-window .nitro-catalog-preview-controls .nitro-icon.icon-zoom-more {
+    position: absolute;
+    top: 0;
+    left: 3px;
+    width: 13px;
+    height: 22px;
+    background-repeat: no-repeat;
+    image-rendering: pixelated;
+}
+
+.nitro-catalog-window .nitro-catalog-preview-controls .nitro-icon.icon-zoom-more:hover,
+.nitro-catalog-window .nitro-catalog-preview-controls .nitro-icon.icon-zoom-more:active {
+    transform: none;
+    filter: none;
+}
+
+.nitro-catalog-window .nitro-catalog-preview-controls .nitro-catalog-preview-action-icon {
+    position: absolute;
+    top: 0;
+    left: -10px;
+    width: 41px;
+    height: 22px;
+    background: url("@/assets/images/catalog/preview-avatar-action.svg") no-repeat;
+    image-rendering: pixelated;
 }
 
 .nitro-catalog-grid-club-level {

@@ -1,6 +1,5 @@
 import { RoomPreviewer } from '@nitrots/nitro-renderer';
 import { FC, MouseEvent, useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
-import { FaRedo, FaSearchPlus, FaUndo } from 'react-icons/fa';
 import { ProductTypeEnum } from '../../../../../api';
 
 interface CatalogPreviewControlsProps {
@@ -10,6 +9,7 @@ interface CatalogPreviewControlsProps {
 
 type DirectionalRoomPreviewer = RoomPreviewer & {
     changeRoomObjectDirection(clockwise?: boolean): void;
+    cycleAvatarAction?(): void;
     getPreviewCapabilities?(): PreviewCapabilities;
     subscribePreviewCapabilities?(listener: () => void): () => void;
 };
@@ -22,6 +22,15 @@ interface PreviewCapabilities {
     canZoomIn: boolean;
     canZoomOut: boolean;
 }
+
+const CatalogPreviewArrowIcon: FC<{ direction: 'left' | 'right' }> = ({ direction }) => (
+    <svg aria-hidden="true" className="nitro-catalog-preview-arrow" shapeRendering="crispEdges" viewBox="0 0 13 13">
+        <path
+            d="M6 0h1v4h6v5H7v4H6v-1H5v-1H4v-1H3V9H2V8H1V7H0V6h1V5h1V4h1V3h1V2h1V1h1Z"
+            transform={direction === 'right' ? 'translate(13 0) scale(-1 1)' : undefined}
+        />
+    </svg>
+);
 
 const getFallbackCapabilities = (productType: string): PreviewCapabilities => {
     if (productType === ProductTypeEnum.FLOOR || productType === ProductTypeEnum.WALL) {
@@ -69,8 +78,7 @@ const getFallbackCapabilities = (productType: string): PreviewCapabilities => {
 
 const CatalogPreviewControlsContent: FC<Required<CatalogPreviewControlsProps>> = ({ productType, roomPreviewer }) => {
     const directionalPreviewer = roomPreviewer as DirectionalRoomPreviewer;
-    const hasCapabilityContract = !!directionalPreviewer.getPreviewCapabilities;
-    const [fallbackZoomedOut, setFallbackZoomedOut] = useState(false);
+    const [avatarZoomed, setAvatarZoomed] = useState(true);
     const fallbackCapabilities = useMemo(() => getFallbackCapabilities(productType), [productType]);
     const subscribe = useCallback(
         (listener: () => void) => directionalPreviewer.subscribePreviewCapabilities?.(listener) ?? (() => undefined),
@@ -81,13 +89,14 @@ const CatalogPreviewControlsContent: FC<Required<CatalogPreviewControlsProps>> =
         [directionalPreviewer, fallbackCapabilities]
     );
     const capabilities = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
-    const showRotationControls = capabilities.mode === 'floor' || capabilities.mode === 'wall' || capabilities.mode === 'avatar';
-    const canToggleZoom = capabilities.mode === 'avatar' && (capabilities.canZoomIn || capabilities.canZoomOut);
-    const shouldZoomOut = hasCapabilityContract ? capabilities.canZoomOut : !fallbackZoomedOut;
+    const isAvatarPreview = capabilities.mode === 'avatar';
+    const showRotationControls = isAvatarPreview || capabilities.mode === 'floor' || (capabilities.mode === 'wall' && capabilities.canRotate);
+    const canToggleZoom = isAvatarPreview && (capabilities.canZoomIn || capabilities.canZoomOut);
+    const canChangeAvatarAction = isAvatarPreview && capabilities.canUseAvatarActions && !!directionalPreviewer.cycleAvatarAction;
 
-    useEffect(() => setFallbackZoomedOut(false), [directionalPreviewer, productType]);
+    useEffect(() => setAvatarZoomed(true), [directionalPreviewer, productType]);
 
-    if (!showRotationControls && !canToggleZoom) return null;
+    if (!showRotationControls && !canToggleZoom && !canChangeAvatarAction) return null;
 
     const runPreviewAction = (event: MouseEvent<HTMLButtonElement>, action: () => void) => {
         event.preventDefault();
@@ -101,39 +110,44 @@ const CatalogPreviewControlsContent: FC<Required<CatalogPreviewControlsProps>> =
                 <>
                     <button
                         aria-label="Rotate left"
-                        className="nitro-catalog-preview-btn"
+                        className="nitro-catalog-preview-btn is-left"
                         disabled={!capabilities.canRotate}
                         type="button"
                         onClick={(event) => runPreviewAction(event, () => directionalPreviewer.changeRoomObjectDirection(false))}
                     >
-                        <FaUndo aria-hidden="true" />
+                        <CatalogPreviewArrowIcon direction="left" />
                     </button>
                     <button
                         aria-label="Rotate right"
-                        className="nitro-catalog-preview-btn"
+                        className="nitro-catalog-preview-btn is-right"
                         disabled={!capabilities.canRotate}
                         type="button"
                         onClick={(event) => runPreviewAction(event, () => directionalPreviewer.changeRoomObjectDirection(true))}
                     >
-                        <FaRedo aria-hidden="true" />
+                        <CatalogPreviewArrowIcon direction="right" />
                     </button>
                 </>
             )}
             {canToggleZoom && (
                 <button
                     aria-label="Toggle zoom"
-                    className="nitro-catalog-preview-btn nitro-catalog-preview-zoom-btn"
+                    aria-pressed={avatarZoomed}
+                    className="nitro-catalog-preview-region nitro-catalog-preview-zoom-btn"
                     type="button"
-                    onClick={(event) =>
-                        runPreviewAction(event, () => {
-                            if (shouldZoomOut) roomPreviewer.zoomOut();
-                            else roomPreviewer.zoomIn();
-
-                            if (!hasCapabilityContract) setFallbackZoomedOut(shouldZoomOut);
-                        })
-                    }
+                    onClick={(event) => runPreviewAction(event, () => setAvatarZoomed((value) => !value))}
                 >
-                    <FaSearchPlus aria-hidden="true" />
+                    <i aria-hidden="true" className="nitro-icon icon-zoom-more" />
+                </button>
+            )}
+            {isAvatarPreview && (
+                <button
+                    aria-label="Change avatar action"
+                    className="nitro-catalog-preview-region nitro-catalog-preview-action-btn"
+                    disabled={!canChangeAvatarAction}
+                    type="button"
+                    onClick={(event) => runPreviewAction(event, () => directionalPreviewer.cycleAvatarAction?.())}
+                >
+                    <span aria-hidden="true" className="nitro-catalog-preview-action-icon" />
                 </button>
             )}
         </div>
