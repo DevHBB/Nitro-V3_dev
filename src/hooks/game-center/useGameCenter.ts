@@ -9,7 +9,7 @@ import {
     RoomEnterEvent
 } from '@nitrots/nitro-renderer';
 import { useCallback, useEffect, useState } from 'react';
-import { useBetween } from 'use-between';
+import { registerSharedHook, useSharedHook } from '@/state/useSharedHook';
 import { GetRoomSession, SendMessageComposer, setSnowWarReturnRoom, VisitDesktop } from '../../api';
 import { useMessageEvent } from '../events';
 
@@ -96,4 +96,6 @@ const useGameCenterState = () => {
     };
 };
 
-export const useGameCenter = () => useBetween(useGameCenterState);
+export const useGameCenter = () => useSharedHook(useGameCenterState);
+
+registerSharedHook(useGameCenterState);

@@ -11,7 +11,7 @@ import {
     SendMessageComposer as SendMessageComposerPacket
 } from '@nitrots/nitro-renderer';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useBetween } from 'use-between';
+import { registerSharedHook, useSharedHook } from '@/state/useSharedHook';
 import {
     CloneObject,
     LocalizeText,
@@ -405,4 +405,6 @@ const useMessengerState = () => {
     };
 };
 
-export const useMessenger = () => useBetween(useMessengerState);
+export const useMessenger = () => useSharedHook(useMessengerState);
+
+registerSharedHook(useMessengerState);

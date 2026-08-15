@@ -6,7 +6,7 @@ import {
     RoomCameraWidgetManagerEvent
 } from '@nitrots/nitro-renderer';
 import { useEffect, useState } from 'react';
-import { useBetween } from 'use-between';
+import { registerSharedHook, useSharedHook } from '@/state/useSharedHook';
 import { CameraPicture, SendMessageComposer } from '../../api';
 import { useMessageEvent, useNitroEvent } from '../events';
 
@@ -38,4 +38,6 @@ const useCameraState = () => {
     return { availableEffects, cameraRoll, setCameraRoll, selectedPictureIndex, setSelectedPictureIndex, myLevel, price };
 };
 
-export const useCamera = () => useBetween(useCameraState);
+export const useCamera = () => useSharedHook(useCameraState);
+
+registerSharedHook(useCameraState);

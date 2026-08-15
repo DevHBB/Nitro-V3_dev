@@ -8,7 +8,7 @@ import {
     UserPrefixesEvent
 } from '@nitrots/nitro-renderer';
 import { useEffect, useState } from 'react';
-import { useBetween } from 'use-between';
+import { registerSharedHook, useSharedHook } from '@/state/useSharedHook';
 import { IPrefixItem, SendMessageComposer, UnseenItemCategory } from '../../api';
 import { useMessageEvent } from '../events';
 import { useSharedVisibility } from '../useSharedVisibility';
@@ -152,4 +152,6 @@ const useInventoryPrefixesState = () => {
     return { prefixes, activePrefix, selectedPrefix, setSelectedPrefix, activatePrefix, deactivatePrefix, deletePrefix, activate, deactivate };
 };
 
-export const useInventoryPrefixes = () => useBetween(useInventoryPrefixesState);
+export const useInventoryPrefixes = () => useSharedHook(useInventoryPrefixesState);
+
+registerSharedHook(useInventoryPrefixesState);

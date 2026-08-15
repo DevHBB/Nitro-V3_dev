@@ -1,6 +1,6 @@
 import { BadgeReceivedEvent, BadgesEvent, RequestBadgesComposer, SetActivatedBadgesComposer } from '@nitrots/nitro-renderer';
 import { useEffect, useState } from 'react';
-import { useBetween } from 'use-between';
+import { registerSharedHook, useSharedHook } from '@/state/useSharedHook';
 import { GetConfigurationValue, SendMessageComposer, UnseenItemCategory } from '../../api';
 import { useMessageEvent } from '../events';
 import { useSharedVisibility } from '../useSharedVisibility';
@@ -222,4 +222,6 @@ const useInventoryBadgesState = () => {
     };
 };
 
-export const useInventoryBadges = () => useBetween(useInventoryBadgesState);
+export const useInventoryBadges = () => useSharedHook(useInventoryBadgesState);
+
+registerSharedHook(useInventoryBadgesState);

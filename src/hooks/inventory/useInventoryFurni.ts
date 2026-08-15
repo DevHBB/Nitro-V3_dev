@@ -7,7 +7,7 @@ import {
     FurnitureListRemovedEvent
 } from '@nitrots/nitro-renderer';
 import { useEffect, useRef, useState } from 'react';
-import { useBetween } from 'use-between';
+import { registerSharedHook, useSharedHook } from '@/state/useSharedHook';
 import { DispatchUiEvent, GroupItem, SendMessageComposer, UnseenItemCategory } from '../../api';
 import { InventoryFurniAddedEvent } from '../../events';
 import { useMessageEvent } from '../events';
@@ -137,4 +137,6 @@ const useInventoryFurniState = () => {
     return { isVisible, groupItems, setGroupItems, selectedItem, setSelectedItem, activate, deactivate, getWallItemById, getFloorItemById, getItemsByType };
 };
 
-export const useInventoryFurni = () => useBetween(useInventoryFurniState);
+export const useInventoryFurni = () => useSharedHook(useInventoryFurniState);
+
+registerSharedHook(useInventoryFurniState);

@@ -1,6 +1,6 @@
 import { BuildHeightAvailableEvent, SetBuildHeightComposer } from '@nitrots/nitro-renderer';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useBetween } from 'use-between';
+import { registerSharedHook, useSharedHook } from '@/state/useSharedHook';
 import { SendMessageComposer } from '../../api';
 import { useMessageEvent } from '../events';
 
@@ -78,4 +78,6 @@ const useBuildHeightState = () => {
     return { available, minHeight, maxHeight, isOpen, height, applyHeight, open, close, toggle };
 };
 
-export const useBuildHeight = () => useBetween(useBuildHeightState);
+export const useBuildHeight = () => useSharedHook(useBuildHeightState);
+
+registerSharedHook(useBuildHeightState);

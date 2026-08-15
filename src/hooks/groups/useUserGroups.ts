@@ -1,6 +1,6 @@
 import { CatalogGroupsComposer, GuildMembershipsMessageEvent, HabboGroupEntryData } from '@nitrots/nitro-renderer';
 import { useCallback, useEffect, useState } from 'react';
-import { useBetween } from 'use-between';
+import { registerSharedHook, useSharedHook } from '@/state/useSharedHook';
 import { SendMessageComposer } from '../../api';
 import { useMessageEvent } from '../events';
 
@@ -21,7 +21,9 @@ const useUserGroupsStore = () => {
 };
 
 export const useUserGroups = (): { data: HabboGroupEntryData[] } => {
-    const { groups } = useBetween(useUserGroupsStore);
+    const { groups } = useSharedHook(useUserGroupsStore);
 
     return { data: groups };
 };
+
+registerSharedHook(useUserGroupsStore);

@@ -11,7 +11,7 @@ import {
     SanctionStatusMessageParser
 } from '@nitrots/nitro-renderer';
 import { useState } from 'react';
-import { useBetween } from 'use-between';
+import { registerSharedHook, useSharedHook } from '@/state/useSharedHook';
 import {
     CallForHelpResult,
     GetCloseReasonKey,
@@ -165,4 +165,6 @@ const useHelpState = () => {
     return { activeReport, setActiveReport, sanctionInfo, setSanctionInfo, report };
 };
 
-export const useHelp = () => useBetween(useHelpState);
+export const useHelp = () => useSharedHook(useHelpState);
+
+registerSharedHook(useHelpState);

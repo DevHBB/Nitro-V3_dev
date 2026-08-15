@@ -20,7 +20,7 @@ import {
     TradingYouAreNotAllowedEvent
 } from '@nitrots/nitro-renderer';
 import { useEffect, useState } from 'react';
-import { useBetween } from 'use-between';
+import { registerSharedHook, useSharedHook } from '@/state/useSharedHook';
 import {
     CloneObject,
     GetRoomSession,
@@ -269,4 +269,6 @@ const useInventoryTradeState = () => {
     return { ownUser, otherUser, tradeState, setTradeState, isTrading, groupItems, progressTrade, removeItem, stopTrading };
 };
 
-export const useInventoryTrade = () => useBetween(useInventoryTradeState);
+export const useInventoryTrade = () => useSharedHook(useInventoryTradeState);
+
+registerSharedHook(useInventoryTradeState);

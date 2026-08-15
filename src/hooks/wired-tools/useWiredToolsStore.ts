@@ -10,6 +10,7 @@ import {
     WiredUserVariableUpdateComposer
 } from '@nitrots/nitro-renderer';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { registerSharedHook } from '@/state/useSharedHook';
 import { LocalizeText, NotificationAlertType, SendMessageComposer } from '../../api';
 import { useMessageEvent } from '../events';
 import { useNotification } from '../notification';
@@ -122,9 +123,9 @@ const DEFAULT_ROOM_SETTINGS: IWiredRoomSettings = {
  * (imperative slice). useWiredTools is the legacy shim that composes
  * both into the original shape.
  *
- * Wrapped in useBetween at the public-hook layer so every consumer in
+ * Wrapped by the Zustand bridge at the public-hook layer so every consumer in
  * the tree sees the same instance (matches the previous
- * useBetween(useWiredToolsState) wiring).
+ * shared-store wiring).
  */
 export const useWiredToolsStore = () => {
     const { roomSession = null } = useRoom();
@@ -626,3 +627,5 @@ export const useWiredToolsStore = () => {
         openInspectionForUser
     };
 };
+
+registerSharedHook(useWiredToolsStore);

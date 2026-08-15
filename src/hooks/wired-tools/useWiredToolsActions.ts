@@ -1,4 +1,4 @@
-import { useBetween } from 'use-between';
+import { useSharedHook } from '@/state/useSharedHook';
 import { useWiredToolsStore } from './useWiredToolsStore';
 
 /**
@@ -26,7 +26,7 @@ export const useWiredToolsActions = () => {
         openMonitor,
         openInspectionForFurni,
         openInspectionForUser
-    } = useBetween(useWiredToolsStore);
+    } = useSharedHook(useWiredToolsStore);
 
     return {
         updateAccountPreferences,

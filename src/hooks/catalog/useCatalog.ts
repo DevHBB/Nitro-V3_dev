@@ -33,7 +33,7 @@ import {
     Vector3d
 } from '@nitrots/nitro-renderer';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useBetween } from 'use-between';
+import { registerSharedHook, useSharedHook } from '@/state/useSharedHook';
 import {
     BuilderFurniPlaceableStatus,
     CatalogPage,
@@ -91,7 +91,7 @@ import { useCatalogSkipPurchaseConfirmation } from './useCatalogSkipPurchaseConf
 const DUMMY_PAGE_ID_FOR_OFFER_SEARCH = -12345678;
 const DRAG_AND_DROP_ENABLED = true;
 
-// Internal singleton store — held together by `useBetween` so every
+// Internal singleton source — published through the Zustand bridge so every
 // public filter below sees the same listeners + state. Do NOT export
 // this directly; consumers must go through the filters or the
 // deprecated `useCatalog` shim. The previous 1100-line monolith
@@ -1273,7 +1273,7 @@ export const useCatalogData = () => {
         secondsLeft,
         secondsLeftWithGrace,
         updateTime
-    } = useBetween(useCatalogStore);
+    } = useSharedHook(useCatalogStore);
 
     return {
         isBusy,
@@ -1320,7 +1320,7 @@ export const useCatalogUiState = () => {
         setCurrentPage,
         setCurrentOffer,
         setSearchResult
-    } = useBetween(useCatalogStore);
+    } = useSharedHook(useCatalogStore);
 
     return {
         isVisible,
@@ -1363,7 +1363,7 @@ export const useCatalogActions = () => {
         getNodesByOfferId,
         getBuilderFurniPlaceableStatus,
         retryCurrentPage
-    } = useBetween(useCatalogStore);
+    } = useSharedHook(useCatalogStore);
 
     return {
         openCatalogByType,
@@ -1381,3 +1381,5 @@ export const useCatalogActions = () => {
         retryCurrentPage
     };
 };
+
+registerSharedHook(useCatalogStore);

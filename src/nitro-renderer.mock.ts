@@ -49,11 +49,11 @@ const listeners = new Map<string, Set<Listener>>();
 
 // MessageEvent listeners — registered via GetCommunication().registerMessageEvent
 // (i.e. useMessageEvent). NOT cleared by clearMockEventDispatcher() so that
-// useBetween-based hooks (which register effects once and persist the
-// singleton across tests) keep their subscriptions alive throughout the
-// suite. State isolation between tests is maintained by the useBetween
-// instance preserving INITIAL values across renders (each test's renderHook
-// shares the same useBetween singleton — tests that check a specific
+// Zustand-backed shared hooks (which register effects once and persist the
+// source host across tests) keep their subscriptions alive throughout the
+// suite. State isolation between tests is maintained by the shared source
+// preserving initial values across renders (each test's renderHook
+// reads the same Zustand store — tests that check a specific
 // post-dispatch state rely on the event changing it, not on a reset).
 const msgListeners = new Map<string, Set<Listener>>();
 
@@ -86,7 +86,7 @@ export const mockEventDispatcher = {
 
 // Clears only the NitroEvent listener map (GetEventDispatcher / useNitroEvent
 // registrations). MessageEvent listeners (useMessageEvent / GetCommunication)
-// are intentionally preserved so useBetween-based hooks stay subscribed.
+// are intentionally preserved so shared source hooks stay subscribed.
 export const clearMockEventDispatcher = () => {
     listeners.clear();
 };
@@ -583,8 +583,8 @@ export const GetAvatarRenderManager = vi.fn(stubManager);
 // GetCommunication — routes IMessageEvent registration through the
 // msgListeners map (separate from the NitroEvent listeners map) so that
 // clearMockEventDispatcher() does NOT wipe these subscriptions. This
-// keeps useBetween-based hooks (like useDoorState) subscribed across
-// test cases without needing to recreate the useBetween singleton.
+// keeps shared source hooks (like useDoorState) subscribed across
+// test cases without recreating the Zustand-backed source host.
 //
 // A WeakMap stores the wrapper fn keyed by the MessageEvent instance so
 // that removeMessageEvent can remove the exact listener added by

@@ -14,11 +14,11 @@ import {
     WheelSpinComposer
 } from '@nitrots/nitro-renderer';
 import { useCallback, useRef, useState } from 'react';
-import { useBetween } from 'use-between';
+import { registerSharedHook, useSharedHook } from '@/state/useSharedHook';
 import { SendMessageComposer } from '../../api';
 import { useMessageEvent } from '../events';
 
-// Fortune wheel state + actions. Shared via useBetween so the event listeners
+// Fortune wheel state + actions. Shared via the Zustand bridge so the event listeners
 // register once regardless of how many components read it.
 const useFortuneWheelState = () => {
     const [freeSpins, setFreeSpins] = useState(0);
@@ -113,4 +113,6 @@ const useFortuneWheelState = () => {
     };
 };
 
-export const useFortuneWheel = () => useBetween(useFortuneWheelState);
+export const useFortuneWheel = () => useSharedHook(useFortuneWheelState);
+
+registerSharedHook(useFortuneWheelState);
