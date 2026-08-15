@@ -33,7 +33,7 @@ import {
     Vector3d
 } from '@nitrots/nitro-renderer';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useSharedHook } from '@/state/useSharedHook';
+import { registerSharedHook, useSharedHook } from '@/state/useSharedHook';
 import {
     BuilderFurniPlaceableStatus,
     CatalogPage,
@@ -1352,3 +1352,5 @@ export const useCatalogActions = () => {
         getBuilderFurniPlaceableStatus
     };
 };
+
+registerSharedHook(useCatalogStore);

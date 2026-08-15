@@ -1,6 +1,6 @@
 import { GetGuestRoomResultEvent, NewConsoleMessageEvent, RoomInviteEvent, RoomSessionEvent } from '@nitrots/nitro-renderer';
 import { useState } from 'react';
-import { useSharedHook } from '@/state/useSharedHook';
+import { registerSharedHook, useSharedHook } from '@/state/useSharedHook';
 import { ChatEntryType, ChatHistoryCurrentDate, IChatEntry, IRoomHistoryEntry, MessengerHistoryCurrentDate } from '../../api';
 import { useMessageEvent, useNitroEvent } from '../events';
 import { useLocalStorage } from '../useLocalStorage';
@@ -165,3 +165,5 @@ const useChatHistoryState = () => {
 };
 
 export const useChatHistory = () => useSharedHook(useChatHistoryState);
+
+registerSharedHook(useChatHistoryState);

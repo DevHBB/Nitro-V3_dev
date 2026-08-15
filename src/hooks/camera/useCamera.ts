@@ -6,7 +6,7 @@ import {
     RoomCameraWidgetManagerEvent
 } from '@nitrots/nitro-renderer';
 import { useEffect, useState } from 'react';
-import { useSharedHook } from '@/state/useSharedHook';
+import { registerSharedHook, useSharedHook } from '@/state/useSharedHook';
 import { CameraPicture, SendMessageComposer } from '../../api';
 import { useMessageEvent, useNitroEvent } from '../events';
 
@@ -39,3 +39,5 @@ const useCameraState = () => {
 };
 
 export const useCamera = () => useSharedHook(useCameraState);
+
+registerSharedHook(useCameraState);

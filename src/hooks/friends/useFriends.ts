@@ -23,7 +23,7 @@ import {
     SetRelationshipStatusComposer
 } from '@nitrots/nitro-renderer';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useSharedHook } from '@/state/useSharedHook';
+import { registerSharedHook, useSharedHook } from '@/state/useSharedHook';
 import {
     CloneObject,
     localizeWithFallback,
@@ -425,3 +425,5 @@ export const useFriendsActions = () => {
  * existing consumers keep working unchanged.
  */
 export const useFriends = () => useSharedHook(useFriendsStore);
+
+registerSharedHook(useFriendsStore);

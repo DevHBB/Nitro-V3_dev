@@ -20,7 +20,7 @@ import {
     TradingYouAreNotAllowedEvent
 } from '@nitrots/nitro-renderer';
 import { useEffect, useState } from 'react';
-import { useSharedHook } from '@/state/useSharedHook';
+import { registerSharedHook, useSharedHook } from '@/state/useSharedHook';
 import {
     CloneObject,
     GetRoomSession,
@@ -270,3 +270,5 @@ const useInventoryTradeState = () => {
 };
 
 export const useInventoryTrade = () => useSharedHook(useInventoryTradeState);
+
+registerSharedHook(useInventoryTradeState);

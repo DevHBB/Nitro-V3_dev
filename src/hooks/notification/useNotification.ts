@@ -29,7 +29,7 @@ import {
     WiredRewardResultMessageEvent
 } from '@nitrots/nitro-renderer';
 import { useCallback, useState } from 'react';
-import { useSharedHook } from '@/state/useSharedHook';
+import { registerSharedHook, useSharedHook } from '@/state/useSharedHook';
 import {
     GetConfigurationValue,
     IMentionEntry,
@@ -658,3 +658,5 @@ export const useNotificationActions = () => {
 };
 
 export const useNotification = () => useSharedHook(useNotificationStore);
+
+registerSharedHook(useNotificationStore);

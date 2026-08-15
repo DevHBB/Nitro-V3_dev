@@ -7,7 +7,7 @@ import {
     FurnitureListRemovedEvent
 } from '@nitrots/nitro-renderer';
 import { useEffect, useRef, useState } from 'react';
-import { useSharedHook } from '@/state/useSharedHook';
+import { registerSharedHook, useSharedHook } from '@/state/useSharedHook';
 import { DispatchUiEvent, GroupItem, SendMessageComposer, UnseenItemCategory } from '../../api';
 import { InventoryFurniAddedEvent } from '../../events';
 import { useMessageEvent } from '../events';
@@ -138,3 +138,5 @@ const useInventoryFurniState = () => {
 };
 
 export const useInventoryFurni = () => useSharedHook(useInventoryFurniState);
+
+registerSharedHook(useInventoryFurniState);

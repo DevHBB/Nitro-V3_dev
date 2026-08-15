@@ -11,7 +11,7 @@ import {
     SoundboardSettingsEvent
 } from '@nitrots/nitro-renderer';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useSharedHook } from '@/state/useSharedHook';
+import { registerSharedHook, useSharedHook } from '@/state/useSharedHook';
 import { DispatchUiEvent, GetConfigurationValue, LocalizeText, NotificationBubbleType, SendMessageComposer, setSoundboardRoomEnabled } from '../../api';
 import { SoundboardRoomMessageEvent } from '../../events';
 import { useMessageEvent } from '../events';
@@ -218,3 +218,5 @@ export const useSoundboardState = () => {
 };
 
 export const useSoundboard = () => useSharedHook(useSoundboardState);
+
+registerSharedHook(useSoundboardState);

@@ -1,7 +1,7 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import { useEffect, useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { SharedHookRegistry, useSharedHook } from './useSharedHook';
+import { registerSharedHook, SharedHookRegistry, useSharedHook } from './useSharedHook';
 
 describe('useSharedHook', () => {
     it('runs the source hook once and shares its Zustand-backed snapshot', async () => {
@@ -27,14 +27,25 @@ describe('useSharedHook', () => {
             );
         };
 
-        render(
+        registerSharedHook(useCounterSource);
+
+        const view = render(
+            <SharedHookRegistry fallback={<span>loading</span>}>
+                <span>shell</span>
+            </SharedHookRegistry>
+        );
+
+        await waitFor(() => expect(mounted).toHaveBeenCalledTimes(1));
+
+        view.rerender(
             <SharedHookRegistry fallback={<span>loading</span>}>
                 <Counter label="first" />
                 <Counter label="second" />
             </SharedHookRegistry>
         );
 
-        expect(await screen.findByTestId('first')).toHaveTextContent('0');
+        expect(screen.queryByText('loading')).not.toBeInTheDocument();
+        expect(screen.getByTestId('first')).toHaveTextContent('0');
         expect(screen.getByTestId('second')).toHaveTextContent('0');
         expect(mounted).toHaveBeenCalledTimes(1);
 

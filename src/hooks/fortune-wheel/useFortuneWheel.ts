@@ -14,7 +14,7 @@ import {
     WheelSpinComposer
 } from '@nitrots/nitro-renderer';
 import { useCallback, useRef, useState } from 'react';
-import { useSharedHook } from '@/state/useSharedHook';
+import { registerSharedHook, useSharedHook } from '@/state/useSharedHook';
 import { SendMessageComposer } from '../../api';
 import { useMessageEvent } from '../events';
 
@@ -114,3 +114,5 @@ const useFortuneWheelState = () => {
 };
 
 export const useFortuneWheel = () => useSharedHook(useFortuneWheelState);
+
+registerSharedHook(useFortuneWheelState);

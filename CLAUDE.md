@@ -175,46 +175,32 @@ respectsPetLeft from `useUserDataSnapshot`; `useChatWidget.ownUserId`
 reads from the snapshot directly; `AvatarInfoWidgetAvatarView` flips
 its Ignore/Unignore menu via `useIsUserIgnored`.
 
-The original rollback (`e142efd`) was caused by a hard structural
-constraint, NOT a stale renderer or React Compiler quirk: **snapshot
-hooks (`useSyncExternalStore`-based) must NOT be called inside a
-`useBetween(stateFn)` scope.** `use-between` 1.x swaps
-`ReactCurrentDispatcher.current` with its own proxy
-(`ownDispatcher` at
-`node_modules/use-between/release/index.esm.js:54-169`) that
-re-implements only useState / useReducer / useEffect /
-useLayoutEffect / useCallback / useMemo / useRef /
-useImperativeHandle. `useSyncExternalStore` isn't on the list, so
-React resolves `dispatcher.useSyncExternalStore` to `undefined` and
-crashes on first paint — that's the original "(intermediate value)()
-is undefined" at `ToolbarView.tsx:46`. Chrome reports the same as
-`dispatcher.useSyncExternalStore is not a function`.
-
-**Fix pattern, applied to `useSessionInfo`:** call the snapshot hook
-in the OUTER exported wrapper, after `useBetween`, so it runs in the
-real React dispatcher's scope. The inner state function (the one
-`useBetween` actually proxies) keeps only useState /
-useMessageEvent / plain actions.
+The legacy `use-between` dispatcher proxy could not execute
+`useSyncExternalStore` hooks and caused the original snapshot crash.
+The project now uses `useSharedHook`, whose source runs in a normal
+React host and publishes its snapshot through a Zustand vanilla store.
+Shared sources must be registered at module scope so the root registry
+can mount them before their first consumer renders.
 
 ```ts
 const useSessionInfoState = () => {
-    // ONLY use-between-safe hooks here.
     const [chatStyleId, setChatStyleId] = useState(0);
     // … useMessageEvent, actions …
     return { chatStyleId, /* actions */ };
 };
 
 export const useSessionInfo = () => {
-    const shared = useBetween(useSessionInfoState);
-    const userData = useUserDataSnapshot();        // outside useBetween → ok
+    const shared = useSharedHook(useSessionInfoState);
+    const userData = useUserDataSnapshot();
     return { ...shared, userFigure: userData.figure, /* etc */ };
 };
+
+registerSharedHook(useSessionInfoState);
 ```
 
 Regression guard: `src/hooks/session/useSessionSnapshots.test.tsx`
-asserts the negative case (snapshot inside useBetween crashes via
-ErrorBoundary) and the positive case (outside works). A CI gate
-(`yarn lint:hooks` →
+and `src/state/useSharedHook.test.tsx` cover snapshot and shared-source
+lifecycle behavior. A CI gate (`yarn lint:hooks` →
 `react-hooks/rules-of-hooks: error`) blocks any future commit that
 reintroduces hook-order issues.
 
@@ -269,7 +255,7 @@ where a brief blank is tolerable. For anything that is the primary visible
 content of a panel, use `useMessageEvent + useState/useEffect`** — that's
 what the rest of the codebase does and it's robust.
 
-### Singleton-filter split for `useBetween`-based hooks
+### Singleton-filter split for Zustand-backed shared hooks
 
 When a hook backs many consumers but most only need either state OR
 actions (not both), split it without breaking the shared-singleton
@@ -285,23 +271,24 @@ const useFooStore = () => {
 
 // public: read-only filter
 export const useFooState = () => {
-    const { data } = useBetween(useFooStore);
+    const { data } = useSharedHook(useFooStore);
     return { data };
 };
 
 // public: imperative filter
 export const useFooActions = () => {
-    const { doThing } = useBetween(useFooStore);
+    const { doThing } = useSharedHook(useFooStore);
     return { doThing };
 };
 
 // deprecated shim — keeps the historical return shape
-export const useFoo = () => useBetween(useFooStore);
+export const useFoo = () => useSharedHook(useFooStore);
+
+registerSharedHook(useFooStore);
 ```
 
-`useBetween` ensures all three entry points hit the same store
-instance, so listeners/effects register once. Used by `useWiredTools`,
-`useTranslation`, `useNotification`, `useFriends`.
+`useSharedHook` ensures all three entry points read the same Zustand
+store, while the registered source owns listeners and effects once.
 
 ### Zustand stores
 
@@ -365,14 +352,14 @@ into `configurePreviewServer` so `yarn preview` keeps working.
 
 | Adopted | Pilot sites |
 |---|---|
-| Renderer snapshot consumer hooks (`useSessionSnapshots`) | `useSessionInfo` (userFigure / userRespectRemaining / petRespectRemaining via `useUserDataSnapshot` in the outer wrapper, outside useBetween), `useChatWidget.ownUserId` (via `useUserDataSnapshot`), `AvatarInfoWidgetAvatarView` Ignore/Unignore (via `useIsUserIgnored`), `ModToolsView` selected-user presence dot (via `useRoomUserListSnapshot` — green when still in the active room, gray when they've left). The 8 hooks (userData / activeRoomSession / ignoredUsers / groupBadges / soundVolumes / roomUserList / isUserIgnored / groupBadge) keep their typeof-guard defensive fallbacks for stale-renderer paths. |
+| Renderer snapshot consumer hooks (`useSessionSnapshots`) | `useSessionInfo` (userFigure / userRespectRemaining / petRespectRemaining via `useUserDataSnapshot`), `useChatWidget.ownUserId` (via `useUserDataSnapshot`), `AvatarInfoWidgetAvatarView` Ignore/Unignore (via `useIsUserIgnored`), `ModToolsView` selected-user presence dot (via `useRoomUserListSnapshot` — green when still in the active room, gray when they've left). The 8 hooks (userData / activeRoomSession / ignoredUsers / groupBadges / soundVolumes / roomUserList / isUserIgnored / groupBadge) keep their typeof-guard defensive fallbacks for stale-renderer paths. |
 | Reactive event-driven local state (companion to snapshots — when there is no manager-snapshot to read from yet) | `AvatarInfoWidgetAvatarView` Give/Remove Rights — local `controllerLevel` initialized from `avatarInfo.targetRoomControllerLevel`, kept reactive via `useMessageEvent<FlatControllerAddedEvent>` / `FlatControllerRemovedEvent` filtered by `parser.data.userId === avatarInfo.webID`, plus optimistic bump on click so the moderate submenu flips immediately. Same shape as `useIsUserIgnored` but the source is the renderer event bus, not a snapshot getter — use this when adding a manager-side snapshot for the same data isn't justified. |
 | `useNitroEventState` + companions (Reducer, ExternalSnapshot) | `OfferView`, `useAvatarInfoWidget` (figure/badges/group reducer), `useInventoryFurni` (pure reducers + fragments useRef) |
 | `useNitroQuery` + `useNitroEventInvalidator` | `OfferView`, `CatalogLayoutRoomAdsView`, `ModToolsChatlogView`, `CfhChatlogView`, `useGiftConfiguration`, `useUserGroups`, `useClubOffers(windowId)`, `useSellablePetPalette(breed)`, `useMarketplaceConfiguration`, `useClubGifts` (with invalidator) |
 | Zustand | `NavigatorRoomCreatorView` (`useRoomCreatorStore`), `WiredCreatorToolsView` (`useWiredCreatorToolsUiStore` — every panel-lifecycle-relevant flag, snapshot, selection, highlight, inline editor, picker chain hoisted; what's left in the component as `useState` is genuinely transient: keepSelected, globalClock, roomEnteredAt, selectedMonitorErrorType, selectedMonitorLogDetails) |
 | God-hook split (state + actions + shim) | `doorbell`, `poll`, `furni-chooser`, `user-chooser`, `friend-request`, `chat-input` |
-| God-hook split (`useBetween` singleton + state filter + actions filter + shim) | `wired-tools`, `translation`, `notification`, `friends`, `catalog` (three-way: `useCatalogData` / `useCatalogUiState` / `useCatalogActions` — all 48 consumers migrated, deprecated `useCatalog` shim removed) |
-| Navigator modernization (merged to main 2026-05-28, PRs #168/#169/#170) | 492-line `useNavigator` god-hook split into `useNavigatorStore` (internal `useBetween` closure) + flat filters `useNavigatorData` / `useNavigatorUiState` / `useNavigatorSearch`; door bell/password lifecycle extracted to `src/hooks/rooms/widgets/useDoorState.ts` (dual-subscribes `GetGuestRoomResultEvent` + `GenericErrorEvent` alongside the nav store, each filtering by branch/errorCode); 9 UI flags + `currentTabCode`/`currentFilter` in Zustand `navigatorUiStore` (`src/hooks/navigator/navigatorUiStore.ts`); all 5 Navigator sub-views wrapped in `WidgetErrorBoundary`; old shim deleted. **`useNavigatorSearch` was reverted by duckietm (`05d71dd1`) from `useNitroQuery` to `useMessageEvent + useEffect`** — see the useNitroQuery fragility note. Specs/plans under `docs/superpowers/`. |
+| God-hook split (Zustand-backed shared source + state filter + actions filter + shim) | `wired-tools`, `translation`, `notification`, `friends`, `catalog` (three-way: `useCatalogData` / `useCatalogUiState` / `useCatalogActions` — all 48 consumers migrated, deprecated `useCatalog` shim removed) |
+| Navigator modernization (merged to main 2026-05-28, PRs #168/#169/#170) | 492-line `useNavigator` god-hook split into a Zustand-backed shared `useNavigatorStore` + flat filters `useNavigatorData` / `useNavigatorUiState` / `useNavigatorSearch`; door bell/password lifecycle extracted to `src/hooks/rooms/widgets/useDoorState.ts` (dual-subscribes `GetGuestRoomResultEvent` + `GenericErrorEvent` alongside the nav store, each filtering by branch/errorCode); 9 UI flags + `currentTabCode`/`currentFilter` in Zustand `navigatorUiStore` (`src/hooks/navigator/navigatorUiStore.ts`); all 5 Navigator sub-views wrapped in `WidgetErrorBoundary`; old shim deleted. **`useNavigatorSearch` was reverted by duckietm (`05d71dd1`) from `useNitroQuery` to `useMessageEvent + useEffect`** — see the useNitroQuery fragility note. Specs/plans under `docs/superpowers/`. |
 | `WidgetErrorBoundary` | `RoomWidgetsView` umbrella + per-widget wrap on all 13 room widgets and all 20 furniture widgets (so a crash in one widget no longer takes down its siblings) |
 | Vitest | 207/207 cases — pure helpers (incl. 4 new on `getPetPackageNameError`) + 2 Zustand store suites (`navigatorRoomCreatorStore`, `wiredCreatorToolsUiStore` with 45 cases including the picker-chain hoists) + 2 component-/hook-level pilots (WidgetErrorBoundary, useDoorbellState) on top of the renderer-SDK mock at `src/nitro-renderer.mock.ts`, 34 cases on the catalog pure helpers, 4 contract cases on the catalog filters. **Tests are co-located** under `src/`, alongside their subject. |
 | Form Actions | Login / Register / Forgot (LoginView.tsx) |
@@ -380,9 +367,9 @@ into `configurePreviewServer` so `yarn preview` keeps working.
 
 | Not yet | Notes |
 |---|---|
-| Split `useChatWidget` / `useAvatarInfoWidget` (data/actions) | Both state-driven via events with no clean imperative actions to extract — split still skip-motivated, but `useAvatarInfoWidget` got a typed `__nitroAvatarClickControl` accessor + module-scope DEBOUNCE const in 2026-05-18 (commit `05ff7df`). `useChatWidget.ownUserId` reactive migration re-applied 2026-05-19 in `d28819d` via `useUserDataSnapshot` (direct hook call — useChatWidget isn't wrapped in useBetween so the snapshot-outside-useBetween constraint doesn't apply). |
+| Split `useChatWidget` / `useAvatarInfoWidget` (data/actions) | Both state-driven via events with no clean imperative actions to extract — split still skip-motivated, but `useAvatarInfoWidget` got a typed `__nitroAvatarClickControl` accessor + module-scope DEBOUNCE const in 2026-05-18 (commit `05ff7df`). `useChatWidget.ownUserId` reactive migration re-applied 2026-05-19 in `d28819d` via `useUserDataSnapshot`. |
 | Split `usePetPackageWidget` / `useWordQuizWidget` / `useChatCommandSelector` (data/actions) | Data/actions split remains a bad fit, but all three got real modernization in 2026-05-18 instead: usePetPackageWidget → useReducer + extracted `getPetPackageNameError` pure helper + 4 tests; useWordQuizWidget → fixed stale-closure bug in `setUserAnswers` updater + `useRef` for the timeout handle; useChatCommandSelector → module-level `let` cache replaced with a Zustand store. |
-| Migrate more consumers to renderer snapshot hooks | **Unblocked.** Three pilot consumers shipped 2026-05-19 (`d28819d`), pattern documented above. Next candidates: any code reading from `GetSessionDataManager().userId / userName / clubLevel / securityLevel`, `GetRoomSessionManager().getActiveSession()`, or `GetSoundManager().<volume>` synchronously — those don't re-render today when the value changes. Rule: snapshot read MUST be outside any `useBetween` scope (CI gate `yarn lint:hooks` catches violations; regression test at `src/hooks/session/useSessionSnapshots.test.tsx`). |
+| Migrate more consumers to renderer snapshot hooks | **Unblocked.** Three pilot consumers shipped 2026-05-19 (`d28819d`), pattern documented above. Next candidates: any code reading from `GetSessionDataManager().userId / userName / clubLevel / securityLevel`, `GetRoomSessionManager().getActiveSession()`, or `GetSoundManager().<volume>` synchronously — those don't re-render today when the value changes. CI gate `yarn lint:hooks` and `src/hooks/session/useSessionSnapshots.test.tsx` guard hook correctness. |
 | Widen the component / hook test coverage | Mock layer is in place (`src/nitro-renderer.mock.ts`) and 3+ hook/component pilots pass. Good follow-up targets: `LoginView` Form Actions happy/error paths, `OfferView` with `useNitroQuery`. (Acceptable only as a side-effect of a real change — coverage growth on its own is deprioritized per session feedback.) |
 
 ## Known open logic bugs

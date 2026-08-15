@@ -11,7 +11,7 @@ import {
     SendMessageComposer as SendMessageComposerPacket
 } from '@nitrots/nitro-renderer';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useSharedHook } from '@/state/useSharedHook';
+import { registerSharedHook, useSharedHook } from '@/state/useSharedHook';
 import {
     CloneObject,
     LocalizeText,
@@ -406,3 +406,5 @@ const useMessengerState = () => {
 };
 
 export const useMessenger = () => useSharedHook(useMessengerState);
+
+registerSharedHook(useMessengerState);

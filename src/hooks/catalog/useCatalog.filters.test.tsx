@@ -70,6 +70,7 @@ const { fakeStore } = vi.hoisted(() => {
 });
 
 vi.mock('@/state/useSharedHook', () => ({
+    registerSharedHook: () => undefined,
     useSharedHook: () => fakeStore
 }));
 

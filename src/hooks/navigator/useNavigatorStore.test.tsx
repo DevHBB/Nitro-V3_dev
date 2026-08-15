@@ -14,7 +14,7 @@ describe('navigator filter shapes (smoke)', () => {
     it('useNavigatorData returns the documented keys', async () => {
         const { result } = renderHook(() => useNavigatorData(), { wrapper });
 
-        await waitFor(() => expect(result.current).toBeDefined());
+        await waitFor(() => expect(result.current).not.toBeNull());
 
         expect(Object.keys(result.current).sort()).toEqual(
             ['categories', 'eventCategories', 'navigatorData', 'navigatorSearches', 'topLevelContext', 'topLevelContexts'].sort()

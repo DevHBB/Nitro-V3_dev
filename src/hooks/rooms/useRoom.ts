@@ -21,7 +21,7 @@ import {
     Vector3d
 } from '@nitrots/nitro-renderer';
 import { useEffect, useState } from 'react';
-import { useSharedHook } from '@/state/useSharedHook';
+import { registerSharedHook, useSharedHook } from '@/state/useSharedHook';
 import {
     CanManipulateFurniture,
     DispatchUiEvent,
@@ -351,3 +351,5 @@ const useRoomState = () => {
 };
 
 export const useRoom = () => useSharedHook(useRoomState);
+
+registerSharedHook(useRoomState);

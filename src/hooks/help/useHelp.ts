@@ -11,7 +11,7 @@ import {
     SanctionStatusMessageParser
 } from '@nitrots/nitro-renderer';
 import { useState } from 'react';
-import { useSharedHook } from '@/state/useSharedHook';
+import { registerSharedHook, useSharedHook } from '@/state/useSharedHook';
 import {
     CallForHelpResult,
     GetCloseReasonKey,
@@ -166,3 +166,5 @@ const useHelpState = () => {
 };
 
 export const useHelp = () => useSharedHook(useHelpState);
+
+registerSharedHook(useHelpState);

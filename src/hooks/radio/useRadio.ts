@@ -1,6 +1,6 @@
 import { loadGamedata } from '@nitrots/nitro-renderer';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useSharedHook } from '@/state/useSharedHook';
+import { registerSharedHook, useSharedHook } from '@/state/useSharedHook';
 import { GetConfigurationValue } from '../../api';
 
 export type RadioStation = {
@@ -138,3 +138,5 @@ const useRadioState = () => {
 };
 
 export const useRadio = () => useSharedHook(useRadioState);
+
+registerSharedHook(useRadioState);

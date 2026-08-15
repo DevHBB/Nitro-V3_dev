@@ -1,6 +1,6 @@
 import { GetSessionDataManager, RoomUnitChatStyleComposer, UserInfoDataParser, UserInfoEvent, UserSettingsEvent } from '@nitrots/nitro-renderer';
 import { useState } from 'react';
-import { useSharedHook } from '@/state/useSharedHook';
+import { registerSharedHook, useSharedHook } from '@/state/useSharedHook';
 import { SendMessageComposer } from '../../api';
 import { useMessageEvent } from '../events';
 import { useUserDataSnapshot } from './useSessionSnapshots';
@@ -45,3 +45,5 @@ export const useSessionInfo = () => {
         petRespectRemaining: userData.respectsPetLeft
     };
 };
+
+registerSharedHook(useSessionInfoState);

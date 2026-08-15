@@ -1,4 +1,4 @@
-import { useSharedHook } from '@/state/useSharedHook';
+import { registerSharedHook, useSharedHook } from '@/state/useSharedHook';
 import { useWiredToolsStore } from './useWiredToolsStore';
 
 /**
@@ -41,3 +41,5 @@ export const useWiredToolsState = () => {
         areUserVariablesLoaded
     };
 };
+
+registerSharedHook(useWiredToolsStore);

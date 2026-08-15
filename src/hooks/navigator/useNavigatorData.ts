@@ -1,4 +1,4 @@
-import { useSharedHook } from '@/state/useSharedHook';
+import { registerSharedHook, useSharedHook } from '@/state/useSharedHook';
 import { useNavigatorStore } from './useNavigatorStore';
 
 export const useNavigatorData = () => {
@@ -13,3 +13,5 @@ export const useNavigatorData = () => {
         navigatorData
     };
 };
+
+registerSharedHook(useNavigatorStore);

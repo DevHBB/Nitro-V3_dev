@@ -12,7 +12,7 @@ import {
     ModeratorToolPreferencesEvent
 } from '@nitrots/nitro-renderer';
 import { useState } from 'react';
-import { useSharedHook } from '@/state/useSharedHook';
+import { registerSharedHook, useSharedHook } from '@/state/useSharedHook';
 import { NotificationAlertType, PlaySound, SoundNames } from '../../api';
 import { useMessageEvent } from '../events';
 import { useNotification } from '../notification';
@@ -209,3 +209,5 @@ const useModToolsState = () => {
 };
 
 export const useModTools = () => useSharedHook(useModToolsState);
+
+registerSharedHook(useModToolsState);

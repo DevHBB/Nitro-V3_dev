@@ -124,7 +124,7 @@ const DEFAULT_ROOM_SETTINGS: IWiredRoomSettings = {
  *
  * Wrapped by the Zustand bridge at the public-hook layer so every consumer in
  * the tree sees the same instance (matches the previous
- * useSharedHook(useWiredToolsState) wiring).
+ * shared-store wiring).
  */
 export const useWiredToolsStore = () => {
     const { roomSession = null } = useRoom();

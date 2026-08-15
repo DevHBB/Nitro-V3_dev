@@ -88,6 +88,15 @@ const getSharedHookResource = <T,>(useSourceHook: SourceHook<T>): SharedHookReso
     return resource;
 };
 
+/**
+ * Register a shared source while its module is evaluated. The registry can
+ * then mount the source before a feature consumes it, avoiding a full-app
+ * Suspense fallback when that feature is opened for the first time.
+ */
+export const registerSharedHook = <T,>(useSourceHook: SourceHook<T>) => {
+    getSharedHookResource(useSourceHook).request();
+};
+
 export const useSharedHook = <T,>(useSourceHook: SourceHook<T>): T => {
     const resource = getSharedHookResource(useSourceHook);
 

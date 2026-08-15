@@ -1,6 +1,6 @@
 import { CatalogGroupsComposer, GuildMembershipsMessageEvent, HabboGroupEntryData } from '@nitrots/nitro-renderer';
 import { useCallback, useEffect, useState } from 'react';
-import { useSharedHook } from '@/state/useSharedHook';
+import { registerSharedHook, useSharedHook } from '@/state/useSharedHook';
 import { SendMessageComposer } from '../../api';
 import { useMessageEvent } from '../events';
 
@@ -25,3 +25,5 @@ export const useUserGroups = (): { data: HabboGroupEntryData[] } => {
 
     return { data: groups };
 };
+
+registerSharedHook(useUserGroupsStore);

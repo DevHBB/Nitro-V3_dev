@@ -7,7 +7,7 @@ import {
     GetBotInventoryComposer
 } from '@nitrots/nitro-renderer';
 import { useEffect, useState } from 'react';
-import { useSharedHook } from '@/state/useSharedHook';
+import { registerSharedHook, useSharedHook } from '@/state/useSharedHook';
 import { cancelRoomObjectPlacement, getPlacingItemId, IBotItem, SendMessageComposer, UnseenItemCategory } from '../../api';
 import { useMessageEvent } from '../events';
 import { useSharedVisibility } from '../useSharedVisibility';
@@ -145,3 +145,5 @@ const useInventoryBotsState = () => {
 };
 
 export const useInventoryBots = () => useSharedHook(useInventoryBotsState);
+
+registerSharedHook(useInventoryBotsState);

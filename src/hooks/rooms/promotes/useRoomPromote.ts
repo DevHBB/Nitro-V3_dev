@@ -1,6 +1,6 @@
 import { RoomEventEvent, RoomEventMessageParser } from '@nitrots/nitro-renderer';
 import { useState } from 'react';
-import { useSharedHook } from '@/state/useSharedHook';
+import { registerSharedHook, useSharedHook } from '@/state/useSharedHook';
 import { useMessageEvent } from '../../events';
 
 const useRoomPromoteState = () => {
@@ -19,3 +19,5 @@ const useRoomPromoteState = () => {
 };
 
 export const useRoomPromote = () => useSharedHook(useRoomPromoteState);
+
+registerSharedHook(useRoomPromoteState);

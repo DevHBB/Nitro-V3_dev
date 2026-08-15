@@ -43,7 +43,7 @@ import {
     WeeklyCompetitiveLeaderboardEvent,
 } from '@nitrots/nitro-renderer';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useSharedHook } from '@/state/useSharedHook';
+import { registerSharedHook, useSharedHook } from '@/state/useSharedHook';
 import { PlaySound, SendMessageComposer, SoundNames, TryVisitRoom } from '../../api';
 import {
     consumeSnowWarReturnRoom,
@@ -797,3 +797,5 @@ const useSnowWarState = () =>
 };
 
 export const useSnowWar = () => useSharedHook(useSnowWarState);
+
+registerSharedHook(useSnowWarState);

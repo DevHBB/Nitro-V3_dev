@@ -1,5 +1,5 @@
 import { useReducer, useRef } from 'react';
-import { useSharedHook } from '@/state/useSharedHook';
+import { registerSharedHook, useSharedHook } from '@/state/useSharedHook';
 import { initialMessengerState, messengerReducer } from '../../../api';
 
 const useMessengerStoreState = () =>
@@ -11,3 +11,5 @@ const useMessengerStoreState = () =>
 };
 
 export const useMessengerStore = () => useSharedHook(useMessengerStoreState);
+
+registerSharedHook(useMessengerStoreState);

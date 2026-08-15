@@ -1,6 +1,6 @@
 import { UnseenItemsEvent, UnseenResetCategoryComposer, UnseenResetItemsComposer } from '@nitrots/nitro-renderer';
 import { useCallback, useMemo, useState } from 'react';
-import { useSharedHook } from '@/state/useSharedHook';
+import { registerSharedHook, useSharedHook } from '@/state/useSharedHook';
 import { SendMessageComposer } from '../../api';
 import { useMessageEvent } from '../events';
 
@@ -127,3 +127,5 @@ const useInventoryUnseenTrackerState = () => {
 };
 
 export const useInventoryUnseenTracker = () => useSharedHook(useInventoryUnseenTrackerState);
+
+registerSharedHook(useInventoryUnseenTrackerState);

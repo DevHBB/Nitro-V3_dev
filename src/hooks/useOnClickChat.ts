@@ -1,4 +1,4 @@
-import { useSharedHook } from '@/state/useSharedHook';
+import { registerSharedHook, useSharedHook } from '@/state/useSharedHook';
 import { isSafeExternalUrl, LocalizeText } from '../api';
 import { useNotification } from './notification';
 
@@ -34,3 +34,5 @@ const useOnClickChatState = () => {
 };
 
 export const useOnClickChat = () => useSharedHook(useOnClickChatState);
+
+registerSharedHook(useOnClickChatState);

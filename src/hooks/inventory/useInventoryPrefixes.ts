@@ -8,7 +8,7 @@ import {
     UserPrefixesEvent
 } from '@nitrots/nitro-renderer';
 import { useEffect, useState } from 'react';
-import { useSharedHook } from '@/state/useSharedHook';
+import { registerSharedHook, useSharedHook } from '@/state/useSharedHook';
 import { IPrefixItem, SendMessageComposer, UnseenItemCategory } from '../../api';
 import { useMessageEvent } from '../events';
 import { useSharedVisibility } from '../useSharedVisibility';
@@ -153,3 +153,5 @@ const useInventoryPrefixesState = () => {
 };
 
 export const useInventoryPrefixes = () => useSharedHook(useInventoryPrefixesState);
+
+registerSharedHook(useInventoryPrefixesState);

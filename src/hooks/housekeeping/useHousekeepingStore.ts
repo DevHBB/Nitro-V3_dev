@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useSharedHook } from '@/state/useSharedHook';
+import { registerSharedHook, useSharedHook } from '@/state/useSharedHook';
 import {
     emptySample,
     GetConfigurationValue,
@@ -488,3 +488,5 @@ const useHousekeepingStoreInner = () => {
  * doesn't re-fetch state that's already in memory.
  */
 export const useHousekeepingStore = () => useSharedHook(useHousekeepingStoreInner);
+
+registerSharedHook(useHousekeepingStoreInner);
