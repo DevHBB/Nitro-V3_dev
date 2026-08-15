@@ -26,10 +26,9 @@ export const NitropediaView: FC<{}> = (props) => {
 
                 setDimensions((prevValue) => {
                     if (line[1] && line[1].split(';').length === 2) {
-                        return {
-                            width: parseInt(line[1].split(';')[0]),
-                            height: parseInt(line[1].split(';')[1])
-                        };
+                        const [width, height] = line[1].split(';').map((value) => parseInt(value, 10));
+
+                        if (Number.isFinite(width) && width > 0 && Number.isFinite(height) && height > 0) return { width, height };
                     }
 
                     return null;
@@ -82,7 +81,10 @@ export const NitropediaView: FC<{}> = (props) => {
     if (!content) return null;
 
     return (
-        <NitroCardView className="nitropedia" style={dimensions ? { width: dimensions.width, height: dimensions.height } : {}} theme="primary-slim">
+        <NitroCardView
+            className="nitropedia w-[450px] h-[400px] max-w-[90vw] max-h-[85vh]"
+            style={dimensions ? { width: dimensions.width, height: dimensions.height } : {}}
+            theme="primary-slim">
             <NitroCardHeaderView headerText={header} onCloseClick={() => setContent(null)} />
             <NitroCardContentView>
                 <div ref={elementRef} className="text-black size-full" dangerouslySetInnerHTML={{ __html: content }} />
