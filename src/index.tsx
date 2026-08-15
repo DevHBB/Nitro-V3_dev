@@ -4,7 +4,6 @@ import { createRoot } from 'react-dom/client';
 import { ErrorBoundary } from 'react-error-boundary';
 import { App } from './App';
 import { LoadingView } from './components/loading/LoadingView';
-import { SharedHookRegistry } from './state/useSharedHook';
 
 const queryClient = new QueryClient({
     defaultOptions: {
@@ -91,9 +90,7 @@ createRoot(document.getElementById('root')).render(
                     />
                 )}
             >
-                <SharedHookRegistry fallback={<LoadingView message="Loading…" />}>
-                    <App />
-                </SharedHookRegistry>
+                <App />
             </ErrorBoundary>
         </QueryClientProvider>
     </StrictMode>

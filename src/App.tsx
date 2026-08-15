@@ -27,6 +27,7 @@ import { LoginView } from './components/login/LoginView';
 import { MainView } from './components/MainView';
 import { ReconnectView } from './components/reconnect/ReconnectView';
 import { ClearStoredChatHistory, getConnectionFailureAction, useConnectionState, useMessageEvent, useNitroEvent } from './hooks';
+import { SharedHookRegistry } from './state/useSharedHook';
 
 NitroVersion.UI_VERSION = GetUIVersion();
 
@@ -566,8 +567,12 @@ export const App: FC<{}> = (props) => {
                 <LoadingView isError={errorMessage.length > 0} message={errorMessage} homeUrl={homeUrl} progress={loadingProgress} currentTask={loadingTask} />
             )}
             {!isReady && showLogin && <LoginView onAuthenticated={handleAuthenticated} isEntering={isEnteringHotel} />}
-            {isReady && <MainView />}
-            {isReady && <ReconnectView />}
+            {isReady && (
+                <SharedHookRegistry fallback={<LoadingView message="Loading…" />}>
+                    <MainView />
+                    <ReconnectView />
+                </SharedHookRegistry>
+            )}
             <Base id="draggable-windows-container" />
         </Base>
     );
