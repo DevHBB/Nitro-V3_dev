@@ -1,15 +1,21 @@
-import { renderHook } from '@testing-library/react';
+import { renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
+import { SharedHookRegistry } from '../../state/useSharedHook';
 import { useNavigatorData, useNavigatorUiState } from './index';
 import { useNavigatorUiStore } from './navigatorUiStore';
+
+const wrapper = ({ children }: { children: React.ReactNode }) => <SharedHookRegistry>{children}</SharedHookRegistry>;
 
 beforeEach(() => {
     window.localStorage.clear();
 });
 
 describe('navigator filter shapes (smoke)', () => {
-    it('useNavigatorData returns the documented keys', () => {
-        const { result } = renderHook(() => useNavigatorData());
+    it('useNavigatorData returns the documented keys', async () => {
+        const { result } = renderHook(() => useNavigatorData(), { wrapper });
+
+        await waitFor(() => expect(result.current).toBeDefined());
+
         expect(Object.keys(result.current).sort()).toEqual(
             ['categories', 'eventCategories', 'navigatorData', 'navigatorSearches', 'topLevelContext', 'topLevelContexts'].sort()
         );
