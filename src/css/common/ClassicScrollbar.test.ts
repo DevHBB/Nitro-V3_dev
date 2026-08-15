@@ -21,4 +21,13 @@ describe('interface scrollbar theme', () => {
         expect(upButton).toContain('width: 17px');
         expect(upButton).toContain('height: 16px');
     });
+
+    it('is the final interface stylesheet and has no competing global scrollbar theme', () => {
+        const entry = readFileSync(join(process.cwd(), 'src/index.tsx'), 'utf8');
+        const skin = readFileSync(join(process.cwd(), 'src/css/habbo/HabboSkin.css'), 'utf8');
+        const stylesheetImports = [...entry.matchAll(/import '([^']+\.css)'/g)].map((match) => match[1]);
+
+        expect(stylesheetImports.at(-1)).toBe('./css/common/ClassicScrollbar.css');
+        expect(skin).not.toContain('::-webkit-scrollbar');
+    });
 });

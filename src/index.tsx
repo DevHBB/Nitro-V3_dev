@@ -33,7 +33,6 @@ import './css/mentions/MentionToasts.css';
 import './css/mentions/MentionsPanel.css';
 
 import './css/common/Buttons.css';
-import './css/common/ClassicScrollbar.css';
 import './css/habbo/HabboSkin.css';
 import './css/common/PrefixEffects.css';
 
@@ -79,6 +78,7 @@ import './css/user-settings/UserSettingsView.css';
 import './css/vault/VaultView.css';
 import './css/widgets/FurnitureWidgets.css';
 import './css/WiredView.css';
+import './css/common/ClassicScrollbar.css';
 
 document.documentElement.classList.add('has-classic-scrollbar');
 

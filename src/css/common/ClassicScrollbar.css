@@ -1,11 +1,11 @@
 .has-classic-scrollbar {
     scrollbar-color: #d9d9d9 #bdbbb3 !important;
-    scrollbar-width: auto;
+    scrollbar-width: auto !important;
 }
 
 .has-classic-scrollbar * {
     scrollbar-color: #d9d9d9 #bdbbb3 !important;
-    scrollbar-width: auto;
+    scrollbar-width: auto !important;
 }
 
 .has-classic-scrollbar *::-webkit-scrollbar,
@@ -29,9 +29,11 @@
 .has-classic-scrollbar *::-webkit-scrollbar-thumb:vertical,
 .has-classic-scrollbar::-webkit-scrollbar-thumb:vertical {
     min-height: 12px !important;
-    background-image: url("../../assets/images/scrollbar/thumb_middle.png") !important;
-    background-repeat: repeat-y !important;
-    background-position: center !important;
+    background-image: url("../../assets/images/scrollbar/thumb_top.png"),
+        url("../../assets/images/scrollbar/thumb_bottom.png"),
+        url("../../assets/images/scrollbar/thumb_middle.png") !important;
+    background-repeat: no-repeat, no-repeat, repeat-y !important;
+    background-position: center top, center bottom, center !important;
     background-color: transparent !important;
     background-clip: border-box !important;
     box-shadow: none !important;
@@ -42,12 +44,16 @@
 
 .has-classic-scrollbar *::-webkit-scrollbar-thumb:vertical:hover,
 .has-classic-scrollbar::-webkit-scrollbar-thumb:vertical:hover {
-    background-image: url("../../assets/images/scrollbar/thumb_middle_hover.png") !important;
+    background-image: url("../../assets/images/scrollbar/thumb_top.png"),
+        url("../../assets/images/scrollbar/thumb_bottom.png"),
+        url("../../assets/images/scrollbar/thumb_middle_hover.png") !important;
 }
 
 .has-classic-scrollbar *::-webkit-scrollbar-thumb:vertical:active,
 .has-classic-scrollbar::-webkit-scrollbar-thumb:vertical:active {
-    background-image: url("../../assets/images/scrollbar/thumb_middle_active.png") !important;
+    background-image: url("../../assets/images/scrollbar/thumb_top_active.png"),
+        url("../../assets/images/scrollbar/thumb_bottom_active.png"),
+        url("../../assets/images/scrollbar/thumb_middle_active.png") !important;
 }
 
 .has-classic-scrollbar *::-webkit-scrollbar-button:single-button:vertical:decrement,
@@ -104,9 +110,11 @@
 .has-classic-scrollbar *::-webkit-scrollbar-thumb:horizontal,
 .has-classic-scrollbar::-webkit-scrollbar-thumb:horizontal {
     min-width: 12px !important;
-    background-image: url("../../assets/images/scrollbar/thumb_middle_horizontal.png") !important;
-    background-repeat: repeat-x !important;
-    background-position: center !important;
+    background-image: url("../../assets/images/scrollbar/thumb_left.png"),
+        url("../../assets/images/scrollbar/thumb_right.png"),
+        url("../../assets/images/scrollbar/thumb_middle_horizontal.png") !important;
+    background-repeat: no-repeat, no-repeat, repeat-x !important;
+    background-position: left center, right center, center !important;
     background-color: transparent !important;
     background-clip: border-box !important;
     box-shadow: none !important;
@@ -117,12 +125,16 @@
 
 .has-classic-scrollbar *::-webkit-scrollbar-thumb:horizontal:hover,
 .has-classic-scrollbar::-webkit-scrollbar-thumb:horizontal:hover {
-    background-image: url("../../assets/images/scrollbar/thumb_middle_horizontal_hover.png") !important;
+    background-image: url("../../assets/images/scrollbar/thumb_left.png"),
+        url("../../assets/images/scrollbar/thumb_right.png"),
+        url("../../assets/images/scrollbar/thumb_middle_horizontal_hover.png") !important;
 }
 
 .has-classic-scrollbar *::-webkit-scrollbar-thumb:horizontal:active,
 .has-classic-scrollbar::-webkit-scrollbar-thumb:horizontal:active {
-    background-image: url("../../assets/images/scrollbar/thumb_middle_horizontal_active.png") !important;
+    background-image: url("../../assets/images/scrollbar/thumb_left_active.png"),
+        url("../../assets/images/scrollbar/thumb_right_active.png"),
+        url("../../assets/images/scrollbar/thumb_middle_horizontal_active.png") !important;
 }
 
 .has-classic-scrollbar *::-webkit-scrollbar-button:single-button:horizontal:decrement,

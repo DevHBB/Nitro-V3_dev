@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CreateLinkEvent } from '@nitrots/nitro-renderer';
-import { SendMessageComposer } from '../../../../../api';
+import { DispatchUiEvent, SendMessageComposer } from '../../../../../api';
 import { useCatalogData, useCatalogSkipPurchaseConfirmation, useClubOffers, usePurse } from '../../../../../hooks';
 import { CatalogLayoutVipBuyView } from './CatalogLayoutVipBuyView';
 
@@ -31,6 +31,7 @@ vi.mock('@nitrots/nitro-renderer', () => ({
 
 vi.mock('../../../../../api', () => ({
     CatalogPurchaseState: { CONFIRM: 1, FAILED: 3, NONE: 0, PURCHASE: 2 },
+    DispatchUiEvent: vi.fn(),
     LocalizeText: (key: string, _names?: string[], values?: string[]) => `${key}${values?.length ? `:${values.join(',')}` : ''}`,
     SanitizeHtml: (value: string) => value,
     SendMessageComposer: vi.fn()
@@ -38,7 +39,7 @@ vi.mock('../../../../../api', () => ({
 
 vi.mock('../../../../../common', () => ({
     AutoGrid: ({ children, ...props }: any) => <div {...props}>{children}</div>,
-    Button: ({ children, fullWidth: _fullWidth, variant: _variant, ...props }: any) => <button {...props}>{children}</button>,
+    Button: ({ children, classNames: _classNames, fullWidth: _fullWidth, variant: _variant, ...props }: any) => <button {...props}>{children}</button>,
     Column: ({ children, ...props }: any) => <div {...props}>{children}</div>,
     Flex: ({ alignItems: _alignItems, children, ...props }: any) => <div {...props}>{children}</div>,
     Grid: ({ children, ...props }: any) => <div {...props}>{children}</div>,
@@ -49,6 +50,9 @@ vi.mock('../../../../../common', () => ({
 
 vi.mock('../../../../../events', () => ({
     CatalogEvent: class {},
+    CatalogInitGiftEvent: class {
+        public constructor(public pageId: number, public offerId: number, public extraData: string) {}
+    },
     CatalogPurchasedEvent: { PURCHASE_SUCCESS: 'purchase-success' },
     CatalogPurchaseFailureEvent: { PURCHASE_FAILED: 'purchase-failed' }
 }));
@@ -113,17 +117,23 @@ describe('club purchase layout', () => {
 
         expect(screen.queryByText('catalog.vip.item.header.months:1')).not.toBeInTheDocument();
         expect(screen.getByText('catalog.vip.item.header.months:2')).toBeInTheDocument();
+        expect(document.querySelector('.nitro-club-vip-intro')).toBeInTheDocument();
+        expect(document.querySelector('.nitro-club-vip-offers')).toBeInTheDocument();
+        expect(document.querySelector('.nitro-club-columns')).not.toBeInTheDocument();
+        expect(document.querySelector('.is-vip-page .nitro-club-hc-mark')).toBeInTheDocument();
+        expect(document.querySelector('.is-vip-page .nitro-club-vip-mark')).not.toBeInTheDocument();
     });
 
     it('renders separate HC and VIP offer groups on the club page', () => {
         setCurrentPage('club_buy');
         renderLayout('club_buy');
 
-        expect(screen.getByText('catalog.club.hc')).toBeInTheDocument();
-        expect(screen.getByText('catalog.club.vip')).toBeInTheDocument();
-        expect(screen.getByText('catalog.vip.item.header.months:1')).toBeInTheDocument();
-        expect(screen.getByText('catalog.vip.item.header.months:2')).toBeInTheDocument();
-        expect(screen.getByRole('button', { pressed: true })).toHaveAttribute('data-offer-id', '1');
+        expect(document.querySelector('.nitro-club-columns')).toBeInTheDocument();
+        expect(document.querySelector('.nitro-club-hc-column')).toBeInTheDocument();
+        expect(document.querySelector('.nitro-club-vip-column')).toBeInTheDocument();
+        expect(screen.getByText('catalog.club.item.header:1')).toBeInTheDocument();
+        expect(screen.getByText('catalog.club.item.header:2')).toBeInTheDocument();
+        expect(document.querySelector('.nitro-club-purchase-panel')).not.toBeInTheDocument();
     });
 
     it('renders safely while membership data is unavailable', () => {
@@ -138,24 +148,32 @@ describe('club purchase layout', () => {
         setCurrentPage('club_buy');
         renderLayout('club_buy');
 
-        fireEvent.click(screen.getByRole('button', { name: 'generic.hccenter' }));
+        fireEvent.click(screen.getByRole('button', { name: 'catalog.club.buy.link' }));
 
         expect(CreateLinkEvent).toHaveBeenCalledWith('habboUI/open/hccenter');
     });
 
-    it('submits the selected offer once and locks offer switching until the result', async () => {
+    it('submits an offer from its own buy button once', async () => {
         setCurrentPage('club_buy');
         vi.mocked(useCatalogSkipPurchaseConfirmation).mockReturnValue([true] as any);
         renderLayout('club_buy');
 
-        const buyButton = await screen.findByRole('button', { name: 'buy' });
+        const buyButton = (await screen.findAllByRole('button', { name: 'buy' }))[0];
         fireEvent.click(buyButton);
         fireEvent.click(buyButton);
 
         await waitFor(() => expect(SendMessageComposer).toHaveBeenCalledTimes(1));
         expect(vi.mocked(SendMessageComposer).mock.calls[0][0]).toBeInstanceOf(composerTypes.PurchaseFromCatalogComposer);
         expect(vi.mocked(SendMessageComposer).mock.calls[0][0]).toMatchObject({ amount: 1, offerId: 1, pageId: 50 });
-        const offerButtons = screen.getAllByRole('button').filter((button) => button.hasAttribute('data-offer-id'));
-        expect(offerButtons.every((button) => (button as HTMLButtonElement).disabled)).toBe(true);
+    });
+
+    it('opens the existing gift flow from the offer gift button', () => {
+        setCurrentPage('vip_buy');
+        vi.mocked(useClubOffers).mockReturnValue({ data: [{ ...makeOffer(2, 2, true), giftable: true }] } as any);
+        renderLayout('vip_buy');
+
+        fireEvent.click(screen.getByRole('button', { name: 'catalog.purchase_confirmation.gift' }));
+
+        expect(DispatchUiEvent).toHaveBeenCalledWith(expect.objectContaining({ extraData: '', offerId: 2, pageId: 50 }));
     });
 });
