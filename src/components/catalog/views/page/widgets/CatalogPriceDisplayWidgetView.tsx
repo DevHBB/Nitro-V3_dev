@@ -17,17 +17,17 @@ export const CatalogPriceDisplayWidgetView: FC<CatalogPriceDisplayWidgetViewProp
     if (!offer) return null;
 
     return (
-        <div className="nitro-catalog-swf-price-display">
+        <div className="nitro-catalog-standard-price-display">
             {offer.priceInCredits > 0 && (
-                <div className="nitro-catalog-swf-price-pill">
-                    <Text className="nitro-catalog-swf-price-text">{offer.priceInCredits * quantity}</Text>
+                <div className="nitro-catalog-standard-price-pill">
+                    <Text className="nitro-catalog-standard-price-text">{offer.priceInCredits * quantity}</Text>
                     <LayoutCurrencyIcon type={-1} />
                 </div>
             )}
-            {separator && offer.priceInCredits > 0 && offer.priceInActivityPoints > 0 && <FaPlus className="nitro-catalog-swf-price-plus" />}
+            {separator && offer.priceInCredits > 0 && offer.priceInActivityPoints > 0 && <FaPlus className="nitro-catalog-standard-price-plus" />}
             {offer.priceInActivityPoints > 0 && (
-                <div className="nitro-catalog-swf-price-pill">
-                    <Text className="nitro-catalog-swf-price-text">{offer.priceInActivityPoints * quantity}</Text>
+                <div className="nitro-catalog-standard-price-pill">
+                    <Text className="nitro-catalog-standard-price-text">{offer.priceInActivityPoints * quantity}</Text>
                     <LayoutCurrencyIcon type={offer.activityPointType} />
                 </div>
             )}

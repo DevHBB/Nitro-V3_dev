@@ -10,55 +10,7 @@ import { useCatalogStudio } from '../../admin/studio/useCatalogStudio';
 import { claimCatalogAdminHydration } from './CatalogAdminFormHydration';
 import { createCatalogAdminPageDetailsFromSnapshot } from './CatalogAdminPageState';
 import { useCatalogAdminSmartSave } from './useCatalogAdminSmartSave';
-
-const LAYOUT_OPTIONS = [
-    'default_3x3',
-    'club_buy',
-    'club_gift',
-    'frontpage',
-    'pets',
-    'pets2',
-    'pets3',
-    'spaces_new',
-    'spaces',
-    'soundmachine',
-    'trophies',
-    'roomads',
-    'guilds',
-    'guild_forum',
-    'guild_furni',
-    'vip_buy',
-    'builders_club_frontpage',
-    'builders_club_addons',
-    'builders_club_loyalty',
-    'marketplace',
-    'marketplace_own_items',
-    'recycler',
-    'recycler_info',
-    'recycler_prizes',
-    'info_loyalty',
-    'info_duckets',
-    'info_rentables',
-    'info_pets',
-    'loyalty_vip_buy',
-    'badge_display',
-    'bots',
-    'single_bundle',
-    'sold_ltd_items',
-    'plasto',
-    'default_3x3_color_grouping',
-    'recent_purchases',
-    'room_bundle',
-    'petcustomization',
-    'frontpage_featured',
-    'root',
-    'monkey',
-    'niko',
-    'mad_money',
-    'custom_prefix',
-    'productpage1',
-    'collectibles'
-];
+import { CATALOG_STUDIO_LAYOUT_CODES, isCatalogStudioLayoutCode } from '../page/layout/catalogLayoutRegistry';
 
 const MODE_OPTIONS = [
     { value: 'NORMAL', label: 'Normal' },
@@ -72,12 +24,7 @@ export const resolveCatalogAdminPageDisplayName = (
     nodeLocalization: string,
     nodePageName: string,
     fallback: string
-) =>
-    formCaption?.trim() ||
-    detailsCaption?.trim() ||
-    parseCatalogTabLabel(nodeLocalization).name ||
-    nodePageName?.trim() ||
-    fallback;
+) => formCaption?.trim() || detailsCaption?.trim() || parseCatalogTabLabel(nodeLocalization).name || nodePageName?.trim() || fallback;
 
 export const resolveCatalogAdminPageInteraction = (
     sessionReady: boolean,
@@ -148,7 +95,7 @@ export const createCatalogAdminNewPageFormState = (parentId: number, catalogMode
 
 export const validateCatalogAdminPageForm = (data: IPageEditData): string | null => {
     if (!data.caption.trim()) return 'Page caption is required.';
-    if (!LAYOUT_OPTIONS.includes(data.pageLayout)) return 'Select a valid page layout.';
+    if (!isCatalogStudioLayoutCode(data.pageLayout)) return 'Select a valid page layout.';
     if (data.minRank < 1) return 'Minimum rank must be at least 1.';
     if (data.iconImage < 0 || data.iconColor < 0) return 'Icon values cannot be negative.';
     if (data.parentId < -1) return 'Parent page ID is invalid.';
@@ -204,23 +151,38 @@ export const CatalogAdminPageEditView: FC<{}> = () => {
     const smartSave = useCatalogAdminSmartSave<IPageEditData>({
         initial: createCatalogAdminNewPageFormState(-1, pageCatalogMode),
         acknowledgement: lastMutationResult,
-        submit: draft => draft.pageId == null
-            ? catalogAdmin?.createPage(draft) ?? null
-            : catalogAdmin?.savePage(draft) ?? null,
-        canSubmit: draft => {
+        submit: (draft) => (draft.pageId == null ? (catalogAdmin?.createPage(draft) ?? null) : (catalogAdmin?.savePage(draft) ?? null)),
+        canSubmit: (draft) => {
             const draftLockId = draft.pageId ?? (targetNode && targetNode.pageId > 0 ? targetNode.pageId : CATALOG_ROOT_LOCK_ID);
             return studioSessionReady && (hasPageLock?.(draftLockId) ?? false) && !validateCatalogAdminPageForm(draft);
         },
-        toCommitted: acknowledgement => acknowledgement.entity
-            ? createCatalogAdminPageFormState(createCatalogAdminPageDetailsFromSnapshot(acknowledgement.entity as any))
-            : null,
+        toCommitted: (acknowledgement) =>
+            acknowledgement.entity ? createCatalogAdminPageFormState(createCatalogAdminPageDetailsFromSnapshot(acknowledgement.entity as any)) : null,
         onClose: closeForm
     });
     const {
-        caption, captionSave, catalogMode, pageLayout, iconColor, iconImage, minRank, visible, enabled,
-        orderNum, parentId, clubOnly = '0', vipOnly = '0', pageHeadline = '', pageTeaser = '',
-        pageSpecial = '', pageText1 = '', pageText2 = '', pageTextDetails = '', pageTextTeaser = '',
-        roomId = 0, includes = ''
+        caption,
+        captionSave,
+        catalogMode,
+        pageLayout,
+        iconColor,
+        iconImage,
+        minRank,
+        visible,
+        enabled,
+        orderNum,
+        parentId,
+        clubOnly = '0',
+        vipOnly = '0',
+        pageHeadline = '',
+        pageTeaser = '',
+        pageSpecial = '',
+        pageText1 = '',
+        pageText2 = '',
+        pageTextDetails = '',
+        pageTextTeaser = '',
+        roomId = 0,
+        includes = ''
     } = smartSave.draft;
     const patchForm = smartSave.patch;
     const setCaption = (value: string) => patchForm({ caption: value });
@@ -247,12 +209,9 @@ export const CatalogAdminPageEditView: FC<{}> = () => {
     const setIncludes = (value: string) => patchForm({ includes: value });
     const effectivePageId = smartSave.draft.pageId ?? targetPageId;
     const isNewPage = creatingPage && smartSave.baseline.pageId == null;
-    const formTargetKey = editingPageData && targetNode
-        ? `page:${pageCatalogMode}:${creatingPage ? 'new' : 'edit'}:${creatingPage ? targetNode.pageId : targetPageId}`
-        : null;
-    const lockPageId = isNewPage
-        ? targetNode && targetNode.pageId > 0 ? targetNode.pageId : CATALOG_ROOT_LOCK_ID
-        : effectivePageId;
+    const formTargetKey =
+        editingPageData && targetNode ? `page:${pageCatalogMode}:${creatingPage ? 'new' : 'edit'}:${creatingPage ? targetNode.pageId : targetPageId}` : null;
+    const lockPageId = isNewPage ? (targetNode && targetNode.pageId > 0 ? targetNode.pageId : CATALOG_ROOT_LOCK_ID) : effectivePageId;
 
     useEffect(() => {
         if (!editingPageData || !targetNode) {
@@ -347,20 +306,26 @@ export const CatalogAdminPageEditView: FC<{}> = () => {
     const lockReady = lockPageId != null && lockPageId >= 0 && (hasPageLock?.(lockPageId) ?? false);
     const smartSaveError = lastMutationResult?.success === false ? null : lastError;
     const interaction = resolveCatalogAdminPageInteraction(
-        studioSessionReady, detailsReady, lockReady, loading && smartSave.status !== 'saving', smartSaveError);
+        studioSessionReady,
+        detailsReady,
+        lockReady,
+        loading && smartSave.status !== 'saving',
+        smartSaveError
+    );
     const formData = smartSave.draft;
     const validationError = detailsReady ? validateCatalogAdminPageForm(formData) : null;
-    const saveStatusText = smartSave.status === 'saving'
-        ? 'Saving...'
-        : smartSave.status === 'dirty'
-          ? 'Unsaved changes'
-          : smartSave.status === 'conflict'
-            ? (smartSave.message || 'The catalog changed. Review and save again.')
-            : smartSave.status === 'error'
-              ? (smartSave.message || 'Save failed')
-              : smartSave.lastSavedAt
-                ? `Saved · ${new Date(smartSave.lastSavedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-                : 'Saved';
+    const saveStatusText =
+        smartSave.status === 'saving'
+            ? 'Saving...'
+            : smartSave.status === 'dirty'
+              ? 'Unsaved changes'
+              : smartSave.status === 'conflict'
+                ? smartSave.message || 'The catalog changed. Review and save again.'
+                : smartSave.status === 'error'
+                  ? smartSave.message || 'Save failed'
+                  : smartSave.lastSavedAt
+                    ? `Saved · ${new Date(smartSave.lastSavedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                    : 'Saved';
     const canSubmit = interaction.canSave && !validationError && (smartSave.isDirty || !!smartSave.inFlight);
 
     const handleSave = (closeAfter = false) => {
@@ -443,7 +408,13 @@ export const CatalogAdminPageEditView: FC<{}> = () => {
                                     <label className="nitro-catalog-admin-label is-field">
                                         {localizeWithFallback('catalog.admin.page.caption', 'Caption')}
                                     </label>
-                                    <input ref={captionInputRef} aria-invalid={!!smartSave.fieldErrors.caption} className={inputClass} value={caption} onChange={(e) => setCaption(e.target.value)} />
+                                    <input
+                                        ref={captionInputRef}
+                                        aria-invalid={!!smartSave.fieldErrors.caption}
+                                        className={inputClass}
+                                        value={caption}
+                                        onChange={(e) => setCaption(e.target.value)}
+                                    />
                                     {smartSave.fieldErrors.caption && <span className="nitro-catalog-admin-field-error">{smartSave.fieldErrors.caption}</span>}
                                 </div>
                                 <div className="nitro-catalog-admin-form-field is-span-2">
@@ -507,7 +478,7 @@ export const CatalogAdminPageEditView: FC<{}> = () => {
                                 <div className="nitro-catalog-admin-form-field">
                                     <label className="nitro-catalog-admin-label is-field">{localizeWithFallback('catalog.admin.page.layout', 'Layout')}</label>
                                     <select className={inputClass} value={pageLayout} onChange={(e) => setPageLayout(e.target.value)}>
-                                        {LAYOUT_OPTIONS.map((l) => (
+                                        {CATALOG_STUDIO_LAYOUT_CODES.map((l) => (
                                             <option key={l} value={l}>
                                                 {l}
                                             </option>
@@ -516,12 +487,7 @@ export const CatalogAdminPageEditView: FC<{}> = () => {
                                 </div>
                                 <div className="nitro-catalog-admin-form-field">
                                     <label className="nitro-catalog-admin-label is-field">{LocalizeText('catalog.admin.order')}</label>
-                                    <input
-                                        className={inputClass}
-                                        type="number"
-                                        value={orderNum}
-                                        onChange={(e) => setOrderNum(parseInt(e.target.value) || 0)}
-                                    />
+                                    <input className={inputClass} type="number" value={orderNum} onChange={(e) => setOrderNum(parseInt(e.target.value) || 0)} />
                                 </div>
                                 <div className="nitro-catalog-admin-form-field">
                                     <label className="nitro-catalog-admin-label is-field">
@@ -712,20 +678,10 @@ export const CatalogAdminPageEditView: FC<{}> = () => {
                             >
                                 <FaUndo className="text-[8px]" /> Reset
                             </button>
-                            <button
-                                className="nitro-catalog-admin-button is-muted"
-                                disabled={!canSubmit}
-                                type="button"
-                                onClick={() => handleSave(true)}
-                            >
+                            <button className="nitro-catalog-admin-button is-muted" disabled={!canSubmit} type="button" onClick={() => handleSave(true)}>
                                 Save and close
                             </button>
-                            <button
-                                className="nitro-catalog-admin-button is-primary"
-                                disabled={!canSubmit}
-                                type="button"
-                                onClick={() => handleSave(false)}
-                            >
+                            <button className="nitro-catalog-admin-button is-primary" disabled={!canSubmit} type="button" onClick={() => handleSave(false)}>
                                 {smartSave.status === 'saving' ? <FaSpinner className="text-[8px] animate-spin" /> : <FaSave className="text-[8px]" />}{' '}
                                 {isNewPage ? LocalizeText('catalog.admin.create') : LocalizeText('catalog.admin.save')}
                             </button>

@@ -1,15 +1,67 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { BuilderFurniPlaceableStatus } from '../../api/catalog/BuilderFurniPlaceableStatus';
 import { CatalogType } from '../../api/catalog/CatalogType';
 import {
     buildCatalogNodeTree,
+    createCatalogPageRequestCorrelation,
     findNodeById,
     findNodeByName,
     getNodesByOfferIdFromMap,
     getOfferProductKeys,
+    isCurrentCatalogPageResponse,
     normalizeCatalogType,
     resolveBuilderFurniPlaceableStatus
 } from './useCatalog.helpers';
+
+describe('catalog page request correlation', () => {
+    afterEach(() => vi.useRealTimers());
+
+    it('accepts only the response for the page that is still requested', () => {
+        expect(isCurrentCatalogPageResponse(12, 12)).toBe(true);
+        expect(isCurrentCatalogPageResponse(12, 9)).toBe(false);
+    });
+
+    it('matches an immediate response before React can render the requested page id', () => {
+        const correlation = createCatalogPageRequestCorrelation();
+
+        correlation.request(12);
+
+        expect(correlation.matches(12)).toBe(true);
+        expect(correlation.matches(9)).toBe(false);
+    });
+
+    it('expires the active request and ignores a late response', () => {
+        vi.useFakeTimers();
+        const correlation = createCatalogPageRequestCorrelation();
+        let timedOutPageId = -1;
+
+        correlation.request(
+            12,
+            (pageId) => {
+                timedOutPageId = pageId;
+            },
+            5000
+        );
+        vi.advanceTimersByTime(5000);
+
+        expect(timedOutPageId).toBe(12);
+        expect(correlation.matches(12)).toBe(false);
+        expect(correlation.complete(12)).toBe(false);
+    });
+
+    it('completes only the current request and cancels its timeout', () => {
+        vi.useFakeTimers();
+        const correlation = createCatalogPageRequestCorrelation();
+        let timeoutCount = 0;
+
+        correlation.request(12, () => timeoutCount++, 5000);
+
+        expect(correlation.complete(9)).toBe(false);
+        expect(correlation.complete(12)).toBe(true);
+        vi.advanceTimersByTime(5000);
+        expect(timeoutCount).toBe(0);
+    });
+});
 
 // ---------------------------------------------------------------------------
 // normalizeCatalogType

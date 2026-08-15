@@ -1,18 +1,18 @@
 .nitro-catalog-window {
-    --catalog-swf-bg: #ecece4;
-    --catalog-swf-panel: #f7f7f2;
-    --catalog-swf-panel-2: #e7e7df;
-    --catalog-swf-border: #9d9d96;
-    --catalog-swf-border-dark: #6f6f6a;
-    --catalog-swf-text: #222222;
-    --catalog-swf-muted: #666666;
-    --catalog-swf-blue: #418db0;
-    --catalog-swf-blue-dark: #0e3f52;
-    --catalog-swf-blue-border: #376275;
-    --catalog-swf-select: #63c5e9;
-    --catalog-swf-select-outer: #82d1ed;
-    --catalog-swf-bc: #ff8d00;
-    --catalog-swf-bc-outer: #ffb53c;
+    --catalog-standard-bg: #ecece4;
+    --catalog-standard-panel: #f7f7f2;
+    --catalog-standard-panel-2: #e7e7df;
+    --catalog-standard-border: #9d9d96;
+    --catalog-standard-border-dark: #6f6f6a;
+    --catalog-standard-text: #222222;
+    --catalog-standard-muted: #666666;
+    --catalog-standard-blue: #418db0;
+    --catalog-standard-blue-dark: #0e3f52;
+    --catalog-standard-blue-border: #376275;
+    --catalog-standard-select: #63c5e9;
+    --catalog-standard-select-outer: #82d1ed;
+    --catalog-standard-bc: #ff8d00;
+    --catalog-standard-bc-outer: #ffb53c;
     /* Quantity stepper +/- sprites, kept identical to origin/main so the
        glyphs stay put through hover/active/disabled states. */
     --habbo-stepper-plus: url("../../assets/images/catalog/buttons/plus.png");
@@ -33,7 +33,7 @@
     position: relative;
     display: flex;
     flex-direction: column;
-    color: var(--catalog-swf-text);
+    color: var(--catalog-standard-text);
     overflow: hidden;
     box-sizing: border-box;
 }
@@ -104,11 +104,11 @@
     height: 22px !important;
     min-height: 22px !important;
     padding: 0 10px !important;
-    border: 2px solid var(--catalog-swf-blue-border) !important;
+    border: 2px solid var(--catalog-standard-blue-border) !important;
     border-image: none !important;
     border-radius: 4px !important;
     background: linear-gradient(180deg, #f2f8fb 0%, #d4e6ef 44%, #a8c9d8 45%, #d9e9f0 100%) !important;
-    color: var(--catalog-swf-text) !important;
+    color: var(--catalog-standard-text) !important;
     font-size: 10px !important;
     font-weight: 700 !important;
     line-height: 1 !important;
@@ -121,8 +121,8 @@
 .nitro-catalog-window .nitro-catalog-default-admin button:hover {
     filter: brightness(1.04);
     background: linear-gradient(180deg, #ffffff 0%, #e0eff6 44%, #b8d5e4 45%, #e8f3f8 100%) !important;
-    color: var(--catalog-swf-text) !important;
-    border-color: var(--catalog-swf-blue) !important;
+    color: var(--catalog-standard-text) !important;
+    border-color: var(--catalog-standard-blue) !important;
 }
 
 .nitro-catalog-window .nitro-catalog-default-admin button:active {
@@ -761,52 +761,52 @@
 
 .nitro-catalog-window :where(.bg-white, .bg-gray-50, .bg-card-grid-item),
 .nitro-catalog-window :where(.bg-gray-100, .bg-light) {
-    background: var(--catalog-swf-panel) !important;
-    color: var(--catalog-swf-text) !important;
+    background: var(--catalog-standard-panel) !important;
+    color: var(--catalog-standard-text) !important;
     box-shadow: none !important;
 }
 
 .nitro-catalog-window :where(.bg-white\/50, .bg-white\/80) {
     background: rgba(247, 247, 242, 0.82) !important;
-    color: var(--catalog-swf-text) !important;
+    color: var(--catalog-standard-text) !important;
 }
 
 .nitro-catalog-window :where(.border, .border-card-grid-item-border, .border-muted, .border-white, .border-white\/10, .border-white\/20, .border-white\/30) {
-    border-color: var(--catalog-swf-border) !important;
+    border-color: var(--catalog-standard-border) !important;
     box-shadow: none !important;
 }
 
 .nitro-catalog-window :where(.text-muted, .text-dark) {
-    color: var(--catalog-swf-muted) !important;
+    color: var(--catalog-standard-muted) !important;
 }
 
 .nitro-catalog-window :where(.text-primary) {
-    color: var(--catalog-swf-blue-dark) !important;
+    color: var(--catalog-standard-blue-dark) !important;
 }
 
 .nitro-catalog-window :where(input, select, textarea) {
     min-height: 22px;
-    border: 1px solid var(--catalog-swf-border-dark) !important;
+    border: 1px solid var(--catalog-standard-border-dark) !important;
     border-radius: 3px !important;
     background: #fffdf4 !important;
-    color: var(--catalog-swf-text) !important;
+    color: var(--catalog-standard-text) !important;
     box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.16), inset 0 0 0 1px rgba(255, 255, 255, 0.55) !important;
     font-size: 11px !important;
 }
 
 .nitro-catalog-window :where(input:focus, select:focus, textarea:focus) {
-    border-color: var(--catalog-swf-blue) !important;
+    border-color: var(--catalog-standard-blue) !important;
     box-shadow: 0 0 0 2px rgba(99, 197, 233, 0.32), inset 0 1px 0 rgba(0, 0, 0, 0.16) !important;
 }
 
 .nitro-catalog-window :where(input[type="checkbox"], input[type="radio"]) {
     min-height: 0;
-    accent-color: var(--catalog-swf-blue);
+    accent-color: var(--catalog-standard-blue);
     box-shadow: none !important;
 }
 
-/* Air: bordo esterno #376275 (2px), body #0e3f52 -> border 2px + bg body. */
-.nitro-catalog-swf-header {
+/* standard: bordo esterno #376275 (2px), body #0e3f52 -> border 2px + bg body. */
+.nitro-catalog-standard-header {
     position: relative;
     flex: 0 0 90px;
     height: 90px;
@@ -816,10 +816,10 @@
     overflow: hidden;
 }
 
-/* Air: header image blend 0.1, greyscale, zoom 2, pivot center.
+/* standard: header image blend 0.1, greyscale, zoom 2, pivot center.
    L'immagine reale per-pagina arriva inline da currentPage.getImage(0);
    se assente resta il body #0e3f52 (nessun finto gradiente). */
-.nitro-catalog-swf-header-bg {
+.nitro-catalog-standard-header-bg {
     position: absolute;
     inset: 0;
     opacity: 0.1;
@@ -830,7 +830,7 @@
     filter: grayscale(1);
 }
 
-.nitro-catalog-swf-header-icon {
+.nitro-catalog-standard-header-icon {
     position: absolute;
     left: 24px;
     top: 30px;
@@ -843,7 +843,7 @@
     transform-origin: center;
 }
 
-.nitro-catalog-swf-header-copy {
+.nitro-catalog-standard-header-copy {
     position: absolute;
     left: 80px;
     top: 11px;
@@ -852,7 +852,7 @@
     text-shadow: 0 1px 0 rgba(0, 0, 0, 0.7);
 }
 
-.nitro-catalog-swf-header-title {
+.nitro-catalog-standard-header-title {
     min-height: 24px;
     font-family: UbuntuCondensed, Ubuntu, sans-serif;
     font-size: 24px;
@@ -860,13 +860,13 @@
     line-height: 24px;
 }
 
-.nitro-catalog-swf-header-description {
+.nitro-catalog-standard-header-description {
     margin-top: 5px;
     font-size: 12px;
     line-height: 15px;
 }
 
-/* Air tab_context: y=5 h=30 -> strip 35px, offset alto 5px, tab alte 30px. */
+/* standard tab_context: y=5 h=30 -> strip 35px, offset alto 5px, tab alte 30px. */
 .nitro-catalog-tabs-shell {
     flex: 0 0 35px;
     height: 35px;
@@ -879,7 +879,7 @@
     flex-wrap: nowrap;
 }
 
-/* Air tab_button style 3 (height 30). Width sizes to the label instead of a
+/* standard tab_button style 3 (height 30). Width sizes to the label instead of a
    fixed 110px cap, so long categories (e.g. "Imported Furniture") aren't
    truncated; the dynamic window width grows to fit them. */
 .nitro-catalog-tabs-shell .nitro-card-tab-item {
@@ -942,7 +942,7 @@
     flex: 1 1 auto;
     min-height: 0;
     padding: 6px 8px 8px !important;
-    background: var(--catalog-swf-bg) !important;
+    background: var(--catalog-standard-bg) !important;
     overflow: hidden;
 }
 
@@ -967,7 +967,7 @@
     overflow: hidden;
 }
 
-/* Air search: border x8 y131 w184 h24 style 105 (inset chiaro). */
+/* standard search: border x8 y131 w184 h24 style 105 (inset chiaro). */
 .nitro-catalog-search-shell {
     position: relative;
     display: flex;
@@ -991,7 +991,7 @@
     border: 0 !important;
     border-radius: 0 !important;
     background: transparent !important;
-    color: var(--catalog-swf-muted) !important;
+    color: var(--catalog-standard-muted) !important;
     font-size: 11px !important;
     box-shadow: none !important;
     vertical-align: middle !important;
@@ -1015,7 +1015,7 @@
     right: 4px !important;
 }
 
-/* Air navigationContainer: x8 y159 w184 h433 style 6 (bordo beveled inset). */
+/* standard navigationContainer: x8 y159 w184 h433 style 6 (bordo beveled inset). */
 .nitro-catalog-navigation-shell {
     flex: 1 1 auto;
     min-height: 0;
@@ -1049,7 +1049,7 @@
     border: 0 !important;
     border-radius: 0 !important;
     background: transparent;
-    color: var(--catalog-swf-muted);
+    color: var(--catalog-standard-muted);
     font-size: 11px;
     font-weight: 700;
     line-height: 17px;
@@ -1069,14 +1069,17 @@
     z-index: 0;
     display: none;
     content: "";
-    border: 1px solid var(--catalog-swf-select-outer);
-    background: linear-gradient(180deg, var(--catalog-swf-select-outer) 0 2px, var(--catalog-swf-select) 2px calc(100% - 2px), var(--catalog-swf-select-outer) calc(100% - 2px));
+    border: 1px solid var(--catalog-standard-select-outer);
+    background: linear-gradient(180deg, var(--catalog-standard-select-outer) 0 2px, var(--catalog-standard-select) 2px calc(100% - 2px), var(--catalog-standard-select-outer) calc(100% - 2px));
 }
 
-.nitro-catalog-window .builders-club-card-header ~ .nitro-catalog-tabs-shell,
-.nitro-catalog-window:has(.builders-club-card-header) .nitro-catalog-navigation-item::before {
-    --catalog-swf-select: var(--catalog-swf-bc);
-    --catalog-swf-select-outer: var(--catalog-swf-bc-outer);
+.nitro-catalog-navigation-list.is-builders-club .nitro-catalog-navigation-item::before {
+    --catalog-standard-select: var(--catalog-standard-bc);
+    --catalog-standard-select-outer: var(--catalog-standard-bc-outer);
+}
+
+.nitro-catalog-navigation-list.is-builders-club .nitro-catalog-navigation-node.is-child .nitro-catalog-navigation-item {
+    color: #b77734;
 }
 
 .nitro-catalog-navigation-item:hover::before,
@@ -1213,7 +1216,7 @@
 .nitro-catalog-grid-shell {
     border: 1px solid #b4b4ae;
     border-radius: 5px;
-    background: var(--catalog-swf-panel);
+    background: var(--catalog-standard-panel);
 }
 
 .nitro-catalog-product-view {
@@ -1281,10 +1284,22 @@
     background-size: contain !important;
 }
 
+.nitro-catalog-offer-preview .shadow-room-previewer {
+    background-size: 100% 100% !important;
+    transition:
+        background-position 180ms ease-out,
+        background-size 180ms ease-out;
+}
+
+.nitro-catalog-offer-preview:has(.nitro-catalog-preview-zoom-btn[aria-pressed="true"]) .shadow-room-previewer {
+    background-position: center calc(50% - 41px) !important;
+    background-size: 200% 200% !important;
+}
+
 /* Badge offers: the black 3D-preview stage is meant for furni room previews.
    Badges get a light panel, a dark title and a larger, centered badge. */
 .nitro-catalog-offer-preview.is-badge {
-    background: var(--catalog-swf-panel, #e9e9e1);
+    background: var(--catalog-standard-panel, #e9e9e1);
 }
 
 .nitro-catalog-offer-preview.is-badge .nitro-catalog-preview-title {
@@ -1352,7 +1367,7 @@
     width: 100%;
     height: 100%;
     padding: 18px;
-    color: var(--catalog-swf-muted);
+    color: var(--catalog-standard-muted);
 }
 
 .nitro-catalog-welcome img {
@@ -1664,19 +1679,19 @@
     padding: 0;
 }
 
-.nitro-catalog-window .nitro-catalog-swf-button,
-.nitro-catalog-window button.nitro-catalog-swf-spinner-button,
+.nitro-catalog-window .nitro-catalog-standard-button,
+.nitro-catalog-window button.nitro-catalog-standard-spinner-button,
 .nitro-catalog-window button.nitro-catalog-preview-btn {
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
     min-height: 22px;
     padding: 2px 12px !important;
-    border: 2px solid var(--catalog-swf-blue-border) !important;
+    border: 2px solid var(--catalog-standard-blue-border) !important;
     border-radius: 4px !important;
     border-image: none !important;
     background: linear-gradient(180deg, #f2f8fb 0%, #d4e6ef 44%, #a8c9d8 45%, #d9e9f0 100%) !important;
-    color: var(--catalog-swf-text) !important;
+    color: var(--catalog-standard-text) !important;
     font-size: 11px !important;
     font-weight: 700 !important;
     text-shadow: 0 1px 0 rgba(255, 255, 255, 0.7);
@@ -1690,30 +1705,30 @@
     border-radius: 4px !important;
 }
 
-.nitro-catalog-window .nitro-catalog-swf-button:hover,
-.nitro-catalog-window button.nitro-catalog-swf-spinner-button:hover,
+.nitro-catalog-window .nitro-catalog-standard-button:hover,
+.nitro-catalog-window button.nitro-catalog-standard-spinner-button:hover,
 .nitro-catalog-window button.nitro-catalog-preview-btn:hover {
     filter: brightness(1.04);
     background: linear-gradient(180deg, #ffffff 0%, #e0eff6 44%, #b8d5e4 45%, #e8f3f8 100%) !important;
 }
 
-.nitro-catalog-window .nitro-catalog-swf-button:active,
-.nitro-catalog-window button.nitro-catalog-swf-spinner-button:active,
+.nitro-catalog-window .nitro-catalog-standard-button:active,
+.nitro-catalog-window button.nitro-catalog-standard-spinner-button:active,
 .nitro-catalog-window button.nitro-catalog-preview-btn:active {
     filter: brightness(0.96);
     background: linear-gradient(180deg, #a8c9d8 0%, #d4e6ef 55%, #f2f8fb 100%) !important;
     box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.15) !important;
 }
 
-.nitro-catalog-window .nitro-catalog-swf-button.pointer-events-none,
-.nitro-catalog-window button.nitro-catalog-swf-spinner-button:disabled,
+.nitro-catalog-window .nitro-catalog-standard-button.pointer-events-none,
+.nitro-catalog-window button.nitro-catalog-standard-spinner-button:disabled,
 .nitro-catalog-window button.nitro-catalog-preview-btn:disabled {
     opacity: 0.55 !important;
     color: #888 !important;
     cursor: not-allowed !important;
 }
 
-.nitro-catalog-window .nitro-catalog-swf-buy-button {
+.nitro-catalog-window .nitro-catalog-standard-buy-button {
     width: 160px !important;
     min-width: 160px !important;
     height: 24px !important;
@@ -1732,13 +1747,13 @@
     font-weight: 700 !important;
 }
 
-.nitro-catalog-window .nitro-catalog-swf-buy-button:hover {
+.nitro-catalog-window .nitro-catalog-standard-buy-button:hover {
     background:
         linear-gradient(180deg, #fff080 0%, #ffd54d 45%, #f5ab1c 100%) !important;
     filter: brightness(1.04);
 }
 
-.nitro-catalog-window .nitro-catalog-swf-buy-button:active {
+.nitro-catalog-window .nitro-catalog-standard-buy-button:active {
     background:
         linear-gradient(180deg, #f0a318 0%, #d98c0a 100%) !important;
     box-shadow:
@@ -1746,8 +1761,8 @@
         inset 0 2px 0 rgba(140, 75, 0, 0.45) !important;
 }
 
-.nitro-catalog-window .nitro-catalog-swf-buy-button.pointer-events-none,
-.nitro-catalog-window .nitro-catalog-swf-buy-button:disabled {
+.nitro-catalog-window .nitro-catalog-standard-buy-button.pointer-events-none,
+.nitro-catalog-window .nitro-catalog-standard-buy-button:disabled {
     background:
         linear-gradient(180deg, #ffe66b 0%, #ffc828 45%, #f0a318 100%) !important;
     color: #4a2b00 !important;
@@ -1756,7 +1771,7 @@
     cursor: not-allowed !important;
 }
 
-.nitro-catalog-window .nitro-catalog-swf-confirm-button {
+.nitro-catalog-window .nitro-catalog-standard-confirm-button {
     width: 160px !important;
     min-width: 160px !important;
     height: 24px !important;
@@ -1775,13 +1790,13 @@
     font-weight: 700 !important;
 }
 
-.nitro-catalog-window .nitro-catalog-swf-confirm-button:hover {
+.nitro-catalog-window .nitro-catalog-standard-confirm-button:hover {
     background:
         linear-gradient(180deg, #c6f580 0%, #8fd836 45%, #57a81c 100%) !important;
     filter: brightness(1.04);
 }
 
-.nitro-catalog-window .nitro-catalog-swf-confirm-button:active {
+.nitro-catalog-window .nitro-catalog-standard-confirm-button:active {
     background:
         linear-gradient(180deg, #4f9a18 0%, #3d7a0a 100%) !important;
     box-shadow:
@@ -1789,7 +1804,7 @@
         inset 0 2px 0 rgba(40, 80, 0, 0.45) !important;
 }
 
-.nitro-catalog-window .nitro-catalog-swf-gift-button {
+.nitro-catalog-window .nitro-catalog-standard-gift-button {
     width: 160px !important;
     min-width: 160px !important;
     height: 22px !important;
@@ -1808,13 +1823,13 @@
     font-weight: 700 !important;
 }
 
-.nitro-catalog-window .nitro-catalog-swf-gift-button:hover {
+.nitro-catalog-window .nitro-catalog-standard-gift-button:hover {
     background:
         linear-gradient(180deg, #f4f4ed 0%, #dcdcd0 100%) !important;
     filter: brightness(1.02);
 }
 
-.nitro-catalog-window .nitro-catalog-swf-gift-button:active {
+.nitro-catalog-window .nitro-catalog-standard-gift-button:active {
     background:
         linear-gradient(180deg, #c0c0b6 0%, #aaaaa0 100%) !important;
     box-shadow:
@@ -1822,15 +1837,15 @@
         inset 0 2px 0 rgba(0, 0, 0, 0.25) !important;
 }
 
-.nitro-catalog-window .nitro-catalog-swf-gift-button.pointer-events-none,
-.nitro-catalog-window .nitro-catalog-swf-gift-button:disabled {
+.nitro-catalog-window .nitro-catalog-standard-gift-button.pointer-events-none,
+.nitro-catalog-window .nitro-catalog-standard-gift-button:disabled {
     background:
         linear-gradient(180deg, #e3e3dc 0%, #c5c5bb 100%) !important;
     color: #6a6a64 !important;
     text-shadow: none !important;
 }
 
-.nitro-catalog-pet-card .nitro-catalog-swf-buy-button {
+.nitro-catalog-pet-card .nitro-catalog-standard-buy-button {
     width: auto !important;
     min-width: 0 !important;
     padding: 0 14px !important;
@@ -1841,7 +1856,7 @@
     overflow-x: hidden !important;
 }
 
-.nitro-catalog-swf-spinner {
+.nitro-catalog-standard-spinner {
     display: flex;
     align-items: center;
     gap: 5px;
@@ -1850,14 +1865,14 @@
     font-size: 11px;
 }
 
-.nitro-catalog-swf-spinner-label {
+.nitro-catalog-standard-spinner-label {
     max-width: 62px;
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
 }
 
-.nitro-catalog-swf-spinner-control {
+.nitro-catalog-standard-spinner-control {
     display: grid;
     grid-template-columns: 22px 34px 22px;
     align-items: center;
@@ -1865,7 +1880,7 @@
     gap: 2px;
 }
 
-.nitro-catalog-window button.nitro-catalog-swf-spinner-button {
+.nitro-catalog-window button.nitro-catalog-standard-spinner-button {
     width: 22px !important;
     min-width: 22px !important;
     height: 22px !important;
@@ -1882,37 +1897,37 @@
     image-rendering: pixelated !important;
 }
 
-.nitro-catalog-window button.nitro-catalog-swf-spinner-button svg {
+.nitro-catalog-window button.nitro-catalog-standard-spinner-button svg {
     display: none !important;
 }
 
-.nitro-catalog-window button.nitro-catalog-swf-spinner-button-less {
+.nitro-catalog-window button.nitro-catalog-standard-spinner-button-less {
     background-image: var(--habbo-stepper-minus) !important;
 }
-.nitro-catalog-window button.nitro-catalog-swf-spinner-button-less:hover {
+.nitro-catalog-window button.nitro-catalog-standard-spinner-button-less:hover {
     background-image: var(--habbo-stepper-minus-hover) !important;
 }
-.nitro-catalog-window button.nitro-catalog-swf-spinner-button-less:active {
+.nitro-catalog-window button.nitro-catalog-standard-spinner-button-less:active {
     background-image: var(--habbo-stepper-minus-pressed) !important;
 }
-.nitro-catalog-window button.nitro-catalog-swf-spinner-button-less:disabled {
+.nitro-catalog-window button.nitro-catalog-standard-spinner-button-less:disabled {
     background-image: var(--habbo-stepper-minus-disabled) !important;
 }
 
-.nitro-catalog-window button.nitro-catalog-swf-spinner-button-more {
+.nitro-catalog-window button.nitro-catalog-standard-spinner-button-more {
     background-image: var(--habbo-stepper-plus) !important;
 }
-.nitro-catalog-window button.nitro-catalog-swf-spinner-button-more:hover {
+.nitro-catalog-window button.nitro-catalog-standard-spinner-button-more:hover {
     background-image: var(--habbo-stepper-plus-hover) !important;
 }
-.nitro-catalog-window button.nitro-catalog-swf-spinner-button-more:active {
+.nitro-catalog-window button.nitro-catalog-standard-spinner-button-more:active {
     background-image: var(--habbo-stepper-plus-pressed) !important;
 }
-.nitro-catalog-window button.nitro-catalog-swf-spinner-button-more:disabled {
+.nitro-catalog-window button.nitro-catalog-standard-spinner-button-more:disabled {
     background-image: var(--habbo-stepper-plus-disabled) !important;
 }
 
-.nitro-catalog-swf-spinner-input {
+.nitro-catalog-standard-spinner-input {
     width: 30px !important;
     height: 25px !important;
     padding: 4px 2px !important;
@@ -1928,13 +1943,13 @@
     appearance: textfield;
 }
 
-.nitro-catalog-swf-spinner-input::-webkit-outer-spin-button,
-.nitro-catalog-swf-spinner-input::-webkit-inner-spin-button {
+.nitro-catalog-standard-spinner-input::-webkit-outer-spin-button,
+.nitro-catalog-standard-spinner-input::-webkit-inner-spin-button {
     appearance: none;
     margin: 0;
 }
 
-.nitro-catalog-swf-price-display {
+.nitro-catalog-standard-price-display {
     display: flex;
     align-items: center;
     justify-content: flex-start;
@@ -1944,7 +1959,7 @@
     font-size: 11px;
 }
 
-.nitro-catalog-swf-price-pill {
+.nitro-catalog-standard-price-pill {
     display: inline-flex;
     align-items: center;
     gap: 2px;
@@ -1956,14 +1971,14 @@
     background: transparent !important;
 }
 
-.nitro-catalog-swf-price-text {
+.nitro-catalog-standard-price-text {
     color: #222 !important;
     font-size: 11px !important;
     font-weight: 700 !important;
     line-height: 17px !important;
 }
 
-.nitro-catalog-window .nitro-catalog-preview-price .nitro-catalog-swf-price-text {
+.nitro-catalog-window .nitro-catalog-preview-price .nitro-catalog-standard-price-text {
     color: #ffffff !important;
     text-shadow:
         0 0 2px #000,
@@ -1973,7 +1988,7 @@
         -1px -1px 1px #000 !important;
 }
 
-.nitro-catalog-swf-price-plus {
+.nitro-catalog-standard-price-plus {
     width: 7px;
     height: 7px;
     color: #666;
@@ -2049,8 +2064,8 @@
 .nitro-catalog-window .nitro-catalog-grid-shell::-webkit-scrollbar,
 .nitro-catalog-window .nitro-catalog-grid::-webkit-scrollbar,
 .nitro-catalog-window .nitro-catalog-layout-container::-webkit-scrollbar {
-    width: 18px;
-    height: 18px;
+    width: 17px;
+    height: 17px;
 }
 
 .nitro-catalog-window * {
@@ -2059,8 +2074,8 @@
 }
 
 .nitro-catalog-window *::-webkit-scrollbar {
-    width: 18px !important;
-    height: 18px !important;
+    width: 17px !important;
+    height: 17px !important;
     background-color: #bdbbb3 !important;
 }
 
@@ -2072,72 +2087,72 @@
 }
 
 .nitro-catalog-window *::-webkit-scrollbar-thumb {
-    min-height: 24px !important;
+    min-height: 12px !important;
     background:
-        url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='8' height='5'><rect x='0' y='0' width='8' height='2' fill='%23a0a0a0'/></svg>") center top / 8px 5px repeat-y,
+        repeating-linear-gradient(to bottom, #8f8f8b 0 1px, #efefec 1px 2px) center / 7px 10px no-repeat,
         #d9d9d9 !important;
     border: 1px solid #000000 !important;
-    border-radius: 3px !important;
-    box-shadow: inset 0 0 0 2px #ffffff !important;
+    border-radius: 2px !important;
+    box-shadow: inset 0 0 0 1px #ffffff !important;
 }
 
 .nitro-catalog-window *::-webkit-scrollbar-thumb:hover {
     background:
-        url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='8' height='5'><rect x='0' y='0' width='8' height='2' fill='%23ababab'/></svg>") center top / 8px 5px repeat-y,
-        #e3e3e3 !important;
+        repeating-linear-gradient(to bottom, #8f8f8b 0 1px, #efefec 1px 2px) center / 7px 10px no-repeat,
+        #d9d9d9 !important;
 }
 
 .nitro-catalog-window *::-webkit-scrollbar-thumb:active {
     background:
-        url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='8' height='5'><rect x='0' y='0' width='8' height='2' fill='%23606060'/></svg>") center top / 8px 5px repeat-y,
+        repeating-linear-gradient(to bottom, #696965 0 1px, #d0d0cb 1px 2px) center / 7px 10px no-repeat,
         #bcbcbc !important;
 }
 
 .nitro-catalog-window *::-webkit-scrollbar-button:single-button:vertical:decrement {
     display: block !important;
-    width: 18px !important;
-    height: 18px !important;
+    width: 17px !important;
+    height: 16px !important;
     background:
-        url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='9' height='6'><polygon points='4.5,0 9,6 0,6' fill='%23222'/></svg>") center center / 9px 6px no-repeat,
-        #d9d9d9 !important;
+        url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='7' height='4'><polygon points='3.5,0 7,4 0,4' fill='%231b1b1b'/></svg>") center center / 7px 4px no-repeat,
+        linear-gradient(#ffffff, #cecec9) !important;
     border: 1px solid #000000 !important;
-    border-radius: 3px 3px 0 0 !important;
+    border-radius: 2px 2px 0 0 !important;
     box-shadow:
         inset 0 1px 0 #ffffff,
         inset 1px 0 0 rgba(255, 255, 255, 0.6) !important;
 }
 .nitro-catalog-window *::-webkit-scrollbar-button:single-button:vertical:decrement:active {
     background:
-        url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='9' height='6'><polygon points='4.5,0 9,6 0,6' fill='%23000'/></svg>") center center / 9px 6px no-repeat,
+        url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='7' height='4'><polygon points='3.5,0 7,4 0,4' fill='%23000'/></svg>") center 6px / 7px 4px no-repeat,
         #bcbcbc !important;
 }
 
 .nitro-catalog-window *::-webkit-scrollbar-button:single-button:vertical:increment {
     display: block !important;
-    width: 18px !important;
-    height: 18px !important;
+    width: 17px !important;
+    height: 16px !important;
     background:
-        url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='9' height='6'><polygon points='0,0 9,0 4.5,6' fill='%23222'/></svg>") center center / 9px 6px no-repeat,
-        #d9d9d9 !important;
+        url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='7' height='4'><polygon points='0,0 7,0 3.5,4' fill='%231b1b1b'/></svg>") center center / 7px 4px no-repeat,
+        linear-gradient(#ffffff, #cecec9) !important;
     border: 1px solid #000000 !important;
-    border-radius: 0 0 3px 3px !important;
+    border-radius: 0 0 2px 2px !important;
     box-shadow:
         inset 0 1px 0 #ffffff,
         inset 1px 0 0 rgba(255, 255, 255, 0.6) !important;
 }
 .nitro-catalog-window *::-webkit-scrollbar-button:single-button:vertical:increment:active {
     background:
-        url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='9' height='6'><polygon points='0,0 9,0 4.5,6' fill='%23000'/></svg>") center center / 9px 6px no-repeat,
+        url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='7' height='4'><polygon points='0,0 7,0 3.5,4' fill='%23000'/></svg>") center 6px / 7px 4px no-repeat,
         #bcbcbc !important;
 }
 
 .nitro-catalog-window *::-webkit-scrollbar-button:single-button:horizontal:decrement {
     display: block !important;
-    width: 18px !important;
-    height: 18px !important;
+    width: 16px !important;
+    height: 17px !important;
     background:
-        url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='6' height='9'><polygon points='0,4.5 6,0 6,9' fill='%23222'/></svg>") center center / 6px 9px no-repeat,
-        #d9d9d9 !important;
+        url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='4' height='7'><polygon points='0,3.5 4,0 4,7' fill='%231b1b1b'/></svg>") center center / 4px 7px no-repeat,
+        linear-gradient(#ffffff, #cecec9) !important;
     border: 1px solid #000000 !important;
     border-radius: 3px 0 0 3px !important;
     box-shadow:
@@ -2146,17 +2161,17 @@
 }
 .nitro-catalog-window *::-webkit-scrollbar-button:single-button:horizontal:decrement:active {
     background:
-        url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='6' height='9'><polygon points='0,4.5 6,0 6,9' fill='%23000'/></svg>") center center / 6px 9px no-repeat,
+        url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='4' height='7'><polygon points='0,3.5 4,0 4,7' fill='%23000'/></svg>") center center / 4px 7px no-repeat,
         #bcbcbc !important;
 }
 
 .nitro-catalog-window *::-webkit-scrollbar-button:single-button:horizontal:increment {
     display: block !important;
-    width: 18px !important;
-    height: 18px !important;
+    width: 16px !important;
+    height: 17px !important;
     background:
-        url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='6' height='9'><polygon points='6,4.5 0,0 0,9' fill='%23222'/></svg>") center center / 6px 9px no-repeat,
-        #d9d9d9 !important;
+        url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='4' height='7'><polygon points='4,3.5 0,0 0,7' fill='%231b1b1b'/></svg>") center center / 4px 7px no-repeat,
+        linear-gradient(#ffffff, #cecec9) !important;
     border: 1px solid #000000 !important;
     border-radius: 0 3px 3px 0 !important;
     box-shadow:
@@ -2165,12 +2180,128 @@
 }
 .nitro-catalog-window *::-webkit-scrollbar-button:single-button:horizontal:increment:active {
     background:
-        url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='6' height='9'><polygon points='6,4.5 0,0 0,9' fill='%23000'/></svg>") center center / 6px 9px no-repeat,
+        url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='4' height='7'><polygon points='4,3.5 0,0 0,7' fill='%23000'/></svg>") center center / 4px 7px no-repeat,
         #bcbcbc !important;
 }
 
 .nitro-catalog-breadcrumb {
     display: none;
+}
+
+.nitro-catalog-preview-controls {
+    position: absolute;
+    top: 8px;
+    right: 6px;
+    z-index: 10;
+    width: 54px;
+    height: 77px;
+}
+
+.nitro-catalog-window .nitro-catalog-preview-controls button.nitro-catalog-preview-btn {
+    position: absolute;
+    top: 0;
+    width: 25px !important;
+    min-width: 25px !important;
+    height: 24px !important;
+    min-height: 24px !important;
+}
+
+.nitro-catalog-window .nitro-catalog-preview-controls button.nitro-catalog-preview-btn.is-left {
+    left: 0;
+}
+
+.nitro-catalog-window .nitro-catalog-preview-controls button.nitro-catalog-preview-btn.is-right {
+    left: 29px;
+}
+
+.nitro-catalog-window .nitro-catalog-preview-controls button.nitro-catalog-preview-btn:disabled {
+    border-image-source: var(--habbo-skin-button-disabled) !important;
+    opacity: 1 !important;
+}
+
+.nitro-catalog-window .nitro-catalog-preview-controls button.nitro-catalog-preview-region {
+    position: absolute;
+    left: 31px;
+    display: block;
+    padding: 0 !important;
+    overflow: hidden;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+.nitro-catalog-window .nitro-catalog-preview-controls button.nitro-catalog-preview-zoom-btn {
+    top: 29px;
+    width: 20px !important;
+    min-width: 20px !important;
+    height: 22px !important;
+    min-height: 22px !important;
+}
+
+.nitro-catalog-window .nitro-catalog-preview-controls button.nitro-catalog-preview-action-btn {
+    top: 55px;
+    width: 22px !important;
+    min-width: 22px !important;
+    height: 22px !important;
+    min-height: 22px !important;
+}
+
+.nitro-catalog-window .nitro-catalog-preview-controls button.nitro-catalog-preview-region:hover {
+    filter: brightness(1.12);
+}
+
+.nitro-catalog-window .nitro-catalog-preview-controls button.nitro-catalog-preview-region:active {
+    filter: brightness(0.9);
+}
+
+.nitro-catalog-window .nitro-catalog-preview-controls .nitro-catalog-preview-arrow {
+    display: block;
+    width: 13px !important;
+    height: 13px !important;
+    fill: #000 !important;
+}
+
+.nitro-catalog-window .nitro-catalog-preview-controls .nitro-icon.icon-zoom-more {
+    position: absolute;
+    top: 0;
+    left: 3px;
+    width: 13px;
+    height: 22px;
+    background-repeat: no-repeat;
+    image-rendering: pixelated;
+}
+
+.nitro-catalog-window .nitro-catalog-preview-controls .nitro-icon.icon-zoom-more:hover,
+.nitro-catalog-window .nitro-catalog-preview-controls .nitro-icon.icon-zoom-more:active {
+    transform: none;
+    filter: none;
+}
+
+.nitro-catalog-window .nitro-catalog-preview-controls .nitro-catalog-preview-action-icon {
+    position: absolute;
+    top: 0;
+    left: -10px;
+    width: 41px;
+    height: 22px;
+    background: url("@/assets/images/catalog/preview-avatar-action.svg") no-repeat;
+    image-rendering: pixelated;
+}
+
+.nitro-catalog-grid-club-level {
+    position: absolute;
+    top: 4px;
+    left: 23px;
+    z-index: 5;
+    display: inline-flex;
+    pointer-events: none;
+}
+
+.nitro-catalog-purchase-selection-prompt {
+    align-self: center;
+    color: var(--bs-secondary-color);
+    font-size: 11px;
+    font-style: italic;
 }
 
 @media (max-width: 640px), (orientation: landscape) and (max-height: 520px) {
@@ -2545,7 +2676,7 @@
     flex-direction: column;
     gap: 0;
     padding: 0 !important;
-    background: var(--catalog-swf-bg, #d7d7cf) !important;
+    background: var(--catalog-standard-bg, #d7d7cf) !important;
 }
 
 .nitro-catalog-admin-operation-error {
