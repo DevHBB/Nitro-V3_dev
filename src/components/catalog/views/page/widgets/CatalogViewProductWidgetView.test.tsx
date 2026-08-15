@@ -33,8 +33,16 @@ vi.mock('../../../../../hooks', () => ({
 }));
 
 const createRoomPreviewer = () => ({
-    addAvatarIntoRoom: vi.fn(),
-    addFurnitureIntoRoom: vi.fn(),
+    addAvatarIntoRoom: vi.fn(function (this: { setAutomaticStateChange: (enabled: boolean) => void }) {
+        this.setAutomaticStateChange(true);
+    }),
+    addFurnitureIntoRoom: vi.fn(function (this: { setAutomaticStateChange: (enabled: boolean) => void }) {
+        this.setAutomaticStateChange(true);
+    }),
+    addWallItemIntoRoom: vi.fn(function (this: { setAutomaticStateChange: (enabled: boolean) => void }) {
+        this.setAutomaticStateChange(true);
+    }),
+    centerWallItems: false,
     reset: vi.fn(),
     setAutomaticStateChange: vi.fn(),
     updateObjectRoom: vi.fn(),
@@ -49,6 +57,16 @@ const createFloorOffer = (specialType: number) => ({
         productClassId: 500,
         extraParam: '',
         furnitureData: { id: 500, specialType }
+    }
+});
+
+const createLandscapeOffer = () => ({
+    pricingModel: 'single',
+    product: {
+        productType: 'i',
+        productClassId: 600,
+        extraParam: 'landscape',
+        furnitureData: { id: 600, specialType: 4 }
     }
 });
 
@@ -84,6 +102,7 @@ describe('catalog product preview', () => {
             expect(avatarRenderManager.getFigureStringWithFigureIds).toHaveBeenCalledWith('base-figure', 'M', [101, 202]);
             expect(roomPreviewer.addAvatarIntoRoom).toHaveBeenCalledWith('composed-figure', 0);
             expect(roomPreviewer.zoomIn).toHaveBeenCalledOnce();
+            expect(roomPreviewer.setAutomaticStateChange).toHaveBeenLastCalledWith(false);
         });
     });
 
@@ -110,6 +129,8 @@ describe('catalog product preview', () => {
             expect(roomPreviewer.addFurnitureIntoRoom).toHaveBeenCalledWith(500, expect.anything(), null, '');
             expect(roomPreviewer.addAvatarIntoRoom).not.toHaveBeenCalled();
             expect(roomPreviewer.zoomIn).not.toHaveBeenCalled();
+            expect(roomPreviewer.centerWallItems).toBe(true);
+            expect(roomPreviewer.setAutomaticStateChange).toHaveBeenLastCalledWith(true);
         });
     });
 
@@ -136,6 +157,23 @@ describe('catalog product preview', () => {
             expect(avatarRenderManager.getFigureStringWithFigureIds).toHaveBeenCalledWith('base-figure', 'F', []);
             expect(avatarRenderManager.isValidFigureSetForGender).not.toHaveBeenCalled();
             expect(roomPreviewer.addAvatarIntoRoom).toHaveBeenCalledWith('base-figure', 0);
+            expect(roomPreviewer.setAutomaticStateChange).toHaveBeenLastCalledWith(false);
+        });
+    });
+
+    it('keeps landscape previews static after the wall object is loaded', async () => {
+        const roomPreviewer = createRoomPreviewer();
+
+        vi.mocked(GetSessionDataManager).mockReturnValue({
+            getWallItemDataByName: () => ({ id: 600 })
+        } as any);
+        vi.mocked(useCatalogData).mockReturnValue({ currentOffer: createLandscapeOffer(), roomPreviewer } as any);
+
+        render(<CatalogViewProductWidgetView />);
+
+        await waitFor(() => {
+            expect(roomPreviewer.addWallItemIntoRoom).toHaveBeenCalledWith(600, expect.anything(), undefined);
+            expect(roomPreviewer.setAutomaticStateChange).toHaveBeenLastCalledWith(false);
         });
     });
 });

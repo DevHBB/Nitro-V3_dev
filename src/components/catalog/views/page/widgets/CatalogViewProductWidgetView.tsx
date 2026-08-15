@@ -18,8 +18,12 @@ export const CatalogViewProductWidgetView: FC<{ height?: number }> = (props) => 
         if (!product) return;
 
         roomPreviewer.reset(false);
+        roomPreviewer.centerWallItems = true;
+        roomPreviewer.setAutomaticStateChange(false);
         roomPreviewer.updateObjectRoom('111', '217', '1.1');
         roomPreviewer.updateRoomWallsAndFloorVisibility(true, true);
+
+        let animateFurnitureState = false;
 
         const populate = () => {
             switch (product.productType) {
@@ -52,6 +56,7 @@ export const CatalogViewProductWidgetView: FC<{ height?: number }> = (props) => 
                         roomPreviewer.zoomIn();
                     } else {
                         roomPreviewer.addFurnitureIntoRoom(product.productClassId, new Vector3d(90), previewStuffData, product.extraParam);
+                        animateFurnitureState = true;
                     }
                     return;
                 }
@@ -78,6 +83,7 @@ export const CatalogViewProductWidgetView: FC<{ height?: number }> = (props) => 
                         default:
                             roomPreviewer.updateObjectRoom('101', '101', '1.1');
                             roomPreviewer.addWallItemIntoRoom(product.productClassId, new Vector3d(90), product.extraParam);
+                            animateFurnitureState = true;
                             return;
                     }
                 }
@@ -93,7 +99,7 @@ export const CatalogViewProductWidgetView: FC<{ height?: number }> = (props) => 
         };
 
         populate();
-        roomPreviewer.setAutomaticStateChange(false);
+        roomPreviewer.setAutomaticStateChange(animateFurnitureState);
     }, [currentOffer, previewStuffData, roomPreviewer]);
 
     if (!currentOffer) return null;
