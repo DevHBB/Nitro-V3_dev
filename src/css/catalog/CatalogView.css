@@ -1021,7 +1021,16 @@
     box-shadow:
         inset 1px 1px 0 rgba(0, 0, 0, 0.08),
         inset -1px -1px 0 rgba(255, 255, 255, 0.55);
-    overflow: auto;
+    overflow: hidden;
+}
+
+.nitro-catalog-navigation-scroll-area {
+    width: 100%;
+    height: 100%;
+}
+
+.nitro-catalog-navigation-scroll-area .nitro-classic-scroll-area-viewport {
+    padding-right: 17px;
 }
 
 .nitro-catalog-navigation-list {
@@ -1304,8 +1313,143 @@
     max-height: 154px;
 }
 
-.nitro-catalog-sound-preview {
-    height: 140px;
+.nitro-catalog-sound-layout {
+    position: relative;
+    width: 100%;
+    max-width: 360px;
+    height: 460px;
+    min-height: 460px;
+    overflow: hidden;
+    color: #222;
+    background: var(--catalog-standard-bg, #e4e3db);
+}
+
+.nitro-catalog-sound-product {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 360px;
+    height: 240px;
+    overflow: hidden;
+    background: var(--catalog-standard-bg, #e4e3db);
+}
+
+.nitro-catalog-sound-title,
+.nitro-catalog-sound-length {
+    position: absolute;
+    left: 10px;
+    z-index: 3;
+    max-width: 340px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.nitro-catalog-sound-title {
+    top: 10px;
+    height: 17px;
+    font-size: 12px;
+    line-height: 17px;
+}
+
+.nitro-catalog-sound-length {
+    top: 52px;
+    height: 15px;
+    font-size: 10px;
+    line-height: 15px;
+}
+
+.nitro-catalog-sound-product-render {
+    position: absolute;
+    top: 70px;
+    right: auto;
+    left: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 360px;
+    height: 108px;
+    overflow: hidden;
+}
+
+.nitro-catalog-sound-product-render .furni-image {
+    flex: 0 0 auto;
+    image-rendering: pixelated;
+}
+
+.nitro-catalog-sound-price {
+    position: absolute;
+    right: 7px;
+    bottom: 10px;
+    z-index: 4;
+}
+
+.nitro-catalog-sound-listen-panel {
+    position: absolute;
+    bottom: 13px;
+    left: 5px;
+    z-index: 4;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 175px;
+    height: 36px;
+    padding: 6px 7px 6px 9px;
+    border: 1px solid rgba(204, 204, 204, 0.9);
+    background: rgba(204, 204, 204, 0.5);
+    font-size: 10px;
+}
+
+.nitro-catalog-sound-listen-panel button {
+    width: 66px;
+    min-width: 66px;
+    height: 22px;
+    min-height: 22px;
+    padding: 0 4px;
+}
+
+.nitro-catalog-sound-select-product {
+    position: absolute;
+    top: 130px;
+    left: 6px;
+    font-size: 10px;
+}
+
+.nitro-catalog-sound-grid {
+    position: absolute;
+    top: 242px;
+    left: 0;
+    width: 360px;
+    height: 178px;
+    min-height: 0;
+    padding: 3px 2px 3px 4px;
+    overflow: hidden;
+    border: 1px solid #777;
+    border-radius: 6px;
+    background: #c9c9c3;
+}
+
+.nitro-catalog-sound-grid .nitro-classic-scroll-area-viewport {
+    padding-right: 17px;
+}
+
+.nitro-catalog-sound-purchase {
+    position: absolute;
+    top: 429px;
+    left: 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    width: 360px;
+    height: 31px;
+    gap: 6px;
+}
+
+.nitro-catalog-sound-purchase > button {
+    flex: 1 1 0;
+    width: auto;
+    min-width: 0;
+    height: 24px;
 }
 
 .nitro-catalog-marketplace-item-icon {
@@ -1375,7 +1519,11 @@
     width: 360px;
     min-height: 0;
     padding: 3px 2px 3px 4px;
-    overflow: auto;
+    overflow: hidden;
+}
+
+.nitro-catalog-grid-shell .nitro-classic-scroll-area-viewport {
+    padding-right: 17px;
 }
 
 .nitro-catalog-default-layout:has(.nitro-catalog-default-admin) .nitro-catalog-grid-shell {

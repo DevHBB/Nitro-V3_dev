@@ -1,7 +1,7 @@
 import { InfiniteGrid } from '@layout/InfiniteGrid';
 import { FC, useCallback, useEffect, useRef, useState } from 'react';
 import { IPurchasableOffer } from '../../../../../api';
-import { AutoGrid, AutoGridProps } from '../../../../../common';
+import { AutoGrid, AutoGridProps, ClassicScrollAreaView } from '../../../../../common';
 import { useCatalogActions, useCatalogData, useCatalogUiState } from '../../../../../hooks';
 import { replaceCatalogPageOffers } from '../../../../../hooks/catalog/useCatalog.helpers';
 import { useCatalogAdmin } from '../../../CatalogAdminContext';
@@ -102,6 +102,7 @@ export const CatalogItemGridWidgetView: FC<CatalogItemGridWidgetViewProps> = (pr
         return (
             <div aria-label="Catalog items" className={`nitro-catalog-grid-virtual h-full min-h-0 ${className}`.trim()} role="listbox">
                 <InfiniteGrid
+                    classicScrollbar
                     columnCount={columnCount}
                     estimateSize={columnMinHeight}
                     itemMinWidth={columnMinWidth}
@@ -115,18 +116,21 @@ export const CatalogItemGridWidgetView: FC<CatalogItemGridWidgetViewProps> = (pr
     }
 
     return (
-        <AutoGrid
-            aria-label="Catalog items"
-            className={className}
-            columnCount={columnCount}
-            columnMinHeight={columnMinHeight}
-            columnMinWidth={columnMinWidth}
-            innerRef={elementRef}
-            role="listbox"
-            {...rest}
-        >
-            {offers.length > 0 && offers.map((offer, index) => renderOfferTile(offer, index))}
-            {children}
-        </AutoGrid>
+        <ClassicScrollAreaView className="nitro-catalog-item-grid-scroll-area h-full min-h-0" viewportRef={elementRef}>
+            <AutoGrid
+                aria-label="Catalog items"
+                className={className}
+                columnCount={columnCount}
+                columnMinHeight={columnMinHeight}
+                columnMinWidth={columnMinWidth}
+                fullHeight={false}
+                overflow="visible"
+                role="listbox"
+                {...rest}
+            >
+                {offers.length > 0 && offers.map((offer, index) => renderOfferTile(offer, index))}
+                {children}
+            </AutoGrid>
+        </ClassicScrollAreaView>
     );
 };

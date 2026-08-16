@@ -1,5 +1,6 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { DetailedHTMLProps, Fragment, HTMLAttributes, ReactElement, Ref, RefObject, useEffect, useRef, useState } from 'react';
+import { ClassicScrollAreaView } from '../common/scroll-area/ClassicScrollAreaView';
 import { classNames } from './classNames';
 import { NitroLimitedEditionStyledNumberView } from './limited-edition';
 import { styleNames } from './styleNames';
@@ -12,6 +13,7 @@ type Props<T> = {
     squareItems?: boolean;
     itemMinWidth?: number;
     rowGap?: number;
+    classicScrollbar?: boolean;
     itemRender?: (item: T, index?: number) => ReactElement;
 };
 
@@ -47,27 +49,48 @@ const useColumnMeasure = (itemMinWidth: number | null, columnCountProp: number):
 };
 
 const InfiniteGridSquare = <T,>(props: Props<T>) => {
-    const { items = [], columnCount: columnCountProp = 4, itemMinWidth = null, itemRender = null } = props;
+    const { items = [], columnCount: columnCountProp = 4, itemMinWidth = null, itemRender = null, classicScrollbar = false } = props;
     const { parentRef } = useColumnMeasure(itemMinWidth, columnCountProp);
 
     const autoFillStyle = itemMinWidth && itemMinWidth > 0 ? { gridTemplateColumns: `repeat(auto-fill, ${itemMinWidth}px)` } : null;
     const fixedColsClass = itemMinWidth && itemMinWidth > 0 ? '' : `grid-cols-${columnCountProp}`;
 
+    const content = (
+        <div className={`grid ${fixedColsClass} gap-1 w-full`} style={autoFillStyle ?? undefined}>
+            {items.map((item, index) => {
+                if (!item) return <Fragment key={`${index}-empty`} />;
+
+                return <Fragment key={`${index}-item`}>{itemRender(item, index)}</Fragment>;
+            })}
+        </div>
+    );
+
+    if (classicScrollbar) {
+        return (
+            <ClassicScrollAreaView className="size-full" viewportRef={parentRef}>
+                {content}
+            </ClassicScrollAreaView>
+        );
+    }
+
     return (
         <div ref={parentRef} className="overflow-y-auto size-full">
-            <div className={`grid ${fixedColsClass} gap-1 w-full`} style={autoFillStyle ?? undefined}>
-                {items.map((item, index) => {
-                    if (!item) return <Fragment key={`${index}-empty`} />;
-
-                    return <Fragment key={`${index}-item`}>{itemRender(item, index)}</Fragment>;
-                })}
-            </div>
+            {content}
         </div>
     );
 };
 
 const InfiniteGridVirtualized = <T,>(props: Props<T>) => {
-    const { items = [], columnCount: columnCountProp = 4, overscan = 5, estimateSize = 45, itemMinWidth = null, rowGap = null, itemRender = null } = props;
+    const {
+        items = [],
+        columnCount: columnCountProp = 4,
+        overscan = 5,
+        estimateSize = 45,
+        itemMinWidth = null,
+        rowGap = null,
+        itemRender = null,
+        classicScrollbar = false
+    } = props;
     const { parentRef, columnCount } = useColumnMeasure(itemMinWidth, columnCountProp);
 
     const rowsContainerClassName = rowGap !== null ? 'flex flex-col w-full relative' : 'flex flex-col w-full *:pb-1 relative';
@@ -110,6 +133,43 @@ const InfiniteGridVirtualized = <T,>(props: Props<T>) => {
 
     const virtualItems = virtualizer.getVirtualItems();
 
+    const content = virtualItems.map((virtualRow) => (
+        <div
+            key={virtualRow.key + 'a'}
+            ref={virtualizer.measureElement}
+            className={`grid ${fixedColsClass} gap-1 absolute top-0 left-0 last:pb-0 w-full`}
+            data-index={virtualRow.index}
+            style={{
+                ...(rowGap === null && { height: virtualRow.size }),
+                ...(autoFillStyle ?? {}),
+                ...(rowGap !== null && { paddingBottom: `${rowGap}px` }),
+                transform: `translateY(${virtualRow.start}px)`
+            }}
+        >
+            {Array.from(Array(columnCount)).map((e, i) => {
+                const index = i + virtualRow.index * columnCount;
+                const item = items[index];
+
+                if (!item) return <Fragment key={virtualRow.index + i + 'b'} />;
+
+                return <Fragment key={i}>{itemRender(item, index)}</Fragment>;
+            })}
+        </div>
+    ));
+
+    if (classicScrollbar) {
+        return (
+            <ClassicScrollAreaView
+                className="size-full"
+                contentClassName={rowsContainerClassName}
+                contentStyle={{ height: virtualizer.getTotalSize() }}
+                viewportRef={parentRef}
+            >
+                {content}
+            </ClassicScrollAreaView>
+        );
+    }
+
     return (
         <div ref={parentRef} className="overflow-y-auto size-full">
             <div
@@ -118,29 +178,7 @@ const InfiniteGridVirtualized = <T,>(props: Props<T>) => {
                     height: virtualizer.getTotalSize()
                 }}
             >
-                {virtualItems.map((virtualRow) => (
-                    <div
-                        key={virtualRow.key + 'a'}
-                        ref={virtualizer.measureElement}
-                        className={`grid ${fixedColsClass} gap-1 absolute top-0 left-0 last:pb-0 w-full`}
-                        data-index={virtualRow.index}
-                        style={{
-                            ...(rowGap === null && { height: virtualRow.size }),
-                            ...(autoFillStyle ?? {}),
-                            ...(rowGap !== null && { paddingBottom: `${rowGap}px` }),
-                            transform: `translateY(${virtualRow.start}px)`
-                        }}
-                    >
-                        {Array.from(Array(columnCount)).map((e, i) => {
-                            const index = i + virtualRow.index * columnCount;
-                            const item = items[index];
-
-                            if (!item) return <Fragment key={virtualRow.index + i + 'b'} />;
-
-                            return <Fragment key={i}>{itemRender(item, index)}</Fragment>;
-                        })}
-                    </div>
-                ))}
+                {content}
             </div>
         </div>
     );

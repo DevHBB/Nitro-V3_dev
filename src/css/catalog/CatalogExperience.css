@@ -282,7 +282,7 @@
     padding: 0;
 }
 
-.nitro-catalog-pet-layout--legacy .nitro-catalog-pet-color-grid .nitro-catalog-scroll-area-viewport {
+.nitro-catalog-pet-layout--legacy .nitro-catalog-pet-color-grid .nitro-classic-scroll-area-viewport {
     padding: 5px 22px 0 5px;
 }
 
@@ -319,7 +319,7 @@
     padding: 0;
 }
 
-.nitro-catalog-pet-layout--new .nitro-catalog-pet-color-grid .nitro-catalog-scroll-area-viewport {
+.nitro-catalog-pet-layout--new .nitro-catalog-pet-color-grid .nitro-classic-scroll-area-viewport {
     padding: 0 22px 0 5px;
 }
 
@@ -405,14 +405,21 @@
     min-height: 100%;
 }
 
-.nitro-catalog-scroll-area-viewport {
+.nitro-classic-scroll-area-viewport {
     width: 100%;
     height: 100%;
     overflow-x: hidden;
     overflow-y: scroll;
 }
 
-.nitro-catalog-scrollbar {
+.nitro-classic-scroll-area {
+    position: relative;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.nitro-classic-scrollbar {
     position: absolute;
     top: 0;
     right: 0;
@@ -423,12 +430,12 @@
     z-index: 2;
 }
 
-.nitro-catalog-scrollbar[data-visible='false'] {
+.nitro-classic-scrollbar[data-visible='false'] {
     visibility: hidden;
     pointer-events: none;
 }
 
-.nitro-catalog-scrollbar-button {
+.nitro-classic-scrollbar-button {
     width: 17px;
     height: 16px;
     padding: 0;
@@ -440,38 +447,38 @@
     image-rendering: pixelated;
 }
 
-.nitro-catalog-scrollbar-button.is-up {
+.nitro-classic-scrollbar-button.is-up {
     background-image: url('../../assets/images/scrollbar/up.png');
 }
 
-.nitro-catalog-scrollbar-button.is-up:hover {
+.nitro-classic-scrollbar-button.is-up:hover {
     background-image: url('../../assets/images/scrollbar/up_hover.png');
 }
 
-.nitro-catalog-scrollbar-button.is-up:active {
+.nitro-classic-scrollbar-button.is-up:active {
     background-image: url('../../assets/images/scrollbar/up_active.png');
 }
 
-.nitro-catalog-scrollbar-button.is-down {
+.nitro-classic-scrollbar-button.is-down {
     background-image: url('../../assets/images/scrollbar/down.png');
 }
 
-.nitro-catalog-scrollbar-button.is-down:hover {
+.nitro-classic-scrollbar-button.is-down:hover {
     background-image: url('../../assets/images/scrollbar/down_hover.png');
 }
 
-.nitro-catalog-scrollbar-button.is-down:active {
+.nitro-classic-scrollbar-button.is-down:active {
     background-image: url('../../assets/images/scrollbar/down_active.png');
 }
 
-.nitro-catalog-scrollbar-track {
+.nitro-classic-scrollbar-track {
     position: relative;
     min-height: 0;
     background: url('../../assets/images/scrollbar/background.png') repeat-y center;
     image-rendering: pixelated;
 }
 
-.nitro-catalog-scrollbar-thumb {
+.nitro-classic-scrollbar-thumb {
     position: absolute;
     top: 0;
     left: 0;
@@ -485,8 +492,8 @@
     touch-action: none;
 }
 
-.nitro-catalog-scrollbar-thumb::before,
-.nitro-catalog-scrollbar-thumb::after {
+.nitro-classic-scrollbar-thumb::before,
+.nitro-classic-scrollbar-thumb::after {
     position: absolute;
     right: 0;
     left: 0;
@@ -497,30 +504,30 @@
     image-rendering: pixelated;
 }
 
-.nitro-catalog-scrollbar-thumb::before {
+.nitro-classic-scrollbar-thumb::before {
     top: 0;
     background-image: url('../../assets/images/scrollbar/thumb_top.png');
 }
 
-.nitro-catalog-scrollbar-thumb::after {
+.nitro-classic-scrollbar-thumb::after {
     bottom: 0;
     background-image: url('../../assets/images/scrollbar/thumb_bottom.png');
 }
 
-.nitro-catalog-scrollbar-thumb:hover {
+.nitro-classic-scrollbar-thumb:hover {
     background-image: url('../../assets/images/scrollbar/thumb_middle_hover.png');
 }
 
-.nitro-catalog-scrollbar-thumb:active {
+.nitro-classic-scrollbar-thumb:active {
     background-image: url('../../assets/images/scrollbar/thumb_middle_active.png');
     cursor: grabbing;
 }
 
-.nitro-catalog-scrollbar-thumb:active::before {
+.nitro-classic-scrollbar-thumb:active::before {
     background-image: url('../../assets/images/scrollbar/thumb_top_active.png');
 }
 
-.nitro-catalog-scrollbar-thumb:active::after {
+.nitro-classic-scrollbar-thumb:active::after {
     background-image: url('../../assets/images/scrollbar/thumb_bottom_active.png');
 }
 

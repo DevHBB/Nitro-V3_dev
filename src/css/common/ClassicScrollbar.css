@@ -189,11 +189,11 @@
     background: transparent !important;
 }
 
-.has-classic-scrollbar .nitro-catalog-scroll-area-viewport {
+.has-classic-scrollbar .nitro-classic-scroll-area-viewport {
     scrollbar-width: none !important;
 }
 
-.has-classic-scrollbar .nitro-catalog-scroll-area-viewport::-webkit-scrollbar {
+.has-classic-scrollbar .nitro-classic-scroll-area-viewport::-webkit-scrollbar {
     display: none !important;
     width: 0 !important;
     height: 0 !important;
