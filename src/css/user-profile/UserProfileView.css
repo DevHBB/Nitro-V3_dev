@@ -356,7 +356,6 @@
   flex: 1 1 auto;
   overflow-y: auto;
   padding-right: 2px;
-  scrollbar-width: thin;
 }
 
 .nitro-extended-profile-groups__item {
@@ -535,7 +534,6 @@
     overflow-y: hidden;
     padding-right: 0;
     padding-bottom: 6px;
-    scrollbar-width: thin;
   }
 
   .nitro-extended-profile-groups__item {

@@ -187,8 +187,6 @@
     overflow-x: hidden;
     overflow-y: auto;
     background: #fff;
-    scrollbar-color: #777 #eee;
-    scrollbar-width: thin;
 }
 
 .hfl-section {
@@ -870,24 +868,4 @@
     border: 1px solid #777;
     border-radius: 4px;
     background: linear-gradient(#fff, #ddd);
-}
-
-.habbo-friend-list ::-webkit-scrollbar {
-    width: 8px !important;
-    height: 0 !important;
-}
-
-.habbo-friend-list ::-webkit-scrollbar-track {
-    border: 0 !important;
-    background: #eee !important;
-}
-
-.habbo-friend-list ::-webkit-scrollbar-thumb {
-    border: 1px solid #555 !important;
-    border-radius: 4px !important;
-    background: #777 !important;
-}
-
-.habbo-friend-list ::-webkit-scrollbar-button {
-    display: none !important;
 }

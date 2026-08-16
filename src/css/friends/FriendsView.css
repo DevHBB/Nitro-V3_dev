@@ -127,31 +127,6 @@
         background: #f3f3ef;
     }
 
-    & .nitro-card-accordion-set-content,
-    & .nitro-card-content-shell {
-        scrollbar-width: auto;
-        scrollbar-color: auto;
-    }
-
-    & .nitro-card-accordion-set-content::-webkit-scrollbar,
-    & .nitro-card-content-shell::-webkit-scrollbar {
-        width: 13px;
-        height: 13px;
-    }
-
-    & .nitro-card-accordion-set-content::-webkit-scrollbar-track,
-    & .nitro-card-content-shell::-webkit-scrollbar-track {
-        background: linear-gradient(180deg, #e1e5e8 0%, #cad1d5 100%);
-        border-left: 1px solid #818a8f;
-    }
-
-    & .nitro-card-accordion-set-content::-webkit-scrollbar-thumb,
-    & .nitro-card-content-shell::-webkit-scrollbar-thumb {
-        background: linear-gradient(180deg, #93b6c6 0%, #688fa2 100%);
-        border: 1px solid #476a7a;
-        border-radius: 2px;
-    }
-
     & .nitro-card-accordion-set {
         background: transparent;
         border: 0;
@@ -517,31 +492,6 @@
         background: #f3f3ef;
     }
 
-    & .nitro-card-content-shell,
-    & .chat-messages {
-        scrollbar-width: auto;
-        scrollbar-color: auto;
-    }
-
-    & .nitro-card-content-shell::-webkit-scrollbar,
-    & .chat-messages::-webkit-scrollbar {
-        width: 13px;
-        height: 13px;
-    }
-
-    & .nitro-card-content-shell::-webkit-scrollbar-track,
-    & .chat-messages::-webkit-scrollbar-track {
-        background: linear-gradient(180deg, #e1e5e8 0%, #cad1d5 100%);
-        border-left: 1px solid #818a8f;
-    }
-
-    & .nitro-card-content-shell::-webkit-scrollbar-thumb,
-    & .chat-messages::-webkit-scrollbar-thumb {
-        background: linear-gradient(180deg, #93b6c6 0%, #688fa2 100%);
-        border: 1px solid #476a7a;
-        border-radius: 2px;
-    }
-
     & .messenger-card-body {
         height: 100%;
         display: flex;
@@ -861,15 +811,6 @@
     overflow-x: auto;
     flex-wrap: nowrap;
     min-width: 0;
-}
-
-.friends-group-chips-scroll::-webkit-scrollbar {
-    height: 4px;
-}
-
-.friends-group-chips-scroll::-webkit-scrollbar-thumb {
-    background: #c0c0b8;
-    border-radius: 2px;
 }
 
 .friends-group-chip {
@@ -1739,26 +1680,6 @@ button.swf-friends-section-header {
 
 .swf-messenger-window .chat-messages {
     padding-right: 1px !important;
-    scrollbar-width: thin;
-    scrollbar-color: #777 #f4f4f4;
-}
-
-.swf-messenger-window .chat-messages::-webkit-scrollbar {
-    width: 8px;
-}
-
-.swf-messenger-window .chat-messages::-webkit-scrollbar-track {
-    border: 1px solid #a4a4a4;
-    border-radius: 4px;
-    background: #f4f4f4;
-}
-
-.swf-messenger-window .chat-messages::-webkit-scrollbar-thumb {
-    min-height: 20px;
-    border: 1px solid #fff;
-    border-radius: 4px;
-    background: #777;
-    box-shadow: none;
 }
 .swf-messenger-window .messenger-message-body { max-width: 220px; min-width: 0; }
 
@@ -2022,13 +1943,6 @@ button.swf-friends-section-header {
     font-weight: 700;
 }
 
-.swf-messenger-window .chat-messages {
-    scrollbar-width: thin;
-    scrollbar-color: #858585 #dedede;
-}
-.swf-messenger-window .chat-messages::-webkit-scrollbar { width: 8px; }
-.swf-messenger-window .chat-messages::-webkit-scrollbar-track { background: #dedede; }
-.swf-messenger-window .chat-messages::-webkit-scrollbar-thumb { border: 1px solid #555; border-radius: 4px; background: #888; }
 .swf-messenger-window .messenger-message-row {
     align-items: flex-start;
     width: 100%;
@@ -2243,21 +2157,6 @@ button.swf-friends-section-header {
     bottom: 39px;
     padding-right: 4px !important;
     background: transparent !important;
-    scrollbar-width: auto;
-    scrollbar-color: #8a8a8a #e4e4e4;
-}
-
-.swf-messenger-window .chat-messages::-webkit-scrollbar { width: 13px; }
-.swf-messenger-window .chat-messages::-webkit-scrollbar-track {
-    border: 0;
-    background: #dedede;
-}
-.swf-messenger-window .chat-messages::-webkit-scrollbar-thumb {
-    min-height: 20px;
-    border: 0;
-    border-radius: 0;
-    background: #a4a4a4;
-    box-shadow: inset 0 0 0 1px #666, inset 0 0 0 2px #e8e8e8;
 }
 
 .swf-messenger-window .messenger-input-row {
@@ -3015,30 +2914,6 @@ button.swf-friends-section-header {
 
 .swf-messenger-window .chat-messages {
     padding-right: 1px !important;
-    scrollbar-width: thin;
-    scrollbar-color: #777 #f4f4f4;
-}
-
-.swf-messenger-window .chat-messages::-webkit-scrollbar {
-    width: 6px !important;
-}
-
-.swf-messenger-window .chat-messages::-webkit-scrollbar-track {
-    border: 1px solid #838383 !important;
-    border-radius: 4px !important;
-    background: #ececec !important;
-}
-
-.swf-messenger-window .chat-messages::-webkit-scrollbar-thumb {
-    min-height: 20px;
-    border: 1px solid #fff !important;
-    border-radius: 4px !important;
-    background: #4f4f4f !important;
-    box-shadow: none !important;
-}
-
-.swf-messenger-window .chat-messages::-webkit-scrollbar-button {
-    display: none !important;
 }
 
 .swf-messenger-window .messenger-btn.habbicon::before {
@@ -3057,30 +2932,6 @@ button.swf-friends-section-header {
 .swf-messenger-window .messenger-btn.send {
     height: 28px !important;
     min-height: 28px !important;
-}
-
-.swf-messenger-window .chat-messages::-webkit-scrollbar {
-    width: 5px !important;
-}
-
-.swf-messenger-window .chat-messages::-webkit-scrollbar-track {
-    border: 0 !important;
-    border-radius: 0 !important;
-    background: #f1f1f1 !important;
-}
-
-.swf-messenger-window .chat-messages::-webkit-scrollbar-thumb {
-    border: 0 !important;
-    border-radius: 3px !important;
-    background: #525252 !important;
-}
-
-.swf-messenger-window .chat-messages::-webkit-scrollbar-button,
-.swf-messenger-window .chat-messages::-webkit-scrollbar-button:single-button,
-.swf-messenger-window .chat-messages::-webkit-scrollbar-corner {
-    display: none !important;
-    width: 0 !important;
-    height: 0 !important;
 }
 
 .swf-friends-window .swf-friends-titlebar {
@@ -3309,37 +3160,6 @@ button.swf-friends-section-header {
 .swf-messenger-habbicon-scroll,
 .habbicon-selector-sections {
     overflow-x: hidden !important;
-}
-
-.swf-messenger-habbicon-scroll,
-.habbicon-selector-sections {
-    scrollbar-width: thin;
-    scrollbar-color: #525252 #f1f1f1;
-}
-
-.swf-messenger-habbicon-scroll::-webkit-scrollbar,
-.habbicon-selector-sections::-webkit-scrollbar {
-    width: 5px !important;
-    height: 0 !important;
-}
-
-.swf-messenger-habbicon-scroll::-webkit-scrollbar-track,
-.habbicon-selector-sections::-webkit-scrollbar-track {
-    border: 0 !important;
-    border-radius: 0 !important;
-    background: #f1f1f1 !important;
-}
-
-.swf-messenger-habbicon-scroll::-webkit-scrollbar-thumb,
-.habbicon-selector-sections::-webkit-scrollbar-thumb {
-    border: 0 !important;
-    border-radius: 3px !important;
-    background: #525252 !important;
-}
-
-.swf-messenger-habbicon-scroll::-webkit-scrollbar-button,
-.habbicon-selector-sections::-webkit-scrollbar-button {
-    display: none !important;
 }
 
 .swf-friends-window .swf-friends-titlebar {

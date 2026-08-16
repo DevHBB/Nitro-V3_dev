@@ -858,7 +858,6 @@
     padding-right: 0 !important;
     overflow-y: auto !important;
     overscroll-behavior: contain;
-    scrollbar-width: auto;
 }
 
 .nitro-login-card .registration-wardrobe-part {
@@ -1266,15 +1265,6 @@
     padding-right: 2px;
 }
 
-.nitro-login-card.nitro-news-card .news-text::-webkit-scrollbar {
-    width: 6px;
-}
-
-.nitro-login-card.nitro-news-card .news-text::-webkit-scrollbar-thumb {
-    background: rgba(63, 106, 133, 0.6);
-    border-radius: 3px;
-}
-
 .nitro-login-card.nitro-news-card .news-footer {
     display: flex;
     align-items: center;
@@ -1545,7 +1535,6 @@
     overflow-x: hidden;
     padding-right: 4px;
     margin-top: 2px;
-    scrollbar-width: auto;
 }
 
 .nitro-login-card .room-template-option {
