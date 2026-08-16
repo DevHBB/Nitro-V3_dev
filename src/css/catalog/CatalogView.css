@@ -1145,15 +1145,8 @@
 }
 
 .nitro-catalog-window .nitro-catalog-forum-text {
-    scrollbar-width: none !important;
     font-size: 12px;
     line-height: 15px;
-}
-
-.nitro-catalog-window .nitro-catalog-forum-text::-webkit-scrollbar {
-    width: 0 !important;
-    height: 0 !important;
-    display: none !important;
 }
 
 .nitro-catalog-window .nitro-catalog-forum-text p,

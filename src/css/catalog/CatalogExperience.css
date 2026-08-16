@@ -410,13 +410,6 @@
     height: 100%;
     overflow-x: hidden;
     overflow-y: scroll;
-    scrollbar-width: none !important;
-}
-
-.nitro-catalog-scroll-area-viewport::-webkit-scrollbar {
-    display: none !important;
-    width: 0 !important;
-    height: 0 !important;
 }
 
 .nitro-catalog-scrollbar {

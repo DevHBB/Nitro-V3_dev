@@ -17,12 +17,14 @@ describe('interface scrollbar theme', () => {
     it('is enabled globally with compact control dimensions', () => {
         const entry = readFileSync(join(process.cwd(), 'src/index.tsx'), 'utf8');
         const css = readFileSync(join(process.cwd(), 'src/css/common/ClassicScrollbar.css'), 'utf8');
+        const rootRule = css.match(/\.has-classic-scrollbar\s*\{([^}]+)\}/)?.[1] ?? '';
         const scrollbar = css.match(/\.has-classic-scrollbar \*::\-webkit-scrollbar,([\s\S]*?)\{([^}]+)\}/)?.[2] ?? '';
         const thumb = css.match(/\.has-classic-scrollbar \*::\-webkit-scrollbar-thumb:vertical,([\s\S]*?)\{([^}]+)\}/)?.[2] ?? '';
         const upButton = css.match(/\.has-classic-scrollbar \*::\-webkit-scrollbar-button:single-button:vertical:decrement,([\s\S]*?)\{([^}]+)\}/)?.[2] ?? '';
 
         expect(entry).toContain("document.documentElement.classList.add('has-classic-scrollbar')");
-        expect(css).toContain('scrollbar-color: #d9d9d9 #bdbbb3');
+        expect(rootRule).toContain('scrollbar-color: auto');
+        expect(css).toMatch(/@supports not selector\(::\-webkit-scrollbar\)[\s\S]*scrollbar-color:\s*#d9d9d9 #bdbbb3/);
         expect(scrollbar).toContain('width: 17px');
         expect(scrollbar).toContain('height: 17px');
         expect(thumb).toContain('min-height: 12px');
@@ -61,5 +63,25 @@ describe('interface scrollbar theme', () => {
             .map((path) => path.slice(cssRoot.length + 1).replaceAll('\\', '/'));
 
         expect(competingFiles).toEqual([]);
+    });
+
+    it('keeps hidden-scrollbar exceptions centralized and limited to custom controls', () => {
+        const allowedFiles = new Set(['css/common/ClassicScrollbar.css', 'css/toolbar/ToolBar.css']);
+        const filesWithHiddenNativeScrollbars = cssFiles(cssRoot)
+            .filter((path) => {
+                const relativePath = path.slice(cssRoot.length + 1).replaceAll('\\', '/');
+                if (allowedFiles.has(relativePath)) return false;
+
+                const css = readFileSync(path, 'utf8');
+                const hidesFirefoxScrollbar = /scrollbar-width\s*:\s*none/i.test(css);
+                const hidesWebkitScrollbar = [...css.matchAll(/::\-webkit-scrollbar[^\{]*\{([^}]*)\}/g)].some(([, declarations]) =>
+                    /display\s*:\s*none|(?:width|height)\s*:\s*0(?:px|rem|em|%)?\b/i.test(declarations)
+                );
+
+                return hidesFirefoxScrollbar || hidesWebkitScrollbar;
+            })
+            .map((path) => path.slice(cssRoot.length + 1).replaceAll('\\', '/'));
+
+        expect(filesWithHiddenNativeScrollbars).toEqual([]);
     });
 });

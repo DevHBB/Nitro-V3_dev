@@ -129,13 +129,8 @@
     max-height: calc(100vh - 32px);
     padding: 4px;
     overflow-y: auto;
-    scrollbar-width: none;
     z-index: 50;
     pointer-events: auto;
-}
-
-.nitro-login-view .login-stack::-webkit-scrollbar {
-    display: none;
 }
 
 .nitro-login-view .login-widgets {
