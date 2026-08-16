@@ -6,16 +6,15 @@ import { useCatalogActions, useCatalogData, useCatalogUiState } from '../../../.
 import { replaceCatalogPageOffers } from '../../../../../hooks/catalog/useCatalog.helpers';
 import { useCatalogAdmin } from '../../../CatalogAdminContext';
 import { CatalogGridOfferView } from '../common/CatalogGridOfferView';
-
-/** Pages above this count use @tanstack/react-virtual via InfiniteGrid. */
-const VIRTUALIZE_OFFER_THRESHOLD = 500;
+import { shouldVirtualizeCatalogOffers } from './catalogGridPerformance.helpers';
 
 interface CatalogItemGridWidgetViewProps extends AutoGridProps {
     tintColor?: string;
+    showPrices?: boolean;
 }
 
 export const CatalogItemGridWidgetView: FC<CatalogItemGridWidgetViewProps> = (props) => {
-    const { columnCount = 5, columnMinHeight = 80, tintColor = null, children = null, className = '', ...rest } = props;
+    const { columnCount = 5, columnMinHeight = 80, columnMinWidth = 40, tintColor = null, showPrices = true, children = null, className = '', ...rest } = props;
     const { currentOffer = null, currentPage = null } = useCatalogData();
     const { selectCatalogOffer = null } = useCatalogActions();
     const { setCurrentPage } = useCatalogUiState();
@@ -26,7 +25,7 @@ export const CatalogItemGridWidgetView: FC<CatalogItemGridWidgetViewProps> = (pr
     const [dropIndex, setDropIndex] = useState<number | null>(null);
 
     const offers = currentPage?.offers ?? [];
-    const useVirtualGrid = !adminMode && offers.length > VIRTUALIZE_OFFER_THRESHOLD;
+    const useVirtualGrid = shouldVirtualizeCatalogOffers(offers.length, adminMode);
 
     useEffect(() => {
         if (elementRef.current) elementRef.current.scrollTop = 0;
@@ -92,6 +91,8 @@ export const CatalogItemGridWidgetView: FC<CatalogItemGridWidgetViewProps> = (pr
                     offer={offer}
                     selectOffer={selectOffer}
                     tintColor={tintColor}
+                    showTechnicalDetails={adminMode}
+                    showPrices={showPrices}
                 />
             </div>
         );
@@ -99,10 +100,11 @@ export const CatalogItemGridWidgetView: FC<CatalogItemGridWidgetViewProps> = (pr
 
     if (useVirtualGrid) {
         return (
-            <div className={`nitro-catalog-grid-virtual h-full min-h-0 ${className}`.trim()}>
+            <div aria-label="Catalog items" className={`nitro-catalog-grid-virtual h-full min-h-0 ${className}`.trim()} role="listbox">
                 <InfiniteGrid
                     columnCount={columnCount}
                     estimateSize={columnMinHeight}
+                    itemMinWidth={columnMinWidth}
                     items={offers}
                     overscan={4}
                     itemRender={(offer, index) => (offer ? renderOfferTile(offer, index) : <></>)}
@@ -113,7 +115,16 @@ export const CatalogItemGridWidgetView: FC<CatalogItemGridWidgetViewProps> = (pr
     }
 
     return (
-        <AutoGrid className={className} columnCount={columnCount} columnMinHeight={columnMinHeight} innerRef={elementRef} {...rest}>
+        <AutoGrid
+            aria-label="Catalog items"
+            className={className}
+            columnCount={columnCount}
+            columnMinHeight={columnMinHeight}
+            columnMinWidth={columnMinWidth}
+            innerRef={elementRef}
+            role="listbox"
+            {...rest}
+        >
             {offers.length > 0 && offers.map((offer, index) => renderOfferTile(offer, index))}
             {children}
         </AutoGrid>

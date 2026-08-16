@@ -42,12 +42,12 @@ jobs:
 
     steps:
       - name: Checkout client
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           path: Nitro-V3
 
       - name: Checkout renderer
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: duckethotel/ducket-render
           ref: main
@@ -55,29 +55,27 @@ jobs:
           token: ${{ secrets.DUCKET_REPO_TOKEN }}
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '22'
-          cache: yarn
-          cache-dependency-path: |
-            Nitro-V3/yarn.lock
-            Nitro_Render_V3/yarn.lock
+
+      - name: Enable Corepack
+        run: corepack enable
 
       - name: Install renderer dependencies
         working-directory: Nitro_Render_V3
         run: yarn install --frozen-lockfile
 
-      - name: Link renderer
-        working-directory: Nitro_Render_V3
-        run: yarn link
-
       - name: Install client dependencies
+        env:
+          COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'
         working-directory: Nitro-V3
-        run: yarn install --frozen-lockfile
+        run: corepack yarn install --immutable
 
       - name: Link renderer into client
-        working-directory: Nitro-V3
-        run: yarn link "@nitrots/nitro-renderer"
+        run: |
+          mkdir -p Nitro-V3/node_modules/@nitrots
+          ln -sfn "${{ github.workspace }}/Nitro_Render_V3" Nitro-V3/node_modules/@nitrots/nitro-renderer
 
       - name: Build client
         working-directory: Nitro-V3

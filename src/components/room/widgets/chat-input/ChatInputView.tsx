@@ -12,6 +12,7 @@ import { ChatInputStyleSelectorView } from './ChatInputStyleSelectorView';
 
 export const ChatInputView: FC<{}> = (props) => {
     const [chatValue, setChatValue] = useState<string>('');
+    const [portalTarget, setPortalTarget] = useState<HTMLElement>(null);
     const { chatStyleId = 0, updateChatStyleId = null } = useSessionInfo();
     const {
         selectedUsername = '',
@@ -315,10 +316,37 @@ export const ChatInputView: FC<{}> = (props) => {
         inputRef.current.parentElement.dataset.value = chatValue;
     }, [chatValue]);
 
-    if (!roomSession || roomSession.isSpectator) return null;
+    useEffect(() => {
+        if (!roomSession) return;
+
+        if (portalTarget && portalTarget.isConnected) return;
+
+        let frame = 0;
+
+        const locate = () => {
+            const target = document.getElementById('toolbar-chat-input-container');
+
+            if (target) {
+                setPortalTarget(target);
+                return;
+            }
+
+            frame = window.requestAnimationFrame(locate);
+        };
+
+        locate();
+
+        return () => window.cancelAnimationFrame(frame);
+    }, [roomSession, portalTarget]);
+
+    if (!roomSession || roomSession.isSpectator || !portalTarget) return null;
 
     return createPortal(
-        <div className="nitro-chat-input-container swf-chat-input relative flex w-full items-center justify-between overflow-visible">
+        // justify-start, not between: the style trigger overlaps the bubble's pointed
+        // left cap via a negative margin. With justify-between, hiding an optional
+        // trailing button (habbicons disabled) redistributes the slack between the
+        // trigger and the bubble, exposing the cap and opening a gap.
+        <div className="nitro-chat-input-container swf-chat-input relative flex w-full items-center justify-start overflow-visible">
             {commandSelectorVisible && (
                 <ChatInputCommandSelectorView
                     commands={filteredCommands}
@@ -363,6 +391,6 @@ export const ChatInputView: FC<{}> = (props) => {
             <ChatInputHabbiconSelectorView />
             <ChatInputEmojiSelectorView addChatEmoji={addChatEmoji} />
         </div>,
-        document.getElementById('toolbar-chat-input-container')
+        portalTarget
     );
 };

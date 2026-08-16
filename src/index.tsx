@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { StrictMode, Suspense } from 'react';
+import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ErrorBoundary } from 'react-error-boundary';
 import { App } from './App';
@@ -21,6 +21,8 @@ import './css/index.css';
 import './css/backgrounds/BackgroundsView.css';
 import './css/badges/BadgeLeaderboardView.css';
 import './css/catalog/CatalogView.css';
+import './css/catalog/CatalogExperience.css';
+import './css/catalog/CatalogVipBuyView.css';
 import './css/emustats/EmuStatsView.css';
 
 import './css/chat/Chats.css';
@@ -31,7 +33,6 @@ import './css/mentions/MentionToasts.css';
 import './css/mentions/MentionsPanel.css';
 
 import './css/common/Buttons.css';
-import './css/common/ClassicScrollbar.css';
 import './css/habbo/HabboSkin.css';
 import './css/common/PrefixEffects.css';
 
@@ -77,6 +78,9 @@ import './css/user-settings/UserSettingsView.css';
 import './css/vault/VaultView.css';
 import './css/widgets/FurnitureWidgets.css';
 import './css/WiredView.css';
+import './css/common/ClassicScrollbar.css';
+
+document.documentElement.classList.add('has-classic-scrollbar');
 
 createRoot(document.getElementById('root')).render(
     <StrictMode>
@@ -90,9 +94,7 @@ createRoot(document.getElementById('root')).render(
                     />
                 )}
             >
-                <Suspense fallback={<LoadingView message="Loading…" />}>
-                    <App />
-                </Suspense>
+                <App />
             </ErrorBoundary>
         </QueryClientProvider>
     </StrictMode>

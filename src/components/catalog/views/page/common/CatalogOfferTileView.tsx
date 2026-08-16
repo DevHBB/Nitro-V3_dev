@@ -1,5 +1,5 @@
 import { MouseEventType } from '@nitrots/nitro-renderer';
-import { FC, MouseEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { FC, KeyboardEvent, MouseEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { CatalogType, GetConfigurationValue, IPurchasableOffer, Offer, ProductTypeEnum } from '../../../../../api';
 import { LayoutAvatarImageView, LayoutGridItem, LayoutGridItemProps } from '../../../../../common';
 
@@ -11,6 +11,8 @@ export interface CatalogOfferTileViewProps extends LayoutGridItemProps {
     inventoryVisible?: boolean;
     readOnly?: boolean;
     tintColor?: string;
+    showTechnicalDetails?: boolean;
+    showPrices?: boolean;
 }
 
 export const CatalogOfferTileView: FC<CatalogOfferTileViewProps> = (props) => {
@@ -23,6 +25,8 @@ export const CatalogOfferTileView: FC<CatalogOfferTileViewProps> = (props) => {
         readOnly = false,
         itemActive = false,
         tintColor = null,
+        showTechnicalDetails = false,
+        showPrices = true,
         ...rest
     } = props;
     const [isMouseDown, setMouseDown] = useState(false);
@@ -65,7 +69,7 @@ export const CatalogOfferTileView: FC<CatalogOfferTileViewProps> = (props) => {
                 if (configuredIconUrl?.length) return configuredIconUrl.replace('%libname%', className).replace('%param%', param);
             }
         }
-        return product.getIconUrl(offer) ?? null;
+        return typeof product.getIconUrl === 'function' ? (product.getIconUrl(offer) ?? null) : null;
     }, [offer]);
 
     const prices = useMemo(() => {
@@ -76,8 +80,7 @@ export const CatalogOfferTileView: FC<CatalogOfferTileViewProps> = (props) => {
         return values;
     }, [offer]);
 
-    const getCurrencyIconUrl = (type: number) =>
-        (GetConfigurationValue<string>('currency.asset.icon.url', '') || '').replace('%type%', type.toString());
+    const getCurrencyIconUrl = (type: number) => (GetConfigurationValue<string>('currency.asset.icon.url', '') || '').replace('%type%', type.toString());
 
     const onMouseEvent = (event: MouseEvent) => {
         switch (event.type) {
@@ -95,12 +98,27 @@ export const CatalogOfferTileView: FC<CatalogOfferTileViewProps> = (props) => {
         }
     };
 
+    const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+
+        event.preventDefault();
+        selectOffer?.(offer);
+    };
+
     if (!offer?.product) return null;
     const product = offer.product;
     const iconUrl = iconVisible ? resolvedIconUrl : null;
 
     return (
-        <div ref={tileRef}>
+        <div
+            ref={tileRef}
+            aria-label={offer.localizationName || product.furnitureData?.name || ''}
+            aria-selected={itemActive}
+            role="option"
+            tabIndex={0}
+            title={showTechnicalDetails ? `ID: ${product.productClassId} | Offer: ${offer.offerId}` : offer.localizationName}
+            onKeyDown={onKeyDown}
+        >
             <LayoutGridItem
                 className={`group/tile relative ${itemActive ? 'is-active' : ''}`}
                 gap={1}
@@ -108,7 +126,6 @@ export const CatalogOfferTileView: FC<CatalogOfferTileViewProps> = (props) => {
                 itemCount={offer.pricingModel === Offer.PRICING_MODEL_MULTI ? product.productCount : 1}
                 itemUniqueNumber={product.uniqueLimitedItemSeriesSize}
                 itemUniqueSoldout={!!product.uniqueLimitedItemSeriesSize && !product.uniqueLimitedItemsLeft}
-                title={`ID: ${product.productClassId} | Offer: ${offer.offerId}`}
                 onMouseDown={onMouseEvent}
                 onMouseOut={onMouseEvent}
                 onMouseUp={onMouseEvent}
@@ -121,13 +138,18 @@ export const CatalogOfferTileView: FC<CatalogOfferTileViewProps> = (props) => {
                         draggable={false}
                         style={tintColor ? { filter: 'url(#guild-furni-recolor)', transform: 'translateZ(0)' } : undefined}
                         onError={(event) => {
-                            const fallbackIconUrl = product.getIconUrl(offer);
+                            const fallbackIconUrl = typeof product.getIconUrl === 'function' ? product.getIconUrl(offer) : null;
                             if (fallbackIconUrl && event.currentTarget.src !== fallbackIconUrl) event.currentTarget.src = fallbackIconUrl;
                         }}
                     />
                 )}
                 {product.productType === ProductTypeEnum.ROBOT && <LayoutAvatarImageView direction={2} figure={product.extraParam} fit />}
-                {prices.length > 0 && (
+                {offer.clubLevel > 0 && (
+                    <span aria-label="Habbo Club" className="nitro-catalog-grid-club-level" title="Habbo Club">
+                        <i aria-hidden="true" className="nitro-icon icon-catalogue-hc_small" />
+                    </span>
+                )}
+                {showPrices && prices.length > 0 && (
                     <span className={`nitro-catalog-grid-price ${prices.length > 1 ? 'is-multi-price' : 'is-single-price'}`}>
                         {prices.map((price, index) => (
                             <span key={`${price.type}-${index}`} className="nitro-catalog-grid-price-entry">

@@ -1,6 +1,6 @@
 import { GetTraxEditorSongsComposer, ITraxEditorSong, TraxEditorBuySongComposer, TraxEditorDeleteSongComposer, TraxEditorErrorEvent, TraxEditorSaveSongComposer, TraxEditorSongsEvent } from '@nitrots/nitro-renderer';
 import { useCallback, useState } from 'react';
-import { useBetween } from 'use-between';
+import { registerSharedHook, useSharedHook } from '@/state/useSharedHook';
 import { SendMessageComposer } from '../../api';
 import { useMessageEvent } from '../events';
 
@@ -43,4 +43,6 @@ const useTraxEditorState = () =>
     return { songs, maxSongs, costCurrency, costAmount, lastError, loaded, requestSongs, buySong, saveSong, deleteSong, clearError };
 };
 
-export const useTraxEditor = () => useBetween(useTraxEditorState);
+export const useTraxEditor = () => useSharedHook(useTraxEditorState);
+
+registerSharedHook(useTraxEditorState);

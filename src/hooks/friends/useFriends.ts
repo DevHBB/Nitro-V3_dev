@@ -23,7 +23,7 @@ import {
     SetRelationshipStatusComposer
 } from '@nitrots/nitro-renderer';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useBetween } from 'use-between';
+import { registerSharedHook, useSharedHook } from '@/state/useSharedHook';
 import {
     CloneObject,
     localizeWithFallback,
@@ -381,7 +381,7 @@ export const useFriendsState = () => {
         offlineFriends,
         getFriend,
         canRequestFriend
-    } = useBetween(useFriendsStore);
+    } = useSharedHook(useFriendsStore);
 
     return {
         friends,
@@ -404,7 +404,7 @@ export const useFriendsState = () => {
  */
 export const useFriendsActions = () => {
     const { requestFriend, requestResponse, followFriend, updateRelationship, addCategory, renameCategory, removeCategory, moveFriendToCategory } =
-        useBetween(useFriendsStore);
+        useSharedHook(useFriendsStore);
 
     return {
         requestFriend,
@@ -424,4 +424,6 @@ export const useFriendsActions = () => {
  * composes both into the historical `useFriends()` shape so the 16
  * existing consumers keep working unchanged.
  */
-export const useFriends = () => useBetween(useFriendsStore);
+export const useFriends = () => useSharedHook(useFriendsStore);
+
+registerSharedHook(useFriendsStore);

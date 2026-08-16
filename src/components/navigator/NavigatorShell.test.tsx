@@ -1,18 +1,20 @@
 import { render, screen } from '@testing-library/react';
-import { FC, PropsWithChildren } from 'react';
+import { PropsWithChildren } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { NavigatorView } from './NavigatorView';
 
-const ShellPart: FC<PropsWithChildren<Record<string, unknown>>> = ({ children, ...props }) => <div {...props}>{children}</div>;
+vi.mock('@layout/NitroCard', () => {
+    const ShellPart = ({ children }: PropsWithChildren) => <div>{children}</div>;
 
-vi.mock('@layout/NitroCard', () => ({
-    NitroCard: Object.assign(ShellPart, {
-        Header: ShellPart,
-        Tabs: ShellPart,
-        TabItem: ShellPart,
-        Content: ShellPart
-    })
-}));
+    return {
+        NitroCard: Object.assign(ShellPart, {
+            Header: ShellPart,
+            Tabs: ShellPart,
+            TabItem: ShellPart,
+            Content: ShellPart
+        })
+    };
+});
 
 vi.mock('@nitrots/nitro-renderer', async () => {
     const actual = await vi.importActual<Record<string, unknown>>('@nitrots/nitro-renderer');
@@ -55,7 +57,7 @@ vi.mock('../../hooks', async () => {
     };
 });
 
-describe('AIR navigator shell', () => {
+describe('navigator shell', () => {
     it('exposes a collapsible quick-links navigation beside the browsing workspace', () => {
         render(<NavigatorView />);
 

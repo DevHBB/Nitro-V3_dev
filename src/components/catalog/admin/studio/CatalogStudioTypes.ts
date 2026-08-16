@@ -119,30 +119,6 @@ export interface CatalogStudioValidationState {
     issues: CatalogStudioValidationIssue[];
 }
 
-export interface CatalogStudioPreviewOffer {
-    offer: CatalogStudioOfferSnapshot;
-    eligible: boolean;
-    reasons: string[];
-    products: CatalogStudioPreviewProduct[];
-    giftable: boolean;
-}
-
-export interface CatalogStudioPreviewProduct {
-    productType: string;
-    productClassId: number;
-    extraParam: string;
-    productCount: number;
-    uniqueLimitedItem: boolean;
-    uniqueLimitedSeriesSize: number;
-    uniqueLimitedItemsLeft: number;
-}
-
-export interface CatalogStudioPreviewState {
-    revision: number;
-    pages: CatalogStudioPageSnapshot[];
-    offers: CatalogStudioPreviewOffer[];
-}
-
 export interface CatalogStudioDocumentResult {
     operationId: string;
     success: boolean;

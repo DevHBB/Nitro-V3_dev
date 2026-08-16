@@ -34,7 +34,7 @@ const Probe = () => {
             <button onClick={() => studio.acquireLock('PAGE', 44)}>lock</button>
             <button onClick={() => studio.releaseLock('PAGE', 44)}>release</button>
             <button onClick={() => studio.publish()}>publish</button>
-            <button onClick={() => studio.applyDocument('JSONC', '{"pages":[]}', 'fingerprint', 'Import JSONC')}>apply</button>
+            <button onClick={() => studio.applyDocument('SQL', 'UPDATE catalog_pages SET caption = \'Shop\' WHERE id = 1;', 'fingerprint', 'Import catalog SQL file')}>apply</button>
             <button onClick={() => studio.applyMutation({
                 operationId: 'save-page-1', action: 'savePage', revision: 8, entityType: 'PAGE', catalogType: 'NORMAL',
                 entity: pageSnapshot('Renamed'),
@@ -261,7 +261,7 @@ describe('CatalogStudioProvider', () => {
         const apply = vi.mocked(SendMessageComposer).mock.calls.at(-1)[0] as any;
         expect(apply.constructor.name).toBe('CatalogStudioDocumentApplyComposer');
         expect(apply.getMessageArray().slice(1)).toEqual([
-            12, 7, 'root-token', 'JSONC', '{"pages":[]}', 'fingerprint', 'Import JSONC'
+            12, 7, 'root-token', 'SQL', "UPDATE catalog_pages SET caption = 'Shop' WHERE id = 1;", 'fingerprint', 'Import catalog SQL file'
         ]);
     });
 

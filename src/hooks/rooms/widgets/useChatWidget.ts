@@ -50,7 +50,7 @@ const useChatWidgetState = () => {
     const isDisposed = useRef(false);
     // Reactive: re-renders if the session-data snapshot flips (e.g.
     // reconnect under a different user id). Safe to call here —
-    // useChatWidget is NOT wrapped in useBetween (see export below),
+    // useChatWidget is not singleton-backed (see export below),
     // so the real React dispatcher is in scope and
     // useSyncExternalStore installs correctly.
     const ownUserId = useUserDataSnapshot().userId || -1;

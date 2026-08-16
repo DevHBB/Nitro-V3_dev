@@ -3,7 +3,7 @@ import { FC, useEffect, useState } from 'react';
 import { FaUserCog, FaVolumeDown, FaVolumeMute, FaVolumeUp } from 'react-icons/fa';
 import { DispatchMainEvent, DispatchUiEvent, LocalizeText, SendMessageComposer } from '../../api';
 import { Button, NitroCardContentView, NitroCardHeaderView, NitroCardView, Text } from '../../common';
-import { useCatalogPlaceMultipleItems, useCatalogSkipPurchaseConfirmation, useChatWindow, useMessageEvent } from '../../hooks';
+import { useCatalogDisplayPreferences, useCatalogPlaceMultipleItems, useCatalogSkipPurchaseConfirmation, useChatWindow, useMessageEvent } from '../../hooks';
 import { classNames } from '../../layout';
 import { SoundboardVolumeControl } from './SoundboardVolumeControl';
 
@@ -24,6 +24,7 @@ export const UserSettingsView: FC<{}> = props =>
     const [ userSettings, setUserSettings ] = useState<NitroSettingsEvent>(null);
     const [ catalogPlaceMultipleObjects, setCatalogPlaceMultipleObjects ] = useCatalogPlaceMultipleItems();
     const [ catalogSkipPurchaseConfirmation, setCatalogSkipPurchaseConfirmation ] = useCatalogSkipPurchaseConfirmation();
+    const { density: catalogGridDensity, setDensity: setCatalogGridDensity, showTilePrices, setShowTilePrices } = useCatalogDisplayPreferences();
     const [ chatWindowEnabled, setChatWindowEnabled ] = useChatWindow();
 
     const processAction = (type: string, value?: boolean | number | string) =>
@@ -214,6 +215,22 @@ export const UserSettingsView: FC<{}> = props =>
                             <input checked={ catalogSkipPurchaseConfirmation } className="form-check-input" type="checkbox" onChange={ event => setCatalogSkipPurchaseConfirmation(event.target.checked) } />
                             <Text>{ LocalizeText('memenu.settings.other.skip.purchase.confirmation') }</Text>
                         </div>
+                        <label className="flex items-center justify-between gap-2">
+                            <Text>{ localizeWithFallback('memenu.settings.other.catalog.grid.density', 'Catalog item size') }</Text>
+                            <select
+                                aria-label={ localizeWithFallback('memenu.settings.other.catalog.grid.density', 'Catalog item size') }
+                                value={ catalogGridDensity }
+                                onChange={ event => setCatalogGridDensity(event.target.value as 'compact' | 'standard' | 'large') }
+                            >
+                                <option value="compact">{ localizeWithFallback('generic.compact', 'Compact') }</option>
+                                <option value="standard">standard</option>
+                                <option value="large">{ localizeWithFallback('generic.large', 'Large') }</option>
+                            </select>
+                        </label>
+                        <label className="flex items-center gap-1">
+                            <input checked={ showTilePrices } className="form-check-input" type="checkbox" onChange={ event => setShowTilePrices(event.target.checked) } />
+                            <Text>{ localizeWithFallback('memenu.settings.other.catalog.show.prices', 'Show prices on catalog items') }</Text>
+                        </label>
                     </div> }
                 { showPrivacy &&
                     <div className="flex flex-col gap-3">

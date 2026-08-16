@@ -19,7 +19,7 @@ import {
     WiredValidationErrorEvent
 } from '@nitrots/nitro-renderer';
 import { useEffect, useState } from 'react';
-import { useBetween } from 'use-between';
+import { registerSharedHook, useSharedHook } from '@/state/useSharedHook';
 import { GetRoomSession, IsOwnerOfFloorFurniture, LocalizeText, SendMessageComposer, WiredFurniType, WiredSelectionVisualizer } from '../../api';
 import { useMessageEvent } from '../events';
 import { useNotification } from '../notification';
@@ -334,4 +334,6 @@ const useWiredState = () => {
     };
 };
 
-export const useWired = () => useBetween(useWiredState);
+export const useWired = () => useSharedHook(useWiredState);
+
+registerSharedHook(useWiredState);

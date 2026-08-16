@@ -8,6 +8,7 @@ describe('Toolbar Soundboard feedback', () => {
 
         expect(source).toContain('SoundboardRoomMessageEvent.ROOM_MESSAGE');
         expect(source).toContain('700');
-        expect(source.match(/soundboardPulse \? 'animate-pulse'/g)).toHaveLength(2);
+        // Rail, mobile bottom bar, and the compact-desktop side stack.
+        expect(source.match(/soundboardPulse \? 'animate-pulse'/g)).toHaveLength(3);
     });
 });

@@ -1,9 +1,8 @@
-import { GetSessionDataManager, IFurnitureData } from '@nitrots/nitro-renderer';
-import { FC, useEffect, useState } from 'react';
+import { GetSessionDataManager } from '@nitrots/nitro-renderer';
+import { ChangeEvent, FC, KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { FaSearch, FaTimes } from 'react-icons/fa';
 import {
     CatalogPage,
-    CatalogType,
     FilterCatalogNode,
     FurnitureOffer,
     ICatalogNode,
@@ -14,66 +13,29 @@ import {
     SearchResult
 } from '../../../../../api';
 import { useCatalogData, useCatalogUiState } from '../../../../../hooks';
+import {
+    CATALOG_SEARCH_DEBOUNCE_MS,
+    findCatalogFurnitureMatches,
+    isCatalogSearchEnterKey,
+    normalizeCatalogSearchText,
+    shouldRunCatalogSearch
+} from './catalogSearch.helpers';
 
 export const CatalogSearchView: FC<{}> = () => {
     const [searchValue, setSearchValue] = useState('');
-    const { rootNode = null, searchResult = null } = useCatalogData();
+    const searchTimeout = useRef<ReturnType<typeof setTimeout>>(null);
+    const { rootNode = null } = useCatalogData();
     const { currentType = null, setSearchResult = null, setCurrentPage = null } = useCatalogUiState();
 
-    const normalizeSearchText = (value: string) =>
-        (value || '')
-            .toLocaleLowerCase()
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')
-            .replace(/\s+/g, ' ')
-            .trim();
-
-    useEffect(() => {
-        const search = normalizeSearchText(searchValue);
-
-        if (!search || !search.length) {
-            setSearchResult(null);
-
-            return;
-        }
-
-        const timeout = setTimeout(() => {
-            if (!rootNode) return;
+    const runSearch = useCallback(
+        (search: string) => {
+            if (!rootNode || !shouldRunCatalogSearch(search)) return;
 
             const furnitureDatas = GetSessionDataManager().getAllFurnitureData();
 
             if (!furnitureDatas || !furnitureDatas.length) return;
 
-            const foundFurniture: IFurnitureData[] = [];
-            const foundFurniLines: string[] = [];
-
-            for (const furniture of furnitureDatas) {
-                if (!furniture) continue;
-
-                if (currentType === CatalogType.BUILDER && !furniture.availableForBuildersClub) continue;
-
-                if (currentType === CatalogType.NORMAL && furniture.excludeDynamic) continue;
-
-                const name = normalizeSearchText(furniture.name || '');
-                const matchesSearch = name.includes(search);
-                const isBuyable = furniture.purchaseOfferId > -1 || furniture.rentOfferId > -1;
-
-                if (currentType === CatalogType.BUILDER && furniture.purchaseOfferId === -1 && furniture.rentOfferId === -1) {
-                    if (furniture.furniLine !== '' && foundFurniLines.indexOf(furniture.furniLine) < 0) {
-                        if (matchesSearch) foundFurniLines.push(furniture.furniLine);
-                    }
-                } else if (matchesSearch && isBuyable) {
-                    foundFurniture.push(furniture);
-
-                    if (furniture.furniLine && furniture.furniLine.length && foundFurniLines.indexOf(furniture.furniLine) < 0) {
-                        foundFurniLines.push(furniture.furniLine);
-                    }
-
-                    if (foundFurniture.length === 250) break;
-                } else if (matchesSearch && furniture.furniLine && furniture.furniLine.length && foundFurniLines.indexOf(furniture.furniLine) < 0) {
-                    foundFurniLines.push(furniture.furniLine);
-                }
-            }
+            const { furniture: foundFurniture, furniLines: foundFurniLines } = findCatalogFurnitureMatches(furnitureDatas, search, currentType);
 
             const offers: IPurchasableOffer[] = [];
 
@@ -92,26 +54,88 @@ export const CatalogSearchView: FC<{}> = () => {
                     nodes.filter((node) => node.isVisible)
                 )
             );
-            setCurrentPage(new CatalogPage(-1, 'default_3x3', new PageLocalization([], []), offers, false, 1));
-        }, 300);
+            setCurrentPage(
+                new CatalogPage(
+                    -1,
+                    'default_3x3',
+                    new PageLocalization([], [LocalizeText('catalog.search.results', ['count', 'needle'], [String(offers.length), search])]),
+                    offers,
+                    false,
+                    1
+                )
+            );
+        },
+        [currentType, rootNode, setCurrentPage, setSearchResult]
+    );
 
-        return () => clearTimeout(timeout);
-    }, [currentType, rootNode, searchValue, setCurrentPage, setSearchResult]);
+    const scheduleSearch = useCallback(
+        (value: string, immediate = false) => {
+            if (searchTimeout.current) clearTimeout(searchTimeout.current);
+
+            const search = normalizeCatalogSearchText(value);
+
+            if (!shouldRunCatalogSearch(search)) {
+                setSearchResult(null);
+
+                return;
+            }
+
+            if (immediate) {
+                runSearch(search);
+
+                return;
+            }
+
+            searchTimeout.current = setTimeout(() => runSearch(search), CATALOG_SEARCH_DEBOUNCE_MS);
+        },
+        [runSearch, setSearchResult]
+    );
+
+    const onSearchChange = (event: ChangeEvent<HTMLInputElement>) => {
+        const value = event.target.value;
+
+        setSearchValue(value);
+        scheduleSearch(value);
+    };
+
+    const onSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+        if (!isCatalogSearchEnterKey(event.key, searchValue)) return;
+
+        event.preventDefault();
+        scheduleSearch(searchValue, true);
+    };
+
+    const clearSearch = () => {
+        if (searchTimeout.current) clearTimeout(searchTimeout.current);
+
+        setSearchValue('');
+        setSearchResult(null);
+    };
+
+    useEffect(() => {
+        if (searchValue) scheduleSearch(searchValue);
+    }, [currentType, rootNode]);
+
+    useEffect(() => () => searchTimeout.current && clearTimeout(searchTimeout.current), []);
 
     return (
         <div className="relative w-full">
             <FaSearch className="absolute left-2 top-1/2 -translate-y-1/2 text-[9px] text-muted pointer-events-none" />
             <input
+                aria-label={LocalizeText('generic.search')}
                 className="w-full pl-6 pr-6 py-[3px] text-[11px] rounded border-2 border-card-grid-item-border bg-white text-dark placeholder-muted focus:outline-none focus:border-primary transition-colors"
                 placeholder={LocalizeText('generic.search')}
                 type="text"
                 value={searchValue}
-                onChange={(e) => setSearchValue(e.target.value)}
+                onChange={onSearchChange}
+                onKeyDown={onSearchKeyDown}
             />
             {searchValue && searchValue.length > 0 && (
                 <button
+                    aria-label={LocalizeText('generic.clear')}
+                    type="button"
                     className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[9px] text-muted hover:text-danger cursor-pointer transition-colors"
-                    onClick={() => setSearchValue('')}
+                    onClick={clearSearch}
                 >
                     <FaTimes />
                 </button>

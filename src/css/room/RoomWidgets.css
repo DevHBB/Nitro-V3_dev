@@ -348,8 +348,10 @@
 }
 
 .nitro-chat-input-container.swf-chat-input {
-    width: 466px !important;
-    max-width: 100%;
+    /* Fill the frame instead of forcing 466px: the frame already caps at
+       466px/95vw, and the hard width overflowed phone-width frames. */
+    width: 100% !important;
+    max-width: 466px;
     height: 38px !important;
     min-height: 38px;
     gap: 14px !important;
@@ -361,12 +363,17 @@
     image-rendering: pixelated;
 }
 
+/* Pinned over the bubble's pointed left cap instead of flowing in the flex row:
+   the old negative-margin overlap depended on sibling count and gap distribution,
+   so hiding an optional trailing button shifted the bubble and exposed the cap. */
 .swf-chat-input .swf-chat-style-trigger {
-    position: relative;
+    position: absolute;
+    left: 0;
+    top: 0;
     width: 55px;
     min-width: 55px;
     height: 38px;
-    margin: 0 -55px 0 0;
+    margin: 0;
     padding: 0;
     background: url('@/assets/images/chat-input-swf/chat_style_block.png') 0 0 / 57px 38px no-repeat;
     z-index: 2;
@@ -532,13 +539,18 @@
     color: #242424;
 }
 
+/* The bubble grows to fill the frame instead of a hard 407px: with optional
+   trailing buttons hidden (habbicons off) a fixed width left a dead strip
+   inside the 466px frame and pushed the bar off-center. The middle segment
+   is stretchable art, so the pill always closes flush at the frame edge. */
 .swf-chat-input .swf-chat-input-sizer {
     position: relative;
     height: 38px !important;
     min-height: 38px !important;
     max-height: 38px !important;
-    flex: 0 0 407px !important;
-    width: 407px !important;
+    flex: 1 1 auto !important;
+    width: auto !important;
+    min-width: 0;
     max-width: calc(100vw - 92px);
     margin: 0;
     padding: 0 0 0 54px !important;
@@ -556,7 +568,9 @@
     display: block;
     visibility: visible !important;
     position: absolute;
-    inset: 0 12px 0 0;
+    /* 11px, not the cap's 12px width: the middle segment tucks 1px under the right
+       cap so fractional browser zoom can't round a hairline gap open between them. */
+    inset: 0 11px 0 0;
     z-index: 0;
     pointer-events: none;
     background-image:
@@ -616,8 +630,9 @@
     height: 38px;
     min-height: 38px;
     max-height: 38px;
-    flex: 0 0 407px !important;
-    width: 407px !important;
+    flex: 1 1 auto !important;
+    width: auto !important;
+    min-width: 0;
     margin: 0;
     padding: 7px 8px 6px 64px !important;
     align-self: center;

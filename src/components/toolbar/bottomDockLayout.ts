@@ -3,19 +3,19 @@ export interface BottomDockMeasurements {
     leftEdge: number;
     rightEdge: number;
     chatWidth?: number;
-    roomToolsBottom?: number;
 }
 
 export interface BottomDockLayout {
     chatRaised: boolean;
     chatBottom: number;
+    /** null keeps the frame's own centering; a number pins the frame's left edge. */
+    chatLeft: number | null;
 }
 
 const AIR_CHAT_WIDTH = 466;
-const AIR_DOCK_GAP = 12;
-const AIR_LEFT_CHAT_SAFETY = 100;
+const AIR_RAIL_CLEARANCE = 8;
 const AIR_DOCKED_CHAT_BOTTOM = 7;
-const AIR_RAISED_CHAT_BOTTOM = 66;
+const AIR_RAISED_CHAT_BOTTOM = 65;
 const AIR_FRIEND_TAB_WIDTH = 127;
 const AIR_FRIEND_BAR_EDGE_PADDING = 16;
 
@@ -24,14 +24,29 @@ export const resolveBottomDockLayout = (measurements: BottomDockMeasurements): B
     const centeredLeft = (measurements.viewportWidth - chatWidth) / 2;
     const centeredRight = centeredLeft + chatWidth;
     const availableWidth = Math.max(0, measurements.rightEdge - measurements.leftEdge);
-    const canDock =
-        availableWidth > chatWidth + AIR_DOCK_GAP &&
-        centeredLeft >= measurements.leftEdge + AIR_DOCK_GAP + AIR_LEFT_CHAT_SAFETY &&
-        centeredRight <= measurements.rightEdge - AIR_DOCK_GAP;
+    const canCenter =
+        centeredLeft >= measurements.leftEdge + AIR_RAIL_CLEARANCE &&
+        centeredRight <= measurements.rightEdge - AIR_RAIL_CLEARANCE;
+
+    if (canCenter) {
+        return { chatRaised: false, chatBottom: AIR_DOCKED_CHAT_BOTTOM, chatLeft: null };
+    }
+
+    if (availableWidth >= chatWidth + (AIR_RAIL_CLEARANCE * 2)) {
+        const minLeft = measurements.leftEdge + AIR_RAIL_CLEARANCE;
+        const maxLeft = measurements.rightEdge - AIR_RAIL_CLEARANCE - chatWidth;
+
+        return {
+            chatRaised: false,
+            chatBottom: AIR_DOCKED_CHAT_BOTTOM,
+            chatLeft: Math.round(Math.min(Math.max(centeredLeft, minLeft), maxLeft))
+        };
+    }
 
     return {
-        chatRaised: !canDock,
-        chatBottom: canDock ? AIR_DOCKED_CHAT_BOTTOM : Math.max(AIR_RAISED_CHAT_BOTTOM, (measurements.roomToolsBottom ?? 0) + AIR_DOCK_GAP)
+        chatRaised: true,
+        chatBottom: AIR_RAISED_CHAT_BOTTOM,
+        chatLeft: null
     };
 };
 
