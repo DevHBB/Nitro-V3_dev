@@ -5,4 +5,5 @@ export class LocalStorageKeys {
     public static CATALOG_SHOW_TILE_PRICES: string = 'catalogShowTilePrices';
     public static CHAT_WINDOW_ENABLED: string = 'chatWindowEnabled';
     public static CHAT_TRANSLATION_SETTINGS: string = 'chatTranslationSettings';
+    public static KEYBOARD_MOVEMENT: string = 'keyboardMovement';
 }

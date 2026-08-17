@@ -2,7 +2,7 @@ import { GetEventDispatcher, GetRenderer, RoomObjectMouseEvent, RoomObjectTileMo
 import { AnimatePresence, motion } from 'framer-motion';
 import { FC, useEffect, useRef } from 'react';
 import { DispatchMouseEvent, DispatchTouchEvent } from '../../api';
-import { useRoom } from '../../hooks';
+import { useRoom, useRoomKeyboardMovement } from '../../hooks';
 import { classNames } from '../../layout';
 import { RoomSpectatorView } from './spectator/RoomSpectatorView';
 import { RoomWidgetsView } from './widgets/RoomWidgetsView';
@@ -10,6 +10,8 @@ import { RoomWidgetsView } from './widgets/RoomWidgetsView';
 export const RoomView: FC<{}> = (props) => {
     const { roomSession = null } = useRoom();
     const elementRef = useRef<HTMLDivElement>(null);
+
+    useRoomKeyboardMovement();
 
     useEffect(() => {
         if (!roomSession) return;
