@@ -31,6 +31,7 @@ export * from './soundboard/useSoundboardCatalog';
 export * from './traxeditor/useTraxEditor';
 export * from './translation';
 export * from './useChatWindow';
+export * from './useKeyboardMovement';
 export * from './useLocalStorage';
 export * from './useOnClickChat';
 export * from './useSharedVisibility';
