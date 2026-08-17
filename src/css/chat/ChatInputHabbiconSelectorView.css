@@ -118,8 +118,6 @@
     height: 244px;
     overflow-y: auto;
     padding-right: 5px;
-    scrollbar-color: #ffffff #202020;
-    scrollbar-width: auto;
 }
 
 .habbicon-selector-section {
@@ -161,25 +159,6 @@
     display: block;
     background-repeat: no-repeat;
     image-rendering: pixelated;
-}
-
-.habbicon-selector-sections::-webkit-scrollbar {
-    width: 8px;
-}
-
-.habbicon-selector-sections::-webkit-scrollbar-track {
-    background: #ffffff;
-    border-radius: 4px;
-}
-
-.habbicon-selector-sections::-webkit-scrollbar-thumb {
-    background: #6f6f6f;
-    border: 1px solid #ffffff;
-    border-radius: 4px;
-}
-
-.habbicon-selector-sections::-webkit-scrollbar-button {
-    display: none;
 }
 
 .habbicon-selector-empty {

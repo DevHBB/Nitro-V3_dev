@@ -1,5 +1,6 @@
 import { FC, useCallback, useMemo } from 'react';
 import { CatalogType, ICatalogNode, LocalizeText } from '../../../../api';
+import { ClassicScrollAreaView } from '../../../../common';
 import { useCatalogActions, useCatalogData } from '../../../../hooks';
 import { useCatalogAdmin } from '../../CatalogAdminContext';
 import { CatalogNavigationItemView } from './CatalogNavigationItemView';
@@ -55,9 +56,10 @@ export const CatalogNavigationView: FC<CatalogNavigationViewProps> = (props) => 
     );
 
     return (
-        <div
+        <ClassicScrollAreaView
             aria-label="Catalog categories"
-            className={`nitro-catalog-navigation-list ${catalogType === CatalogType.BUILDER ? 'is-builders-club' : 'is-normal'}`}
+            className="nitro-catalog-navigation-scroll-area"
+            contentClassName={`nitro-catalog-navigation-list ${catalogType === CatalogType.BUILDER ? 'is-builders-club' : 'is-normal'}`}
             role="tree"
         >
             {searchResult &&
@@ -66,6 +68,6 @@ export const CatalogNavigationView: FC<CatalogNavigationViewProps> = (props) => 
                     return <CatalogNavigationItemView key={n.pageId} node={n} runtime={runtime} />;
                 })}
             {!searchResult && <CatalogNavigationSetView node={node} runtime={runtime} />}
-        </div>
+        </ClassicScrollAreaView>
     );
 };
