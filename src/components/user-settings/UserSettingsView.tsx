@@ -3,7 +3,7 @@ import { FC, useEffect, useState } from 'react';
 import { FaUserCog, FaVolumeDown, FaVolumeMute, FaVolumeUp } from 'react-icons/fa';
 import { DispatchMainEvent, DispatchUiEvent, LocalizeText, SendMessageComposer } from '../../api';
 import { Button, NitroCardContentView, NitroCardHeaderView, NitroCardView, Text } from '../../common';
-import { useCatalogDisplayPreferences, useCatalogPlaceMultipleItems, useCatalogSkipPurchaseConfirmation, useChatWindow, useMessageEvent } from '../../hooks';
+import { useCatalogDisplayPreferences, useCatalogPlaceMultipleItems, useCatalogSkipPurchaseConfirmation, useChatWindow, useKeyboardMovement, useMessageEvent } from '../../hooks';
 import { classNames } from '../../layout';
 import { SoundboardVolumeControl } from './SoundboardVolumeControl';
 
@@ -26,6 +26,7 @@ export const UserSettingsView: FC<{}> = props =>
     const [ catalogSkipPurchaseConfirmation, setCatalogSkipPurchaseConfirmation ] = useCatalogSkipPurchaseConfirmation();
     const { density: catalogGridDensity, setDensity: setCatalogGridDensity, showTilePrices, setShowTilePrices } = useCatalogDisplayPreferences();
     const [ chatWindowEnabled, setChatWindowEnabled ] = useChatWindow();
+    const [ keyboardMovement, setKeyboardMovement ] = useKeyboardMovement();
 
     const processAction = (type: string, value?: boolean | number | string) =>
     {
@@ -230,6 +231,10 @@ export const UserSettingsView: FC<{}> = props =>
                         <label className="flex items-center gap-1">
                             <input checked={ showTilePrices } className="form-check-input" type="checkbox" onChange={ event => setShowTilePrices(event.target.checked) } />
                             <Text>{ localizeWithFallback('memenu.settings.other.catalog.show.prices', 'Show prices on catalog items') }</Text>
+                        </label>
+                        <label className="flex items-center gap-1">
+                            <input checked={ keyboardMovement } className="form-check-input" type="checkbox" onChange={ event => setKeyboardMovement(event.target.checked) } />
+                            <Text>{ localizeWithFallback('memenu.settings.other.keyboard.movement', 'Move with the arrow keys') }</Text>
                         </label>
                     </div> }
                 { showPrivacy &&
