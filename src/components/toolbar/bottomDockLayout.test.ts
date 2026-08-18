@@ -24,8 +24,7 @@ describe('AIR bottom dock layout', () => {
             })
         ).toEqual({
             chatRaised: false,
-            chatBottom: 7,
-            chatLeft: null
+            chatBottom: 7
         });
     });
 
@@ -38,12 +37,11 @@ describe('AIR bottom dock layout', () => {
             })
         ).toEqual({
             chatRaised: false,
-            chatBottom: 7,
-            chatLeft: null
+            chatBottom: 7
         });
     });
 
-    it('keeps the chat docked but shifts it sideways when centering would hit a rail', () => {
+    it('raises the chat instead of shifting it sideways when centering would hit a rail', () => {
         expect(
             resolveBottomDockLayout({
                 viewportWidth: 1366,
@@ -51,9 +49,8 @@ describe('AIR bottom dock layout', () => {
                 rightEdge: 1346
             })
         ).toEqual({
-            chatRaised: false,
-            chatBottom: 7,
-            chatLeft: 478
+            chatRaised: true,
+            chatBottom: 65
         });
     });
 
@@ -66,8 +63,7 @@ describe('AIR bottom dock layout', () => {
             })
         ).toEqual({
             chatRaised: true,
-            chatBottom: 65,
-            chatLeft: null
+            chatBottom: 65
         });
     });
 

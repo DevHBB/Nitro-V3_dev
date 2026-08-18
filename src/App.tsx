@@ -20,7 +20,7 @@ import {
     PrepareRenderer
 } from '@nitrots/nitro-renderer';
 import { FC, useCallback, useEffect, useEffectEvent, useRef, useState } from 'react';
-import { ClearRememberLogin, GetRememberLogin, GetUIVersion, persistAccessTokenFromPayload, SetRememberLogin, StoreRememberLoginFromPayload } from './api';
+import { ClearRememberLogin, exchangeSsoTicketForAccessToken, GetRememberLogin, GetUIVersion, persistAccessTokenFromPayload, SetRememberLogin, StoreRememberLoginFromPayload } from './api';
 import { Base } from './common';
 import { LoadingView } from './components/loading/LoadingView';
 import { LoginView } from './components/login/LoginView';
@@ -174,6 +174,13 @@ export const App: FC<{}> = (props) => {
         ClearStoredChatHistory();
         window.NitroConfig['sso.ticket'] = ssoTicket;
         GetConfiguration().setValue('sso.ticket', ssoTicket);
+        void exchangeSsoTicketForAccessToken(ssoTicket);
+    }, []);
+
+    useEffect(() => {
+        const ssoTicket = window.NitroConfig?.['sso.ticket'];
+
+        if (typeof ssoTicket === 'string' && ssoTicket.length) void exchangeSsoTicketForAccessToken(ssoTicket);
     }, []);
 
     const handleAuthenticated = useCallback(
