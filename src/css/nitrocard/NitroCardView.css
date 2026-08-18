@@ -403,8 +403,12 @@
     }
 }
 
+.draggable-window .drag-handler {
+    touch-action: none;
+}
+
 @media (max-width: 640px) {
-    .draggable-window {
+    .draggable-window:not([data-window-key='nitro-radio']) {
         left: 50% !important;
         top: 50% !important;
         transform: translate(-50%, -50%) !important;
