@@ -6,6 +6,7 @@ export * from './FixedSizeStack';
 export * from './FriendlyTime';
 export * from './GetLocalStorage';
 export * from './isSafeExternalUrl';
+export * from './IsTouchDevice';
 export * from './LocalizeBadgeDescription';
 export * from './LocalizeBageName';
 export * from './LocalizeFormattedNumber';

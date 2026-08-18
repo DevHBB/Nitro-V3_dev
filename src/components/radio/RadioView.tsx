@@ -1,16 +1,14 @@
 import { FC, useEffect, useState } from 'react';
-import { FaBroadcastTower, FaChevronDown, FaChevronUp, FaPlay, FaStop } from 'react-icons/fa';
-import { LocalizeText } from '../../api';
+import { FaBroadcastTower, FaChevronDown, FaChevronUp, FaPlay, FaStop, FaTimes } from 'react-icons/fa';
+import { LocalizeText, localizeWithFallback } from '../../api';
 import { DraggableWindow, DraggableWindowPosition, LayoutImage } from '../../common';
 import { RadioStation, useRadio } from '../../hooks';
 
-// Compact, polished radio widget. Draggable by its header (position is
-// remembered) and collapsible to just the header bar via the chevron. Starts
-// near the top-left, clearing the CMS top bar most hotels render there.
 export const RadioView: FC<{}> = () => {
     const { stations, currentId, isPlaying, volume, loadError, play, stop, setVolume } = useRadio();
     const [open, setOpen] = useState(false);
     const [collapsed, setCollapsed] = useState(false);
+    const [hidden, setHidden] = useState(false);
     const [selectedId, setSelectedId] = useState<string | null>(null);
 
     useEffect(() => {
@@ -39,6 +37,13 @@ export const RadioView: FC<{}> = () => {
         });
     };
 
+    const onClose = () => {
+        stop();
+        setHidden(true);
+    };
+
+    if (hidden) return null;
+
     return (
         <DraggableWindow uniqueKey="nitro-radio" windowPosition={DraggableWindowPosition.TOP_LEFT}>
             <div className="radio-widget w-[244px] max-w-[64vw] select-none overflow-hidden rounded-xl border border-white/10 bg-gradient-to-b from-[rgba(22,24,30,0.94)] to-[rgba(10,11,14,0.94)] text-white shadow-[0_8px_24px_rgba(0,0,0,0.4)] backdrop-blur-sm">
@@ -58,6 +63,14 @@ export const RadioView: FC<{}> = () => {
                         className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-white/8 text-white/60 transition-colors hover:bg-white/15 hover:text-white"
                     >
                         {collapsed ? <FaChevronDown className="text-[9px]" /> : <FaChevronUp className="text-[9px]" />}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        title={localizeWithFallback('radio.close', 'Close')}
+                        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-white/8 text-white/60 transition-colors hover:bg-white/15 hover:text-white"
+                    >
+                        <FaTimes className="text-[9px]" />
                     </button>
                 </div>
 
@@ -113,7 +126,6 @@ export const RadioView: FC<{}> = () => {
                             <div className="border-t border-white/10 bg-black/20 p-1.5">
                                 {loadError && <div className="px-2 py-2 text-[11px] text-red-400">{LocalizeText('radio.error')}</div>}
                                 {!loadError && !stations.length && <div className="px-2 py-2 text-[11px] text-white/50">{LocalizeText('radio.empty')}</div>}
-                                {/* ~3 rows tall, scrolls when there are more */}
                                 <div className="radio-scroll flex max-h-[156px] flex-col gap-1 overflow-y-auto pr-0.5">
                                     {stations.map((station) => {
                                         const isActive = station.id === selectedId;

@@ -10,7 +10,7 @@ import {
 } from '@nitrots/nitro-renderer';
 import { AnimatePresence, motion } from 'framer-motion';
 import { FC, useEffect, useState } from 'react';
-import { GetConfigurationValue, SendMessageComposer } from '../api';
+import { GetConfigurationValue, IsTouchDevice, SendMessageComposer } from '../api';
 import { useMentionMessages, useNitroEventReducer } from '../hooks';
 import { markAllRead } from '../hooks/mentions/mentionsStore';
 import { AchievementsView } from './achievements/AchievementsView';
@@ -70,13 +70,6 @@ export const MainView: FC<{}> = (props) =>
 
     useMentionMessages();
 
-    // CREATED and ENDED can arrive out of order under flaky reconnects.
-    // Treating them as two independent setters left landingViewVisible
-    // contradicting the actual session state (stuck open in-room or
-    // stuck closed at the hotel view). The reducer carries the active
-    // session's roomId so a stale ENDED for a previous session is
-    // ignored — only an ENDED matching the tracked session (or when
-    // no session is active) is honored.
     const { landingViewVisible } = useNitroEventReducer<{ sessionId: number | null; landingViewVisible: boolean }, RoomSessionEvent>(
         [RoomSessionEvent.CREATED, RoomSessionEvent.ENDED],
         (state, event) =>
@@ -143,8 +136,6 @@ export const MainView: FC<{}> = (props) =>
 
     useEffect(() =>
     {
-        // Opening the inbox clears the unread badge both locally and
-        // server-side so the toolbar count resets immediately.
         const clearMentionsBadge = () =>
         {
             markAllRead();
@@ -172,9 +163,6 @@ export const MainView: FC<{}> = (props) =>
                         {
                             if (prevValue) return false;
 
-                            // Side-effect-free in the updater: defer the
-                            // badge-clear to a microtask so React's
-                            // double-invoke (StrictMode) can't fire it twice.
                             queueMicrotask(clearMentionsBadge);
                             return true;
                         });
@@ -252,7 +240,7 @@ export const MainView: FC<{}> = (props) =>
             <FortuneWheelView />
             <SoundboardView />
             <TraxEditorView />
-            {GetConfigurationValue<boolean>('radio_ui.enabled', false) && <RadioView />}
+            {GetConfigurationValue<boolean>('radio_ui.enabled', false) && !IsTouchDevice() && <RadioView />}
             {GetConfigurationValue<boolean>('mentions_ui.enabled', true) && mentionsVisible && <MentionsView onClose={() => setMentionsVisible(false)} />}
             <ExternalPluginLoader />
         </>
