@@ -1,5 +1,5 @@
 import { GetConfiguration, GetLocalizationManager } from '@nitrots/nitro-renderer';
-import { getAccessToken } from '../auth';
+import { clearAccessToken, getAccessToken } from '../auth';
 
 export interface CustomBadgeRecord {
     badgeId: string;
@@ -65,6 +65,7 @@ const parseJson = async <T>(response: Response): Promise<T> => {
 
 const throwOnError = async (response: Response): Promise<void> => {
     if (response.ok) return;
+    if (response.status === 401) clearAccessToken();
     const payload = await parseJson<CustomBadgeError>(response);
     const message = payload?.error || `Request failed (${response.status}).`;
     const err = new Error(message) as Error & { status: number; code?: string };

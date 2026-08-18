@@ -1,11 +1,18 @@
 .has-classic-scrollbar {
-    scrollbar-color: #d9d9d9 #bdbbb3 !important;
+    scrollbar-color: auto !important;
     scrollbar-width: auto !important;
 }
 
 .has-classic-scrollbar * {
-    scrollbar-color: #d9d9d9 #bdbbb3 !important;
+    scrollbar-color: auto !important;
     scrollbar-width: auto !important;
+}
+
+@supports not selector(::-webkit-scrollbar) {
+    .has-classic-scrollbar,
+    .has-classic-scrollbar * {
+        scrollbar-color: #d9d9d9 #bdbbb3 !important;
+    }
 }
 
 .has-classic-scrollbar *::-webkit-scrollbar,
@@ -182,11 +189,11 @@
     background: transparent !important;
 }
 
-.has-classic-scrollbar .nitro-catalog-scroll-area-viewport {
+.has-classic-scrollbar .nitro-classic-scroll-area-viewport {
     scrollbar-width: none !important;
 }
 
-.has-classic-scrollbar .nitro-catalog-scroll-area-viewport::-webkit-scrollbar {
+.has-classic-scrollbar .nitro-classic-scroll-area-viewport::-webkit-scrollbar {
     display: none !important;
     width: 0 !important;
     height: 0 !important;

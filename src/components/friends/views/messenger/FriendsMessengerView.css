@@ -320,28 +320,11 @@
     overflow-x: hidden;
     overflow-y: auto;
     background: #e4e4e4;
-    scrollbar-color: #525252 #f1f1f1;
-    scrollbar-width: thin;
 }
 
 .messenger-window:has(.messenger-typing-indicator) .chat-messages {
     bottom: 53px;
 }
-
-.messenger-window .chat-messages::-webkit-scrollbar,
-.messenger-window .messenger-habbicon-scroll::-webkit-scrollbar { width: 5px; }
-
-.messenger-window .chat-messages::-webkit-scrollbar-track,
-.messenger-window .messenger-habbicon-scroll::-webkit-scrollbar-track { background: #f1f1f1; }
-
-.messenger-window .chat-messages::-webkit-scrollbar-thumb,
-.messenger-window .messenger-habbicon-scroll::-webkit-scrollbar-thumb {
-    border-radius: 3px;
-    background: #525252;
-}
-
-.messenger-window .chat-messages::-webkit-scrollbar-button,
-.messenger-window .messenger-habbicon-scroll::-webkit-scrollbar-button { display: none; }
 
 .messenger-window .messenger-message-row {
     display: flex;

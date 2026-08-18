@@ -2,18 +2,15 @@ import { AnimatePresence, motion, Variants } from 'framer-motion';
 import { FC, useLayoutEffect, useRef, useState } from 'react';
 import { FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import { LocalizeText, localizeWithFallback, MessengerFriend } from '../../../../api';
-import { resolveAirFriendTabCapacity } from '../../../toolbar/bottomDockLayout';
+import { AIR_RAIL_CHAT_RESERVED_HALF, AIR_RAIL_EDGE_GAP, resolveAirFriendTabCapacity } from '../../../toolbar/bottomDockLayout';
 import { FriendBarItemView } from './FriendBarItemView';
 
-// AIR uses 127px friend tabs and derives the visible count from the actual
-// width left after the toolbar controls.
 const AIR_TAB_WIDTH = 127;
 const AIR_TAB_SPACING = 3;
 const AIR_MIN_VISIBLE_SLOTS = 3;
 const BASE_PAD = 8; // container px-[2px] + a little slack
 const RIGHT_SAFE = 24; // right inset (right-0/right-3) + pr-3 safety margin
 
-// Mirrored from Toolbar to keep physics identical
 const containerVariants: Variants = {
     hidden: {},
     visible: { transition: { staggerChildren: 0.05 } },
@@ -32,22 +29,33 @@ export const FriendBarView: FC<{ onlineFriends: MessengerFriend[]; requestsCount
     const [maxVisible, setMaxVisible] = useState(AIR_MIN_VISIBLE_SLOTS);
     const elementRef = useRef<HTMLDivElement>(null);
 
-    // Auto-fit the visible friend count to the room actually available between
-    // the bar's left edge and the right side of the viewport. The bar lives in
-    // a `overflow-x: clip` toolbar slot, so anything that doesn't fit would be
-    // silently cut off (the scroll arrow / search button disappear). The bar's
-    // left edge is stable (it sits after fixed-width toolbar icons), so growing
-    // or shrinking the chip count never moves it — no measurement feedback loop.
     useLayoutEffect(() => {
         const element = elementRef.current;
 
         if (!element) return;
 
+        const rail = element.closest('.tb-nav-clip') as HTMLElement | null;
+
         const measure = () => {
-            const left = element.getBoundingClientRect().left;
-            const available = window.innerWidth - left - RIGHT_SAFE;
             const requestWidth = BASE_PAD + (requestsCount > 0 ? AIR_TAB_WIDTH + AIR_TAB_SPACING : 0);
-            const next = Math.max(AIR_MIN_VISIBLE_SLOTS, resolveAirFriendTabCapacity(available, requestWidth, AIR_TAB_SPACING));
+            let next: number;
+
+            if (rail) {
+                const railRect = rail.getBoundingClientRect();
+                const barRect = element.getBoundingClientRect();
+                const contentWidth = Math.max(railRect.width, rail.scrollWidth);
+                const preceding = Math.max(0, barRect.left - railRect.left);
+                const trailing = Math.max(0, railRect.left + contentWidth - barRect.right);
+                const reserved = document.querySelector('.tb-frame') ? AIR_RAIL_CHAT_RESERVED_HALF : AIR_RAIL_EDGE_GAP;
+                const available = Math.max(0, window.innerWidth / 2 - reserved) - preceding - trailing;
+
+                next = available - requestWidth < AIR_TAB_WIDTH ? 0 : resolveAirFriendTabCapacity(available, requestWidth, AIR_TAB_SPACING);
+            } else {
+                const left = element.getBoundingClientRect().left;
+                const available = window.innerWidth - left - RIGHT_SAFE;
+
+                next = Math.max(AIR_MIN_VISIBLE_SLOTS, resolveAirFriendTabCapacity(available, requestWidth, AIR_TAB_SPACING));
+            }
 
             setMaxVisible((prev) => (prev === next ? prev : next));
         };
@@ -57,6 +65,7 @@ export const FriendBarView: FC<{ onlineFriends: MessengerFriend[]; requestsCount
         const observer = new ResizeObserver(measure);
 
         observer.observe(document.documentElement);
+        if (rail) observer.observe(rail);
         window.addEventListener('resize', measure);
 
         return () => {
@@ -65,17 +74,8 @@ export const FriendBarView: FC<{ onlineFriends: MessengerFriend[]; requestsCount
         };
     }, [requestsCount, onlineFriends.length]);
 
-    // `safeOffset` is the offset clamped to the current list/fit. Every read
-    // below uses it, so a stale `indexOffset` (after the list shrinks or the fit
-    // grows) renders correctly and self-corrects on the next arrow click — no
-    // write-back effect needed.
-    // Defensive: never let a null/undefined slip into the friend map. The
-    // legacy bar padded empty slots with `null` and rendered each as a
-    // FriendBarItemView (which falls back to the "find friends" chip), so an
-    // empty list produced THREE "Trova Amici" buttons. Filtering here makes the
-    // search chip below the ONLY source of that affordance — exactly one, always.
     const validFriends = onlineFriends.filter(Boolean);
-    const maxOffset = Math.max(0, validFriends.length - maxVisible);
+    const maxOffset = maxVisible > 0 ? Math.max(0, validFriends.length - maxVisible) : 0;
     const safeOffset = Math.min(indexOffset, maxOffset);
     const canScrollLeft = safeOffset > 0;
     const canScrollRight = safeOffset < maxOffset;
@@ -92,7 +92,7 @@ export const FriendBarView: FC<{ onlineFriends: MessengerFriend[]; requestsCount
             animate="visible"
             exit="exit"
         >
-            {requestsCount > 0 && (
+            {maxVisible > 0 && requestsCount > 0 && (
                 <motion.div variants={itemVariants}>
                     <div className="friend-bar-item friend-bar-request find-friends-active flex h-[34px] items-center px-[10px] text-[0.83rem] whitespace-nowrap text-white">
                         {requestsCount} {LocalizeText('friendbar.requests.title')}

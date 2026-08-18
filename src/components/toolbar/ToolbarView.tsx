@@ -29,6 +29,8 @@ const NAV_TRANSITION = { type: 'spring' as const, stiffness: 300, damping: 28 };
 const ME_POPOVER_TRANSITION = { type: 'spring' as const, stiffness: 420, damping: 28 };
 const LEFT_COLLAPSED_STORAGE_KEY = 'nitro.toolbar.leftCollapsed';
 const RIGHT_COLLAPSED_STORAGE_KEY = 'nitro.toolbar.rightCollapsed';
+const COMPACT_DESKTOP_QUERY = '(max-width: 869.98px)';
+const NARROW_DESKTOP_QUERY = '(max-width: 654.98px)';
 
 const readCollapsedPreference = (key: string): boolean =>
 {
@@ -49,10 +51,11 @@ export const ToolbarView: FC<{ isInRoom: boolean }> = props =>
     const { isInRoom } = props;
     const [ isMeExpanded, setMeExpanded ] = useState(false);
     const [ isTouchLayout, setIsTouchLayout ] = useState(false);
-    const [ isCompactDesktop, setIsCompactDesktop ] = useState(() => ((typeof window !== 'undefined') && window.matchMedia('(max-width: 759.98px)').matches));
+    const [ isCompactDesktop, setIsCompactDesktop ] = useState(() => ((typeof window !== 'undefined') && window.matchMedia(COMPACT_DESKTOP_QUERY).matches));
+    const [ isNarrowDesktop, setIsNarrowDesktop ] = useState(() => ((typeof window !== 'undefined') && window.matchMedia(NARROW_DESKTOP_QUERY).matches));
     const [ leftCollapsed, setLeftCollapsed ] = useState(() => readCollapsedPreference(LEFT_COLLAPSED_STORAGE_KEY));
     const [ rightCollapsed, setRightCollapsed ] = useState(() => readCollapsedPreference(RIGHT_COLLAPSED_STORAGE_KEY));
-    const [ dockLayout, setDockLayout ] = useState<BottomDockLayout>({ chatRaised: false, chatBottom: 7, chatLeft: null });
+    const [ dockLayout, setDockLayout ] = useState<BottomDockLayout>({ chatRaised: false, chatBottom: 7 });
     const [ staffStackBottom, setStaffStackBottom ] = useState<number | null>(null);
     const [ useGuideTool, setUseGuideTool ] = useState(false);
     const [ youtubeEnabled, setYoutubeEnabled ] = useState(false);
@@ -81,24 +84,22 @@ export const ToolbarView: FC<{ isInRoom: boolean }> = props =>
         [ isMod, tickets ]
     );
     const visibilityVariant = 'visible';
-
-    const mobileOnlyClasses = isTouchLayout ? '' : 'hidden';
-    const desktopBlockClasses = isTouchLayout ? 'hidden' : 'block';
-    const desktopFlexClasses = isTouchLayout ? 'hidden' : 'flex';
-    // Below 760px desktop width the bottom rails cannot hold the full icon set
-    // next to the chat, so the tool cluster moves into the left side stack.
-    const compactDesktop = isCompactDesktop && !isTouchLayout;
-    const sideStackClasses = (isTouchLayout || compactDesktop) ? '' : 'hidden';
+    const touchLayout = isTouchLayout || isNarrowDesktop;
+    const mobileOnlyClasses = touchLayout ? '' : 'hidden';
+    const desktopBlockClasses = touchLayout ? 'hidden' : 'block';
+    const desktopFlexClasses = touchLayout ? 'hidden' : 'flex';
+    const compactDesktop = isCompactDesktop && !touchLayout;
+    const socialInSideStack = isCompactDesktop && !isTouchLayout;
+    const sideStackClasses = (touchLayout || compactDesktop) ? '' : 'hidden';
     const chatFrameStyle = useMemo<CSSProperties | undefined>(() =>
     {
-        if(isTouchLayout) return undefined;
+        if(touchLayout) return undefined;
 
-        if(dockLayout.chatLeft === null) return { bottom: `${ dockLayout.chatBottom }px` };
+        return { bottom: `${ dockLayout.chatBottom }px` };
+    }, [ dockLayout.chatBottom, touchLayout ]);
 
-        // Shifted dock: pin the frame's left edge and cancel the centering transform.
-        return { bottom: `${ dockLayout.chatBottom }px`, left: `${ dockLayout.chatLeft }px`, transform: 'none' };
-    }, [ dockLayout.chatBottom, dockLayout.chatLeft, isTouchLayout ]);
-    const chatFramePositionClass = isTouchLayout ? 'bottom-[90px]' : '';
+    const railMaxWidthClass = (isInRoom && !dockLayout.chatRaised) ? 'max-w-[calc(50vw-242px)]' : 'max-w-[calc(50vw-12px)]';
+    const chatFramePositionClass = touchLayout ? 'bottom-[90px]' : '';
     const leftNavVariants = useMemo<Variants>(() => ({
         hidden: { opacity: 0, x: isInRoom ? -10 : 0, y: isInRoom ? 0 : 8, pointerEvents: 'none' },
         visible: { opacity: 1, x: 0, y: 0, pointerEvents: 'auto' }
@@ -158,12 +159,22 @@ export const ToolbarView: FC<{ isInRoom: boolean }> = props =>
 
     useEffect(() =>
     {
-        const query = window.matchMedia('(max-width: 759.98px)');
+        const query = window.matchMedia(COMPACT_DESKTOP_QUERY);
         const updateCompactDesktop = () => setIsCompactDesktop(query.matches);
 
         query.addEventListener('change', updateCompactDesktop);
 
         return () => query.removeEventListener('change', updateCompactDesktop);
+    }, []);
+
+    useEffect(() =>
+    {
+        const query = window.matchMedia(NARROW_DESKTOP_QUERY);
+        const updateNarrowDesktop = () => setIsNarrowDesktop(query.matches);
+
+        query.addEventListener('change', updateNarrowDesktop);
+
+        return () => query.removeEventListener('change', updateNarrowDesktop);
     }, []);
 
     useEffect(() =>
@@ -174,7 +185,6 @@ export const ToolbarView: FC<{ isInRoom: boolean }> = props =>
         }
         catch
         {
-            // Storage may be unavailable in private or embedded browser contexts.
         }
     }, [ leftCollapsed ]);
 
@@ -186,13 +196,12 @@ export const ToolbarView: FC<{ isInRoom: boolean }> = props =>
         }
         catch
         {
-            // Storage may be unavailable in private or embedded browser contexts.
         }
     }, [ rightCollapsed ]);
 
     useLayoutEffect(() =>
     {
-        if(isTouchLayout || !isInRoom) return;
+        if(touchLayout || !isInRoom) return;
 
         const leftDock = leftDockRef.current;
         const rightDock = rightDockRef.current;
@@ -205,9 +214,6 @@ export const ToolbarView: FC<{ isInRoom: boolean }> = props =>
         {
             const leftRect = leftDock.getBoundingClientRect();
             const rightRect = rightDock.getBoundingClientRect();
-            // The rails clamp at max-w-[calc(50vw-242px)] but keep overflow visible,
-            // so their icons paint past the clamped rect. Measure the painted content
-            // (scrollWidth) or the chat docks "legally" underneath overflowing icons.
             const leftEdge = leftRect.left + Math.max(leftRect.width, leftDock.scrollWidth);
             const rightEdge = rightRect.right - Math.max(rightRect.width, rightDock.scrollWidth);
             const next = resolveBottomDockLayout({
@@ -217,7 +223,7 @@ export const ToolbarView: FC<{ isInRoom: boolean }> = props =>
             });
 
             setDockLayout(previous => (
-                previous.chatRaised === next.chatRaised && previous.chatBottom === next.chatBottom && previous.chatLeft === next.chatLeft
+                previous.chatRaised === next.chatRaised && previous.chatBottom === next.chatBottom
                     ? previous
                     : next
             ));
@@ -229,18 +235,12 @@ export const ToolbarView: FC<{ isInRoom: boolean }> = props =>
             frame = window.requestAnimationFrame(applyMeasurement);
         };
 
-        // First pass runs synchronously: this layout effect fires before paint, so the
-        // chat frame mounts at its resolved offset. Deferring the initial measurement
-        // to a frame made the bar paint docked at the bottom and visibly jump up.
         applyMeasurement();
 
         const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
 
         observer?.observe(leftDock);
         observer?.observe(rightDock);
-        // Also watch the document body: devtools docking/undocking and browser chrome
-        // changes resize the viewport without always reaching the window resize
-        // listener in time, which left a stale raised chat after the viewport grew back.
         observer?.observe(document.body);
         window.addEventListener('resize', measure);
 
@@ -253,24 +253,22 @@ export const ToolbarView: FC<{ isInRoom: boolean }> = props =>
     }, [
         buildHeightAvailable,
         buildersClubEnabled,
+        compactDesktop,
         fortuneWheelEnabled,
         hkEnabled,
         iconState,
         isHk,
         isInRoom,
         isMod,
-        isTouchLayout,
         leftCollapsed,
         mentionsEnabled,
         rightCollapsed,
         showToolbarButton,
         soundboardEnabled,
+        touchLayout,
         youtubeEnabled
     ]);
 
-    // Keep the left staff-tools stack pinned 15px above the room tools rail
-    // (its height is dynamic, so measure it). Falls back to null (CSS
-    // default) when the room tools aren't present, e.g. outside a room.
     useEffect(() =>
     {
         const measure = () =>
@@ -368,7 +366,7 @@ export const ToolbarView: FC<{ isInRoom: boolean }> = props =>
                 animate={ visibilityVariant }
                 variants={ leftNavVariants }
                 transition={ NAV_TRANSITION }
-                className={ `tb-nav-clip absolute bottom-0 left-0 z-[71] h-[55px] max-w-[calc(50vw-242px)] items-center pl-3 ${ desktopFlexClasses }` }>
+                className={ `tb-nav-clip absolute bottom-0 left-0 z-[71] h-[55px] ${ railMaxWidthClass } items-center pl-3 ${ desktopFlexClasses }` }>
                 <button
                     type="button"
                     onClick={ () => setLeftCollapsed(value => !value) }
@@ -477,30 +475,33 @@ export const ToolbarView: FC<{ isInRoom: boolean }> = props =>
                 animate={ visibilityVariant }
                 variants={ rightNavVariants }
                 transition={ NAV_TRANSITION }
-                className={ `tb-nav-clip absolute bottom-0 z-[71] h-[55px] max-w-[calc(50vw-242px)] items-center pr-3 ${ desktopFlexClasses } ${ isInRoom ? 'right-0' : 'right-3' }` }>
+                className={ `tb-nav-clip absolute bottom-0 z-[71] h-[55px] ${ railMaxWidthClass } items-center pr-3 ${ desktopFlexClasses } ${ isInRoom ? 'right-0' : 'right-3' }` }>
                 <motion.div
                     variants={ containerVariants }
                     className="tb-open-shell flex h-[55px] max-w-full items-center gap-3 overflow-visible bg-transparent px-[8px] pt-[10px] pb-[2px]">
-                    <motion.div variants={ itemVariants } className="relative">
-                        <ToolbarItemView icon="friendall" onClick={ () => CreateLinkEvent('friends/toggle') } className="tb-icon" />
-                        { (requests.length > 0) &&
-                            <LayoutItemCountView count={ requests.length } className="absolute -right-2 -top-1" /> }
-                    </motion.div>
-                    <motion.div variants={ itemVariants }>
-                        <ToolbarItemView icon="friendsearch" onClick={ () => SendMessageComposer(new FindNewFriendsMessageComposer()) } className="tb-icon" />
-                    </motion.div>
+                    { !compactDesktop &&
+                        <motion.div variants={ itemVariants } className="relative">
+                            <ToolbarItemView icon="friendall" onClick={ () => CreateLinkEvent('friends/toggle') } className="tb-icon" />
+                            { (requests.length > 0) &&
+                                <LayoutItemCountView count={ requests.length } className="absolute -right-2 -top-1" /> }
+                        </motion.div> }
+                    { !compactDesktop &&
+                        <motion.div variants={ itemVariants }>
+                            <ToolbarItemView icon="friendsearch" onClick={ () => SendMessageComposer(new FindNewFriendsMessageComposer()) } className="tb-icon" />
+                        </motion.div> }
                     { !rightCollapsed && (<>
-                    { mentionsEnabled &&
+                    { (!compactDesktop && mentionsEnabled) &&
                         <motion.div variants={ itemVariants } className="relative">
                             <ToolbarItemView icon="mentions" onClick={ () => CreateLinkEvent('mentions/toggle') } className="tb-icon" />
                             { (mentionsUnread > 0) &&
                                 <LayoutItemCountView count={ mentionsUnread } className="absolute -right-2 -top-1" /> }
                         </motion.div> }
-                    { ((iconState === MessengerIconState.SHOW) || (iconState === MessengerIconState.UNREAD)) &&
+                    { (!compactDesktop && ((iconState === MessengerIconState.SHOW) || (iconState === MessengerIconState.UNREAD))) &&
                         <motion.div variants={ itemVariants }>
                             <ToolbarItemView className={ `tb-icon ${ iconState === MessengerIconState.UNREAD ? 'is-unseen animate-pulse' : '' }` } icon="message" onClick={ () => OpenMessengerChat() } />
                         </motion.div> }
-                    <div className={ `mx-1 h-5 w-[1px] bg-white/20 ${ desktopBlockClasses }` } />
+                    { !compactDesktop &&
+                        <div className={ `mx-1 h-5 w-[1px] bg-white/20 ${ desktopBlockClasses }` } /> }
                     <div className={ `h-full shrink-0 ${ desktopBlockClasses }` } id="toolbar-friend-bar-container-desktop" />
                     </>) }
                 </motion.div>
@@ -591,12 +592,15 @@ export const ToolbarView: FC<{ isInRoom: boolean }> = props =>
                         <motion.div variants={ itemVariants }>
                             <ToolbarItemView icon="buildheight" onClick={ toggleBuildHeight } className="tb-icon" />
                         </motion.div> }
-                    <motion.div variants={ itemVariants } className="relative">
-                        <ToolbarItemView icon="friendall" onClick={ () => CreateLinkEvent('friends/toggle') } className="tb-icon" />
-                        { (requests.length > 0) &&
-                            <LayoutItemCountView count={ requests.length } className="absolute -right-2 -top-1" /> }
-                    </motion.div>
-                    { mentionsEnabled &&
+                    { /* On narrow desktop windows the social icons live in the
+                         left side stack — only real touch devices get them here. */ }
+                    { !socialInSideStack &&
+                        <motion.div variants={ itemVariants } className="relative">
+                            <ToolbarItemView icon="friendall" onClick={ () => CreateLinkEvent('friends/toggle') } className="tb-icon" />
+                            { (requests.length > 0) &&
+                                <LayoutItemCountView count={ requests.length } className="absolute -right-2 -top-1" /> }
+                        </motion.div> }
+                    { (!socialInSideStack && mentionsEnabled) &&
                         <motion.div variants={ itemVariants } className="relative">
                             <ToolbarItemView icon="mentions" onClick={ () => CreateLinkEvent('mentions/toggle') } className="tb-icon" />
                             { (mentionsUnread > 0) &&
@@ -615,7 +619,7 @@ export const ToolbarView: FC<{ isInRoom: boolean }> = props =>
                 transition={ NAV_TRANSITION }
                 style={ staffStackBottom != null ? { top: 'auto', bottom: `${ staffStackBottom }px` } : undefined }
                 className={ `absolute left-1 z-[71] flex flex-col items-center gap-2 rounded-[12px] border border-[#3d3d3d]/80 bg-[rgba(85,85,85,0.92)] px-[4px] py-[6px] shadow-[0_6px_18px_rgba(0,0,0,0.18)] ${ staffStackBottom == null ? 'top-1/2 -translate-y-1/2' : '' } ${ sideStackClasses }` }>
-                { isTouchLayout && buildersClubEnabled &&
+                { touchLayout && buildersClubEnabled &&
                     <motion.div variants={ itemVariants }>
                         <ToolbarItemView icon="buildersclub" onClick={ () => CreateLinkEvent('catalog/toggle/builder') } className="tb-icon" />
                     </motion.div> }
@@ -648,6 +652,30 @@ export const ToolbarView: FC<{ isInRoom: boolean }> = props =>
                 { (isHk && hkEnabled) &&
                     <motion.div variants={ itemVariants }>
                         <ToolbarItemView icon="housekeeping" onClick={ () => CreateLinkEvent('housekeeping/toggle') } className="tb-icon" />
+                    </motion.div> }
+                { /* Below the compact breakpoint the right rail's social icons
+                     live in the stack — on narrow desktop windows too, so they
+                     don't jump back into the bottom bar. Real touch devices
+                     keep friends + mentions in the mobile bar instead. */ }
+                { socialInSideStack &&
+                    <motion.div variants={ itemVariants } className="relative">
+                        <ToolbarItemView icon="friendall" onClick={ () => CreateLinkEvent('friends/toggle') } className="tb-icon" />
+                        { (requests.length > 0) &&
+                            <LayoutItemCountView count={ requests.length } className="pointer-events-none absolute -right-1 -top-1 z-10" /> }
+                    </motion.div> }
+                { socialInSideStack &&
+                    <motion.div variants={ itemVariants }>
+                        <ToolbarItemView icon="friendsearch" onClick={ () => SendMessageComposer(new FindNewFriendsMessageComposer()) } className="tb-icon" />
+                    </motion.div> }
+                { (socialInSideStack && mentionsEnabled) &&
+                    <motion.div variants={ itemVariants } className="relative">
+                        <ToolbarItemView icon="mentions" onClick={ () => CreateLinkEvent('mentions/toggle') } className="tb-icon" />
+                        { (mentionsUnread > 0) &&
+                            <LayoutItemCountView count={ mentionsUnread } className="pointer-events-none absolute -right-1 -top-1 z-10" /> }
+                    </motion.div> }
+                { (socialInSideStack && ((iconState === MessengerIconState.SHOW) || (iconState === MessengerIconState.UNREAD))) &&
+                    <motion.div variants={ itemVariants }>
+                        <ToolbarItemView className={ `tb-icon ${ iconState === MessengerIconState.UNREAD ? 'is-unseen animate-pulse' : '' }` } icon="message" onClick={ () => OpenMessengerChat() } />
                     </motion.div> }
             </motion.div>
         </>
