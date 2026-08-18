@@ -20,6 +20,7 @@ const POS_MEMORY: Map<Key, { x: number; y: number }> = new Map();
 const BOUNDS_THRESHOLD_TOP: number = 0;
 const BOUNDS_THRESHOLD_LEFT: number = 0;
 const DRAG_OUTSIDE_PERCENT: number = 0.8;
+const DRAG_START_THRESHOLD_PX: number = 3;
 
 export interface DraggableWindowProps {
     uniqueKey?: Key;
@@ -51,7 +52,7 @@ export const DraggableWindow: FC<DraggableWindowProps> = (props) => {
     const elementRef = useRef<HTMLDivElement>(null);
     const offsetRef = useRef({ x: 0, y: 0 });
     const deltaRef = useRef({ x: 0, y: 0 });
-    const dragRef = useRef<{ pointerId: number; startX: number; startY: number } | null>(null);
+    const dragRef = useRef<{ pointerId: number; startX: number; startY: number; active: boolean } | null>(null);
     const bringToTop = useCallback(() => {
         let zIndex = 400;
         for (const existingWindow of CURRENT_WINDOWS) {
@@ -146,6 +147,7 @@ export const DraggableWindow: FC<DraggableWindowProps> = (props) => {
         };
     }, [handleSelector, windowPosition, uniqueKey, disableDrag, offsetLeft, offsetTop, bringToTop]);
 
+
     useEffect(() => {
         if (!dragHandler) return;
 
@@ -153,19 +155,25 @@ export const DraggableWindow: FC<DraggableWindowProps> = (props) => {
             if ((event.target as HTMLElement)?.closest?.('button, input, select, textarea, a')) return;
             if (event.pointerType === 'mouse' && event.button !== 0) return;
 
-            dragRef.current = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY };
+            dragRef.current = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, active: false };
             deltaRef.current = { x: 0, y: 0 };
-
-            try {
-                dragHandler.setPointerCapture(event.pointerId);
-            } catch {}
-
-            setIsDragging(true);
         };
 
         const onPointerMove = (event: PointerEvent) => {
             const drag = dragRef.current;
             if (!drag || event.pointerId !== drag.pointerId) return;
+
+            if (!drag.active) {
+                if (Math.abs(event.clientX - drag.startX) + Math.abs(event.clientY - drag.startY) < DRAG_START_THRESHOLD_PX) return;
+
+                drag.active = true;
+
+                try {
+                    dragHandler.setPointerCapture(event.pointerId);
+                } catch {}
+
+                setIsDragging(true);
+            }
 
             const clampedPos = clampPosition(offsetRef.current.x + (event.clientX - drag.startX), offsetRef.current.y + (event.clientY - drag.startY));
             const nextDelta = { x: clampedPos.x - offsetRef.current.x, y: clampedPos.y - offsetRef.current.y };
@@ -179,6 +187,8 @@ export const DraggableWindow: FC<DraggableWindowProps> = (props) => {
             if (!drag || event.pointerId !== drag.pointerId) return;
 
             dragRef.current = null;
+
+            if (!drag.active) return;
 
             try {
                 dragHandler.releasePointerCapture(event.pointerId);
