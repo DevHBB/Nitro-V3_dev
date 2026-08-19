@@ -202,9 +202,13 @@ export const applyTextTranslationLocale = async (languageCode: string): Promise<
         return;
     }
 
-    // English is already provided by the base ExternalTexts/UITexts files.
-    // Some local asset packs do not ship a redundant English override file.
-    if(selectedLocale.file === 'en')
+      // The base ExternalTexts/UITexts files are already written in one language,
+    // so loading an override pack for that same language would be redundant.
+    // Which language that is depends on the hotel: set `base.locale` in
+    // renderer-config.json (defaults to English).
+    const baseLocale = normalizeLanguageCode(GetConfiguration().getValue<string>('base.locale') || 'en') || 'en';
+
+    if(selectedLocale.file === baseLocale)
     {
         localizationManager.clearOverrideValues();
         sessionDataManager.clearFurnitureDataOverrides();

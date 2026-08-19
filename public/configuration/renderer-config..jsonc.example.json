@@ -15,6 +15,7 @@
     "${gamedata.url}/ExternalTexts.json",
     "${gamedata.url}/UITexts.jsonc"
   ],
+  "base.locale": "en",
   "external.texts.translation.url": "${gamedata.url}/UITexts_%locale%.json?t=%timestamp%",
   "external.samples.url": "${hof.furni.url}/mp3/sound_machine_sample_%sample%.mp3",
   "furnidata.url": "${gamedata.url}/FurnitureData.json?t=%timestamp%",
