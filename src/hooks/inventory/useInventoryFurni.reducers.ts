@@ -18,18 +18,6 @@ import {
     UnseenItemCategory
 } from '../../api';
 
-/**
- * Pure reducers for furniture inventory state. Each takes the current
- * GroupItem[] state plus the inbound event plus a context object carrying
- * the cross-cutting helpers (unseen tracker, ui-event dispatcher).
- *
- * Side effects (CreateLinkEvent, attemptItemPlacement, dispatchAdded,
- * cancelRoomObjectPlacement) are intentionally kept here to preserve the
- * exact behavior of the original useInventoryFurni — they fire when the
- * state transition demands them. The original code embedded them inside
- * setGroupItems(prev => ...) and we mirror that.
- */
-
 export interface FurniReducerContext {
     isUnseen: (category: number, id: number) => boolean;
     dispatchAdded: (id: number, type: number, category: number) => void;
@@ -118,11 +106,13 @@ export const applyFurnitureList = (state: GroupItem[], event: FurnitureListEvent
             }
 
             if (getPlacingItemId() === item.ref) {
-                cancelRoomObjectPlacement();
+                queueMicrotask(() => {
+                    cancelRoomObjectPlacement();
 
-                if (!attemptItemPlacement(group)) {
-                    CreateLinkEvent('inventory/show');
-                }
+                    if (!attemptItemPlacement(group)) {
+                        CreateLinkEvent('inventory/show');
+                    }
+                });
             }
 
             if (group.getTotalCount() <= 0) {
@@ -171,9 +161,11 @@ export const applyFurnitureListRemoved = (state: GroupItem[], event: FurnitureLi
         }
 
         if (getPlacingItemId() === item.ref) {
-            cancelRoomObjectPlacement();
+            queueMicrotask(() => {
+                cancelRoomObjectPlacement();
 
-            if (!attemptItemPlacement(group)) CreateLinkEvent('inventory/show');
+                if (!attemptItemPlacement(group)) CreateLinkEvent('inventory/show');
+            });
         }
 
         if (group.getTotalCount() <= 0) {

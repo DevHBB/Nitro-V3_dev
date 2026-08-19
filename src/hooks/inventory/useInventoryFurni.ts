@@ -62,7 +62,7 @@ const useInventoryFurniState = () => {
 
     const buildContext = (): FurniReducerContext => ({
         isUnseen,
-        dispatchAdded: (id, type, category) => DispatchUiEvent(new InventoryFurniAddedEvent(id, type, category)),
+        dispatchAdded: (id, type, category) => queueMicrotask(() => DispatchUiEvent(new InventoryFurniAddedEvent(id, type, category))),
         fragments: fragmentsRef
     });
 
