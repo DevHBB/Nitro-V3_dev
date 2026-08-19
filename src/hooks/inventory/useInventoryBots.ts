@@ -49,9 +49,11 @@ const useInventoryBotsState = () => {
                 if (index === -1 || !botItem) continue;
 
                 if (getPlacingItemId() === botItem.botData.id) {
-                    cancelRoomObjectPlacement();
+                    queueMicrotask(() => {
+                        cancelRoomObjectPlacement();
 
-                    CreateLinkEvent('inventory/open');
+                        CreateLinkEvent('inventory/open');
+                    });
                 }
 
                 newValue.splice(index, 1);
@@ -102,9 +104,11 @@ const useInventoryBotsState = () => {
             newValue.splice(index, 1);
 
             if (getPlacingItemId() === parser.itemId) {
-                cancelRoomObjectPlacement();
+                queueMicrotask(() => {
+                    cancelRoomObjectPlacement();
 
-                CreateLinkEvent('inventory/show');
+                    CreateLinkEvent('inventory/show');
+                });
             }
 
             return newValue;
