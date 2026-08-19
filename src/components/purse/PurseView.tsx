@@ -110,6 +110,21 @@ export const PurseView: FC<{}> = (props) => {
         ClearRememberLogin();
         ClearStoredChatHistory();
         if (window.NitroConfig) window.NitroConfig['sso.ticket'] = '';
+
+        // When the client runs inside a CMS page, reloading the iframe alone
+        // leaves the user logged in on the site with a dead client. Send the
+        // whole window to the CMS logout instead, so both sessions end together.
+        const cmsLogoutUrl = GetConfigurationValue<string>('logout.redirect.url', '');
+
+        if (cmsLogoutUrl) {
+            try {
+                (window.top ?? window).location.href = cmsLogoutUrl;
+                return;
+            } catch {
+                /* blocked by the browser — fall through to the local reload */
+            }
+        }
+
         window.location.reload();
     }, []);
 

@@ -15,7 +15,9 @@
     "${gamedata.url}/ExternalTexts.json",
     "${gamedata.url}/UITexts.jsonc"
   ],
-  "base.locale": "en",
+    "base.locale": "en",
+  // Leave this blank if you’re not using a CMS. If you are, enter the URL of your logout page.
+  "logout.redirect.url": "", 
   "external.texts.translation.url": "${gamedata.url}/UITexts_%locale%.json?t=%timestamp%",
   "external.samples.url": "${hof.furni.url}/mp3/sound_machine_sample_%sample%.mp3",
   "furnidata.url": "${gamedata.url}/FurnitureData.json?t=%timestamp%",
